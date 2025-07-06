@@ -1,0 +1,139 @@
+.header-bar {
+  background: #ffd6df;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  justify-content: space-between;
+  font-family: "Arial Rounded MT Bold", Arial, sans-serif;
+  margin-bottom: 1.5rem;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+}
+.logo {
+  background: #000;
+  color: #ff0;
+  font-size: 2rem;
+  font-weight: bold;
+  padding: 0.2rem 1.2rem;
+  margin-left: 0.5rem;
+  border-radius: 4px;
+  letter-spacing: 1px;
+}
+.icon-btn {
+  background: #fff;
+  border: 2px solid #1a73e8;
+  color: #1a73e8;
+  font-size: 1.5rem;
+  margin-right: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+  box-shadow: 0 2px 6px #e3f2fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn svg {
+  color: #1a73e8;
+  /* Ensures icon color matches button text */
+}
+.icon-btn:hover {
+  background: #e3f2fd;
+  color: #0d47a1;
+  border-color: #0d47a1;
+}
+.scramble-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: 1.5rem;
+}
+.scramble-type {
+  font-size: 1rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+.scramble-input {
+  font-size: 1rem;
+  border: none;
+  background: transparent;
+  width: 60px;
+  text-align: center;
+}
+.scramble-string {
+  flex: 1;
+  text-align: center;
+  font-size: 1.4rem;
+  font-family: monospace;
+  letter-spacing: 2px;
+  color: #222;
+  margin: 0 1.5rem;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  margin-left: 1.5rem;
+}
+
+.dashboard {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px #e3e3e3;
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  margin-bottom: 1.5rem;
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.stats-row {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  margin-bottom: 1.5rem;
+  gap: 1.5rem;
+}
+.stats-row > div {
+  background: #f8ffe5;
+  border-radius: 8px;
+  padding: 0.7rem 1.2rem;
+  min-width: 90px;
+  text-align: center;
+  font-size: 1.1rem;
+  box-shadow: 0 1px 4px #f3e6e6;
+}
+
+.solve-list {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px #e3e3e3;
+  padding: 1.5rem 1.5rem 1.2rem 1.5rem;
+  width: 100%;
+  max-width: 700px;
+  margin-bottom: 1.5rem;
+}
+.solve-list h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+.solve-list ul {
+  padding-left: 1.2rem;
+  margin: 0;
+}
+.solve-list li {
+  margin-bottom: 0.5rem;
+  font-size: 1.08rem;
+}
+
+@media (max-width: 900px) {
+  .dashboard,
+  .solve-list {
+    max-width: 98vw;
+    padding: 1rem 0.2rem 1rem 0.2rem;
+  }
+}
