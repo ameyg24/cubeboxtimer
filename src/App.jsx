@@ -12,6 +12,8 @@ import {
   setDoc,
   deleteDoc,
   serverTimestamp,
+  onSnapshot,
+  enableIndexedDbPersistence,
 } from "firebase/firestore";
 import { AuthProvider, useAuth } from "./components/AuthContext.jsx";
 import "./App.css";
@@ -173,8 +175,13 @@ function generateScramble(type, dimension) {
   return scramble.join(" ");
 }
 
+if (typeof window !== "undefined" && db && db.app) {
+  enableIndexedDbPersistence(db).catch(() => {});
+}
+
 function App() {
   const [solves, setSolves] = useState([]);
+  // Update: solves are now per event (cubeDimension)
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState("");
   const [scrambleType, setScrambleType] = useState("WCA");
@@ -187,59 +194,68 @@ function App() {
   const [timerRunning, setTimerRunning] = useState(false); // NEW: track timer running state
   const { user } = useAuth();
 
-  // --- SESSION LOGIC: FULLY FIXED ---
-  // Load sessions for user from Firestore on login
-  useEffect(() => {
+    useEffect(() => {
     if (!user) {
-      // Local fallback: single session
-      setSessions([
-        { id: "local", name: "Session", solves: [], createdAt: Date.now() },
-      ]);
-      setActiveSessionId("local");
+      // Try to load from localStorage
+      const local = localStorage.getItem("cubeboxtimer_sessions");
+      let loaded = null;
+      try {
+        loaded = local ? JSON.parse(local) : null;
+      } catch (e) {
+        loaded = null;
+      }
+      if (loaded && Array.isArray(loaded) && loaded.length > 0) {
+        setSessions(loaded);
+        setActiveSessionId(loaded[0].id);
+      } else {
+        setSessions([
+          {
+            id: "local",
+            name: "Session",
+            solves: { "2x2x2": [], "3x3x3": [], "4x4x4": [], "5x5x5": [] },
+            createdAt: Date.now(),
+          },
+        ]);
+        setActiveSessionId("local");
+      }
       return;
     }
-    const fetchSessions = async () => {
-      const sessionsCol = collection(db, "users", user.uid, "sessions");
-      const q = query(sessionsCol, orderBy("createdAt"));
-      const querySnapshot = await getDocs(q);
+    const sessionsCol = collection(db, "users", user.uid, "sessions");
+    const q = query(sessionsCol, orderBy("createdAt"));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const loadedSessions = [];
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        let solves = data.solves;
+        if (!solves || Array.isArray(solves)) {
+          solves = { "2x2x2": [], "3x3x3": [], "4x4x4": [], "5x5x5": [] };
+          solves["3x3x3"] = Array.isArray(data.solves) ? data.solves : [];
+        }
         loadedSessions.push({
           id: docSnap.id,
           name: data.name,
-          solves: Array.isArray(data.solves) ? data.solves : [],
+          solves,
           createdAt: data.createdAt?.toMillis
             ? data.createdAt.toMillis()
             : Date.now(),
         });
       });
-      if (loadedSessions.length > 0) {
-        setSessions(loadedSessions);
-        setActiveSessionId(loadedSessions[0].id);
-      } else {
-        // If no sessions, create default
-        const defaultSession = {
-          id: "default",
-          name: "Session",
-          solves: [],
-          createdAt: Date.now(),
-        };
-        await setDoc(doc(sessionsCol, "default"), {
-          name: defaultSession.name,
-          solves: [],
-          createdAt: serverTimestamp(),
-        });
-        setSessions([defaultSession]);
-        setActiveSessionId("default");
-      }
-    };
-    fetchSessions();
+      setSessions(loadedSessions);
+      setActiveSessionId((prev) =>
+        prev && loadedSessions.some((s) => s.id === prev)
+          ? prev
+          : loadedSessions[0]?.id || ""
+      );
+    });
+    return () => unsubscribe();
   }, [user]);
 
-  // Save sessions to Firestore on change (if logged in)
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      localStorage.setItem("cubeboxtimer_sessions", JSON.stringify(sessions));
+      return;
+    }
     const saveSessions = async () => {
       const sessionsCol = collection(db, "users", user.uid, "sessions");
       for (const session of sessions) {
@@ -248,7 +264,7 @@ function App() {
           sessionRef,
           {
             name: session.name,
-            solves: Array.isArray(session.solves) ? session.solves : [],
+            solves: session.solves,
             createdAt: session.createdAt || serverTimestamp(),
           },
           { merge: true }
@@ -264,7 +280,7 @@ function App() {
     const newSession = {
       id: newId,
       name: `Session ${sessions.length + 1}`,
-      solves: [],
+      solves: { "2x2x2": [], "3x3x3": [], "4x4x4": [], "5x5x5": [] },
       createdAt: Date.now(),
     };
     setSessions((prev) => [...prev, newSession]);
@@ -273,7 +289,7 @@ function App() {
       const sessionsCol = collection(db, "users", user.uid, "sessions");
       await setDoc(doc(sessionsCol, newId), {
         name: newSession.name,
-        solves: [],
+        solves: newSession.solves,
         createdAt: serverTimestamp(),
       });
     }
@@ -302,21 +318,32 @@ function App() {
     setSelectedScrambleIdx(0);
   }, [scrambleType, cubeDimension]);
 
+  // Update: add solve to correct event
   const handleSolveComplete = async (time) => {
     setSessions((prev) =>
       prev.map((s) =>
-        s.id === activeSessionId ? { ...s, solves: [...s.solves, time] } : s
+        s.id === activeSessionId
+          ? {
+              ...s,
+              solves: {
+                ...s.solves,
+                [cubeDimension]: [...(s.solves[cubeDimension] || []), time],
+              },
+            }
+          : s
       )
     );
     setTimerRunning(false); // Show main page after timer stops
   };
 
+  // Get solves for current event
   const activeSession = sessions.find((s) => s.id === activeSessionId) ||
-    sessions[0] || { solves: [] };
+    sessions[0] || { solves: { "2x2x2": [], "3x3x3": [], "4x4x4": [], "5x5x5": [] } };
+  const eventSolves = activeSession.solves[cubeDimension] || [];
 
-  // Aggregate all solves across all sessions for all-time stats
+  // Aggregate all solves across all sessions for all-time stats (per event)
   const allSolves = sessions.flatMap((s) =>
-    Array.isArray(s.solves) ? s.solves : []
+    Array.isArray(s.solves?.[cubeDimension]) ? s.solves[cubeDimension] : []
   );
 
   // Helper to compute stats (best, worst, mean, ao5, ao12, count)
@@ -343,7 +370,7 @@ function App() {
   }
 
   // Session stats
-  const sessionTimes = (activeSession?.solves || []).map((s) => s / 1000);
+  const sessionTimes = eventSolves.map((s) => s / 1000);
   const sessionStats = computeStats(sessionTimes);
   // All-time stats
   const allTimes = allSolves.map((s) => s / 1000);
@@ -400,7 +427,7 @@ function App() {
             setActiveSessionId={setActiveSessionId}
             addSession={addSession}
             removeSession={removeSession}
-            solves={activeSession.solves}
+            solves={eventSolves}
             sidebarOpen={sidebarOpen}
           />
         )}
@@ -430,7 +457,7 @@ function App() {
             }}
           >
             <Timer
-              key={activeSessionId}
+              key={activeSessionId + cubeDimension}
               onSolveComplete={handleSolveComplete}
               scramble={scrambles[selectedScrambleIdx] || ""}
               timerRunning={timerRunning}
@@ -465,7 +492,7 @@ function App() {
                 <Dashboard
                   sessionStats={sessionStats}
                   allTimeStats={allTimeStats}
-                  sessionSolves={activeSession.solves}
+                  sessionSolves={eventSolves}
                   allSolves={allSolves}
                 />
               </div>
@@ -478,7 +505,7 @@ function App() {
                   alignItems: "stretch",
                 }}
               >
-                <SolveList solves={activeSession.solves} />
+                <SolveList solves={eventSolves} />
               </div>
             </div>
           )}

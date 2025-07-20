@@ -26,15 +26,43 @@ html,
   background: #f8ffe5;
   display: flex;
   flex-direction: column;
+  align-items: center;
 }
 
 .header-bar {
   background: #ffd6df;
   display: flex;
   align-items: center;
-  padding: 0.5rem 1rem;
-  justify-content: space-between;
-  font-family: "Arial Rounded MT Bold", Arial, sans-serif;
+  justify-content: center;
+  padding: 1.2rem 2vw 1.2rem 2vw;
+  border-radius: 18px;
+  box-shadow: 0 4px 24px #ffd6df, 0 1.5px 0 #ffd6df;
+  max-width: 900px;
+  margin: 2.5rem auto 2.5rem auto;
+  width: 98vw;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.scramble-string {
+  background: #e3f2fd;
+  color: #1a73e8;
+  border-radius: 10px;
+  padding: 0.7rem 1.2rem;
+  font-size: 1.1rem;
+  font-family: monospace;
+  font-weight: 700;
+  border: 2px solid #1a73e8;
+  box-shadow: 0 2px 8px #e3e3e3;
+  min-width: 180px;
+  max-width: 350px;
+  text-align: center;
+  margin: 0 1.2rem;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-x: auto;
+  word-break: break-word;
+  display: inline-block;
 }
 
 .main-content {
@@ -44,6 +72,11 @@ html,
   width: 100vw;
   height: 100%;
   overflow: hidden;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2.5rem;
+  padding-top: 1.5rem;
+  background: #f8ffe5;
 }
 
 .timer-area {

@@ -33,12 +33,22 @@ const Header = ({
   return (
     <header
       className="header-bar"
-      style={{ boxShadow: "0 2px 12px #ffd6df", marginBottom: 24 }}
+      style={{
+        boxShadow: "0 2px 12px #ffd6df",
+        marginBottom: 24,
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "100%",
+        maxWidth: 1200,
+        margin: "0 auto 24px auto",
+        padding: "0.7rem 2vw",
+        gap: 18,
+      }}
     >
-      <div
-        className="header-left"
-        style={{ gap: 12, display: "flex", alignItems: "center" }}
-      >
+      {/* Left group: menu, logo, event controls */}
+      <div style={{ display: "flex", alignItems: "center", gap: 18, flex: 1 }}>
         <button
           className="icon-btn"
           title="Menu"
@@ -73,8 +83,6 @@ const Header = ({
         >
           CubeBoxTimer
         </div>
-      </div>
-      <div className="scramble-controls" style={{ gap: 12, marginRight: 24 }}>
         <select
           className="scramble-type"
           value={scrambleType}
@@ -117,12 +125,9 @@ const Header = ({
           ))}
         </select>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <button
-          className="icon-btn"
-          onClick={handlePrev}
-          title="Previous scramble"
-        >
+      {/* Center group: scramble navigation and display */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 2, justifyContent: "center" }}>
+        <button className="icon-btn" onClick={handlePrev} title="Previous scramble">
           <svg
             width="18"
             height="18"
@@ -154,9 +159,10 @@ const Header = ({
             maxWidth: "60vw",
             overflowWrap: "break-word",
             textAlign: "center",
+            boxShadow: "0 1px 4px #e3e3e3",
           }}
         >
-          Scramble {selectedScrambleIdx + 1}:{" "}
+          
           {scrambles[selectedScrambleIdx] || ""}
         </div>
         <button className="icon-btn" onClick={handleNext} title="Next scramble">
@@ -177,6 +183,7 @@ const Header = ({
           </svg>
         </button>
       </div>
+      {/* Right group: session, user, settings */}
       <div
         className="header-right"
         style={{
@@ -184,11 +191,13 @@ const Header = ({
           alignItems: "center",
           gap: 16,
           marginLeft: 24,
+          flex: 1,
+          justifyContent: "flex-end",
         }}
       >
         <select
           value={activeSessionId}
-          onChange={(e) => setActiveSessionId(Number(e.target.value))}
+          onChange={(e) => setActiveSessionId(e.target.value)}
           style={{
             fontWeight: "bold",
             fontSize: "1.1rem",
