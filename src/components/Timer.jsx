@@ -6,7 +6,6 @@ import React, { useState, useRef, useEffect } from "react";
 
 const Timer = ({
   onSolveComplete,
-  scramble,
   timerRunning,
   setTimerRunning,
 }) => {
@@ -148,22 +147,6 @@ const Timer = ({
           Press <b>Space</b> (release) or click <b>Start</b> to begin.
           <br />
           Press <b>Space</b> or click <b>Stop</b> to stop.
-        </div>
-      )}
-      {scramble && (
-        <div
-          style={{
-            marginTop: 24,
-            fontFamily: "monospace",
-            color: "#1a73e8",
-            fontSize: "1.1rem",
-            background: "#e3f2fd",
-            borderRadius: 8,
-            padding: "0.7rem 1.2rem",
-            boxShadow: "0 1px 4px #e3e3e3",
-          }}
-        >
-          <b>Scramble:</b> {scramble}
         </div>
       )}
     </div>
