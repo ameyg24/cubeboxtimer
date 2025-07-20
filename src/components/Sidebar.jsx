@@ -30,7 +30,7 @@ const Sidebar = ({
       <div className="sidebar-header">
         <select
           value={activeSessionId}
-          onChange={(e) => setActiveSessionId(Number(e.target.value))}
+          onChange={(e) => setActiveSessionId(e.target.value)}
           style={{
             fontWeight: "bold",
             fontSize: "1.1rem",
@@ -119,6 +119,65 @@ const Sidebar = ({
           ao12: {ao12 ? ao12.toFixed(2) + "s" : "-"}
         </span>
       </div>
+      {/* --- Show all solves in sidebar only if there are solves --- */}
+      {solves.length > 0 && (
+        <div style={{ marginTop: "1.2rem" }}>
+          <h4
+            style={{
+              margin: 0,
+              color: "#1a73e8",
+              fontWeight: 700,
+              fontSize: "1.1rem",
+            }}
+          >
+            All Solves
+          </h4>
+          <ul
+            style={{
+              listStyle: "none",
+              padding: 0,
+              margin: 0,
+              maxHeight: 180,
+              overflowY: "auto",
+            }}
+          >
+            {[...solves]
+              .reverse()
+              .map((s, i) => (
+                <li
+                  key={solves.length - 1 - i}
+                  style={{
+                    fontSize: "1.05rem",
+                    color: "#222",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    marginBottom: 2,
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "#ff4081",
+                      fontWeight: 700,
+                      minWidth: 28,
+                    }}
+                  >
+                    #{solves.length - i}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "monospace",
+                      color: "#1a73e8",
+                      minWidth: 60,
+                    }}
+                  >
+                    {(s / 1000).toFixed(2)}s
+                  </span>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
     </aside>
   );
 };

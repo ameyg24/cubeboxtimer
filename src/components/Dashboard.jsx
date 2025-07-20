@@ -32,14 +32,14 @@ const Dashboard = ({
           textAlign: "center",
         }}
       >
-        Stats
+        Solve Statistics
       </h2>
       <div
         style={{
           display: "flex",
           gap: "2rem",
           justifyContent: "center",
-          alignItems: "stretch",
+          alignItems: "center",
           marginBottom: "2rem",
           flexWrap: "wrap",
           width: "100%",
