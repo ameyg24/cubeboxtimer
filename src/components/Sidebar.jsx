@@ -10,8 +10,11 @@ const Sidebar = ({
   solves,
   sidebarOpen,
 }) => {
-  // Calculate stats
-  const times = solves.map((s) => s / 1000);
+  // Only use valid solves (objects with millis number)
+  const validSolves = solves.filter(
+    (s) => typeof s.millis === "number" && !isNaN(s.millis) && s.penalty !== "DNF"
+  );
+  const times = validSolves.map((s) => s.millis / 1000);
   const best = times.length ? Math.min(...times) : null;
   const mean = times.length
     ? times.reduce((a, b) => a + b, 0) / times.length
@@ -120,7 +123,7 @@ const Sidebar = ({
         </span>
       </div>
       {/* --- Show all solves in sidebar only if there are solves --- */}
-      {solves.length > 0 && (
+      {validSolves.length > 0 && (
         <div style={{ marginTop: "1.2rem" }}>
           <h4
             style={{
@@ -141,11 +144,11 @@ const Sidebar = ({
               overflowY: "auto",
             }}
           >
-            {[...solves]
+            {[...validSolves]
               .reverse()
               .map((s, i) => (
                 <li
-                  key={solves.length - 1 - i}
+                  key={validSolves.length - 1 - i}
                   style={{
                     fontSize: "1.05rem",
                     color: "#222",
@@ -162,7 +165,7 @@ const Sidebar = ({
                       minWidth: 28,
                     }}
                   >
-                    #{solves.length - i}
+                    #{validSolves.length - i}
                   </span>
                   <span
                     style={{
@@ -171,7 +174,7 @@ const Sidebar = ({
                       minWidth: 60,
                     }}
                   >
-                    {(s / 1000).toFixed(2)}s
+                    {s.millis ? (s.millis / 1000).toFixed(2) + "s" : "-"}
                   </span>
                 </li>
               ))}

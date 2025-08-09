@@ -8,6 +8,12 @@ const Timer = ({
   onSolveComplete,
   timerRunning,
   setTimerRunning,
+  hideStartButton,
+  showMainButtons,
+  scramble,
+  startSignal,
+  pendingPenalty, // new prop
+  inspectionActive, // NEW: block key controls during inspection
 }) => {
   const [displayTime, setDisplayTime] = useState(0); // ms
   const [running, setRunning] = useState(false);
@@ -18,9 +24,12 @@ const Timer = ({
   const rafRef = useRef(null);
   const runningRef = useRef(false);
   const [pendingStart, setPendingStart] = useState(false); // for spacebar release logic
+  const prevStartSignal = useRef(startSignal);
 
   // Accurate timer using performance.now()
   const startTimer = () => {
+    // If inspection still active, do not start (safety)
+    if (inspectionActive) return;
     setRunning(true);
     runningRef.current = true;
     setIdle(false);
@@ -30,28 +39,6 @@ const Timer = ({
     setDisplayTime(0);
     rafRef.current = requestAnimationFrame(updateTime);
   };
-
-  // Improved: show a visual countdown before timer starts
-  useEffect(() => {
-    if (!pendingStart) return;
-    let countdown = 0;
-    let interval;
-    const showCountdown = () => {
-      setShowInstructions(false);
-      countdown = 3;
-      setDisplayTime(0);
-      interval = setInterval(() => {
-        setDisplayTime(countdown);
-        countdown--;
-        if (countdown < 0) {
-          clearInterval(interval);
-          setShowInstructions(true);
-        }
-      }, 400);
-    };
-    showCountdown();
-    return () => clearInterval(interval);
-  }, [pendingStart]);
 
   const updateTime = () => {
     if (!runningRef.current) return;
@@ -69,8 +56,8 @@ const Timer = ({
     setDisplayTime(elapsed);
     setStopped(true);
     setIdle(false);
-    setTimerRunning && setTimerRunning(false); // Return to main page
-    onSolveComplete(Math.round(elapsed)); // ms
+    setTimerRunning && setTimerRunning(false);
+    onSolveComplete({ millis: Math.round(elapsed), penalty: pendingPenalty || null });
     // Do not reset displayTime here; keep until next start
   };
 
@@ -78,6 +65,7 @@ const Timer = ({
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.code === "Space" && !e.repeat) {
+        if (inspectionActive) return;
         e.preventDefault();
         if (!runningRef.current && !pendingStart) {
           setPendingStart(true); // Wait for keyup to start
@@ -88,6 +76,7 @@ const Timer = ({
     };
     const handleKeyUp = (e) => {
       if (e.code === "Space") {
+        if (inspectionActive) return; 
         if (pendingStart && !runningRef.current) {
           setPendingStart(false);
           startTimer();
@@ -100,7 +89,17 @@ const Timer = ({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [pendingStart]);
+  }, [pendingStart, inspectionActive]);
+
+  // Start timer if startSignal changes
+  useEffect(() => {
+    if (startSignal !== undefined && startSignal !== prevStartSignal.current) {
+      prevStartSignal.current = startSignal;
+      if (!runningRef.current) {
+        startTimer();
+      }
+    }
+  }, [startSignal, inspectionActive]);
 
   useEffect(() => {
     setShowInstructions(true);
@@ -135,13 +134,16 @@ const Timer = ({
       <h1 style={{ color: timerColor, transition: "color 0.2s" }}>
         {(displayTime / 1000).toFixed(2)}
       </h1>
-      <button
-        onClick={running ? stopTimer : startTimer}
-        style={{ marginTop: "1.5rem" }}
-        aria-label={running ? "Stop timer" : "Start timer"}
-      >
-        {running ? "Stop" : "Start"}
-      </button>
+      {/* Only show Start/Stop button if hideStartButton and showMainButtons are NOT true */}
+      {(!hideStartButton && !showMainButtons) && (
+        <button
+          onClick={running ? stopTimer : startTimer}
+          style={{ marginTop: "1.5rem" }}
+          aria-label={running ? "Stop timer" : "Start timer"}
+        >
+          {running ? "Stop" : "Start"}
+        </button>
+      )}
       {showInstructions && (
         <div className="timer-instructions">
           Press <b>Space</b> (release) or click <b>Start</b> to begin.

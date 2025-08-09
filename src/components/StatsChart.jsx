@@ -4,10 +4,13 @@ import Chart from "chart.js/auto";
 
 const StatsChart = ({ solves }) => {
   const chartRef = useRef();
+  const chartInstance = useRef();
+
+  // Create chart only once on mount
   useEffect(() => {
     if (!chartRef.current) return;
     const ctx = chartRef.current.getContext("2d");
-    const chart = new Chart(ctx, {
+    chartInstance.current = new Chart(ctx, {
       type: "line",
       data: {
         labels: solves.map((_, i) => `#${i + 1}`),
@@ -87,8 +90,23 @@ const StatsChart = ({ solves }) => {
         },
       },
     });
-    return () => chart.destroy();
+    return () => {
+      if (chartInstance.current) {
+        chartInstance.current.destroy();
+        chartInstance.current = null;
+      }
+    };
+  }, []);
+
+  // Update chart data only when solves changes
+  useEffect(() => {
+    if (chartInstance.current) {
+      chartInstance.current.data.labels = solves.map((_, i) => `#${i + 1}`);
+      chartInstance.current.data.datasets[0].data = solves.map((s) => s / 1000);
+      chartInstance.current.update();
+    }
   }, [solves]);
+
   return (
     <div
       style={{
