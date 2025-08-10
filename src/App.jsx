@@ -356,19 +356,18 @@ function App() {
         : typeof time === "object" && time !== null && typeof time.millis === "number"
         ? time.millis
         : null;
-    // Only store valid solves (millis is a number and not NaN, unless DNF)
     if (millis === null || isNaN(millis)) {
-      // If DNF, allow millis=0 with penalty DNF
       if (time && time.penalty === "DNF") {
         solveObj = { millis: 0, penalty: "DNF", reviewed: false, id: Date.now() };
       } else {
-        // Ignore invalid solve
         return;
       }
     } else {
+      let explicitPenalty = (typeof time === "object" && time !== null) ? time.penalty : undefined;
+      const finalPenalty = explicitPenalty === undefined || explicitPenalty === null ? pendingPenalty : explicitPenalty;
       solveObj = {
         millis,
-        penalty: (typeof time === "object" && time !== null && time.penalty !== undefined) ? time.penalty : pendingPenalty,
+        penalty: finalPenalty || null,
         reviewed: (typeof time === "object" && time !== null ? time.reviewed : false) ?? false,
         id: (typeof time === "object" && time !== null ? time.id : undefined) ?? Date.now(),
       };
@@ -387,7 +386,7 @@ function App() {
       )
     );
     setTimerRunning(false);
-    setPendingPenalty(null); // Only clear after it is used for a solve
+    setPendingPenalty(null); // Clear after use
   };
 
   // Get solves for current event (all), and valid solves (for stats/count)
@@ -431,10 +430,10 @@ function App() {
   }
 
   // Session stats
-  const sessionTimes = validEventSolves.map((s) => s.millis / 1000);
+  const sessionTimes = validEventSolves.map((s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000);
   const sessionStats = computeStats(sessionTimes);
   // All-time stats
-  const allTimes = validAllSolves.map((s) => s.millis / 1000);
+  const allTimes = validAllSolves.map((s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000);
   const allTimeStats = computeStats(allTimes);
 
   // Helper to update a solve (local and Firestore)
@@ -520,10 +519,8 @@ function App() {
             handleSolveComplete({ millis: 0, penalty: "DNF", reviewed: false, id: Date.now() });
             setTimerRunning(false);
           } else {
-            // For both '+2' and null, start timer and let handleSolveComplete use pendingPenalty
             setTimerRunning(true);
             setStartSignal((s) => s + 1);
-            // Do NOT clear pendingPenalty here; it will be cleared after the solve is recorded
           }
         }}
         onPenalty={setPendingPenalty}
@@ -548,7 +545,7 @@ function App() {
             setActiveSessionId={setActiveSessionId}
             addSession={addSession}
             removeSession={removeSession}
-            solves={validEventSolves}
+            solves={eventSolves}
             sidebarOpen={sidebarOpen}
           />
         )}
@@ -596,7 +593,7 @@ function App() {
                     if (inspectionModeEnabled) {
                       setInspectionVisible(true);
                     } else {
-                      setPendingPenalty(null); // Always clear penalty if not using inspection
+                      setPendingPenalty(null);
                       setStartSignal((s) => s + 1);
                       setTimerRunning(true);
                     }
@@ -647,8 +644,8 @@ function App() {
                 <Dashboard
                   sessionStats={sessionStats}
                   allTimeStats={allTimeStats}
-                  sessionSolves={validEventSolves.map(s => s.millis)}
-                  allSolves={validAllSolves.map(s => s.millis)}
+                  sessionSolves={validEventSolves.map(s => s.millis + (s.penalty === "+2" ? 2000 : 0))}
+                  allSolves={eventSolves}
                 />
               </div>
               <div
