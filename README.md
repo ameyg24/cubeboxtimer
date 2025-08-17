@@ -5,6 +5,7 @@ CubeBoxTimer is a modern Rubik’s Cube timer and statistics web app built with 
 ## Features
 
 - **WCA-style Timer**: Spacebar or click to start/stop, with visual countdown.
+- **15s inspection & Penalties** — Visual/logic countdown before timing starts, applies +2/DNF to solve times as per WCA rules
 - **Session Management**: Create, switch, and delete sessions. Each session tracks its own solves.
 - **Advanced Statistics**: See best, worst, mean, ao5, ao12, and total solves for both the current session and all-time.
 - **Beautiful Charts**: Visualize your progress with interactive charts (Chart.js).
