@@ -10,14 +10,20 @@ const StatsChart = ({ solves }) => {
   useEffect(() => {
     if (!chartRef.current) return;
     const ctx = chartRef.current.getContext("2d");
+    
+    // Process initial solves data - filter out DNF and convert to time values
+    const initialProcessedSolves = solves
+      .filter(s => s && typeof s.millis === 'number' && s.penalty !== 'DNF')
+      .map(s => s.millis + (s.penalty === '+2' ? 2000 : 0));
+    
     chartInstance.current = new Chart(ctx, {
       type: "line",
       data: {
-        labels: solves.map((_, i) => `#${i + 1}`),
+        labels: initialProcessedSolves.map((_, i) => `#${i + 1}`),
         datasets: [
           {
             label: "Solve Time (s)",
-            data: solves.map((s) => s / 1000),
+            data: initialProcessedSolves.map((s) => s / 1000),
             borderColor: "#ff4081",
             backgroundColor: "rgba(255, 64, 129, 0.18)",
             pointBackgroundColor: "#fff",
@@ -101,8 +107,12 @@ const StatsChart = ({ solves }) => {
   // Update chart data only when solves changes
   useEffect(() => {
     if (chartInstance.current) {
-      chartInstance.current.data.labels = solves.map((_, i) => `#${i + 1}`);
-      chartInstance.current.data.datasets[0].data = solves.map((s) => s / 1000);
+      const updatedProcessedSolves = solves
+        .filter(s => s && typeof s.millis === 'number' && s.penalty !== 'DNF')
+        .map(s => s.millis + (s.penalty === '+2' ? 2000 : 0));
+      
+      chartInstance.current.data.labels = updatedProcessedSolves.map((_, i) => `#${i + 1}`);
+      chartInstance.current.data.datasets[0].data = updatedProcessedSolves.map((s) => s / 1000);
       chartInstance.current.update();
     }
   }, [solves]);
