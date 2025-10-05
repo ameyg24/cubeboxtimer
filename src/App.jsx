@@ -406,8 +406,7 @@ function App() {
     (s) => typeof s.millis === "number" && !isNaN(s.millis) && s.penalty !== "DNF"
   );
 
-  // Helper to compute stats (best, worst, mean, ao5, ao12, count)
-  function computeStats(times) {
+  function computeStats(times, allSolvesForAvg = []) {
     if (!times.length)
       return {
         best: null,
@@ -420,21 +419,46 @@ function App() {
     const best = Math.min(...times);
     const worst = Math.max(...times);
     const mean = times.reduce((a, b) => a + b, 0) / times.length;
-    const ao5 =
-      times.length >= 5 ? times.slice(-5).reduce((a, b) => a + b, 0) / 5 : null;
-    const ao12 =
-      times.length >= 12
-        ? times.slice(-12).reduce((a, b) => a + b, 0) / 12
-        : null;
+    
+    // WCA-compliant average calculation
+    const calculateWCAAverage = (solves, count) => {
+      if (allSolvesForAvg.length < count) return null;
+      
+      const lastSolves = allSolvesForAvg.slice(-count);
+      const dnfCount = lastSolves.filter(s => s.penalty === "DNF").length;
+      
+      // If 2 or more DNFs, the average is DNF
+      if (dnfCount >= 2) return "DNF";
+      
+      // Get times (including +2 penalties) for non-DNF solves
+      const solveTimes = lastSolves
+        .filter(s => s.penalty !== "DNF")
+        .map(s => s.millis + (s.penalty === "+2" ? 2000 : 0));
+      
+      if (solveTimes.length < count - 1) return "DNF";
+      
+      // Remove best and worst, then average the middle times
+      solveTimes.sort((a, b) => a - b);
+      const middleTimes = solveTimes.slice(1, -1);
+      const avgMillis = middleTimes.reduce((a, b) => a + b, 0) / middleTimes.length;
+      
+      return avgMillis / 1000; // Convert to seconds
+    };
+    
+    const ao5 = allSolvesForAvg.length > 0 ? calculateWCAAverage(allSolvesForAvg, 5) : 
+      (times.length >= 5 ? times.slice(-5).reduce((a, b) => a + b, 0) / 5 : null);
+    const ao12 = allSolvesForAvg.length > 0 ? calculateWCAAverage(allSolvesForAvg, 12) :
+      (times.length >= 12 ? times.slice(-12).reduce((a, b) => a + b, 0) / 12 : null);
+    
     return { best, worst, mean, ao5, ao12, count: times.length };
   }
 
   // Session stats
   const sessionTimes = validEventSolves.map((s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000);
-  const sessionStats = computeStats(sessionTimes);
+  const sessionStats = computeStats(sessionTimes, eventSolves); // Pass eventSolves for WCA averages
   // All-time stats
   const allTimes = validAllSolves.map((s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000);
-  const allTimeStats = computeStats(allTimes);
+  const allTimeStats = computeStats(allTimes, allSolves); // Pass allSolves for WCA averages
 
   // Helper to update a solve (local and Firestore)
   const updateSolve = async (idx, patch) => {

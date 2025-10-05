@@ -9,7 +9,10 @@ const Dashboard = ({
   allSolves,
 }) => {
   // Helper to format stat values
-  const fmt = (v) => (v != null ? v.toFixed(2) + "s" : "-");
+  const fmt = (v) => {
+    if (v === "DNF") return "DNF";
+    return v != null ? v.toFixed(2) + "s" : "-";
+  };
 
   return (
     <div
