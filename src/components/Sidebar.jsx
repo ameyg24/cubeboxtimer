@@ -10,9 +10,13 @@ const Sidebar = ({
   solves,
   sidebarOpen,
 }) => {
-  // Only use valid solves (objects with millis number)
+  // Valid solves for stats (exclude DNF)
   const validSolves = solves.filter(
     (s) => typeof s.millis === "number" && !isNaN(s.millis) && s.penalty !== "DNF"
+  );
+  // All solves for display (include DNF)
+  const allSolves = solves.filter(
+    (s) => s && (typeof s.millis === "number" || s.penalty === "DNF")
   );
   const times = validSolves.map((s) => s.millis / 1000);
   const best = times.length ? Math.min(...times) : null;
@@ -21,12 +25,34 @@ const Sidebar = ({
     : null;
   const solveCount = times.length;
   const lastSolve = solveCount ? times[solveCount - 1] : null;
-  const ao5 =
-    times.length >= 5 ? times.slice(-5).reduce((a, b) => a + b, 0) / 5 : null;
-  const ao12 =
-    times.length >= 12
-      ? times.slice(-12).reduce((a, b) => a + b, 0) / 12
-      : null;
+
+  // WCA-compliant ao5 calculation
+  const calculateAverage = (solves, count) => {
+    if (allSolves.length < count) return null;
+    
+    const lastSolves = allSolves.slice(-count);
+    const dnfCount = lastSolves.filter(s => s.penalty === "DNF").length;
+    
+    // If 2 or more DNFs, the average is DNF
+    if (dnfCount >= 2) return "DNF";
+    
+    // Get times (including +2 penalties) for non-DNF solves
+    const solveTimes = lastSolves
+      .filter(s => s.penalty !== "DNF")
+      .map(s => s.millis + (s.penalty === "+2" ? 2000 : 0));
+    
+    if (solveTimes.length < count - 1) return "DNF";
+    
+    // Remove best and worst, then average the middle times
+    solveTimes.sort((a, b) => a - b);
+    const middleTimes = solveTimes.slice(1, -1);
+    const avgMillis = middleTimes.reduce((a, b) => a + b, 0) / middleTimes.length;
+    
+    return avgMillis / 1000; // Convert to seconds
+  };
+
+  const ao5 = calculateAverage(allSolves, 5);
+  const ao12 = calculateAverage(allSolves, 12);
 
   return (
     <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
@@ -109,21 +135,21 @@ const Sidebar = ({
           <span>{best ? best.toFixed(2) + "s" : "-"}</span>
         </div>
         <div className="solve-info">
-          <span>solve: {solveCount}</span>
+          <span>solve: {allSolves.length}</span>
           <br />
           <span>mean: {mean ? mean.toFixed(2) + "s" : "-"}</span>
         </div>
       </div>
       <div className="solve-links">
         <span className="solve-link">
-          ao5: {ao5 ? ao5.toFixed(2) + "s" : "-"}
+          ao5: {ao5 === "DNF" ? "DNF" : ao5 ? ao5.toFixed(2) + "s" : "-"}
         </span>
         <span className="solve-link">
-          ao12: {ao12 ? ao12.toFixed(2) + "s" : "-"}
+          ao12: {ao12 === "DNF" ? "DNF" : ao12 ? ao12.toFixed(2) + "s" : "-"}
         </span>
       </div>
       {/* --- Show all solves in sidebar only if there are solves --- */}
-      {validSolves.length > 0 && (
+      {allSolves.length > 0 && (
         <div style={{ marginTop: "1.2rem" }}>
           <h4
             style={{
@@ -144,11 +170,11 @@ const Sidebar = ({
               overflowY: "auto",
             }}
           >
-            {[...validSolves]
+            {[...allSolves]
               .reverse()
               .map((s, i) => (
                 <li
-                  key={validSolves.length - 1 - i}
+                  key={allSolves.length - 1 - i}
                   style={{
                     fontSize: "1.05rem",
                     color: "#222",
@@ -165,16 +191,22 @@ const Sidebar = ({
                       minWidth: 28,
                     }}
                   >
-                    #{validSolves.length - i}
+                    #{allSolves.length - i}
                   </span>
                   <span
                     style={{
                       fontFamily: "monospace",
-                      color: "#1a73e8",
+                      color: s.penalty === "DNF" ? "#e53935" : "#1a73e8",
                       minWidth: 60,
+                      fontWeight: s.penalty === "DNF" ? 700 : 400,
                     }}
                   >
-                    {s.millis ? (s.millis / 1000).toFixed(2) + "s" : "-"}
+                    {s.penalty === "DNF" 
+                      ? "DNF" 
+                      : s.millis 
+                        ? (s.millis / 1000).toFixed(2) + "s" + (s.penalty === "+2" ? " (+2)" : "")
+                        : "-"
+                    }
                   </span>
                 </li>
               ))}

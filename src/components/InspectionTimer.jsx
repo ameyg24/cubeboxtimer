@@ -31,63 +31,58 @@ export default function InspectionTimer({
     setPenalty(null);
     setWarning(0);
     startTimeRef.current = Date.now();
+    
     timerRef.current = setInterval(() => {
       setRemaining((prev) => {
-        const elapsed = seconds - (prev - 1);
+        const newRemaining = prev - 1;
+        const elapsed = seconds - newRemaining;
+        
+        // Warning at 8 seconds
         if (elapsed >= 8 && warning < 1) setWarning(1);
+        // Warning at 12 seconds  
         if (elapsed >= 12 && warning < 2) setWarning(2);
-        if (prev <= -2) {
-          clearInterval(timerRef.current);
-          setPenalty("DNF");
-          if (onPenalty) onPenalty("DNF");
-          if (onInspectionEnd) onInspectionEnd("DNF");
-          setActive(false);
-          return -2;
-        }
-        if (prev <= 0 && penalty !== "+2") {
+        
+        // At 15 seconds (0 remaining), apply +2 penalty
+        if (newRemaining <= 0 && newRemaining > -2 && penalty !== "+2") {
           setPenalty("+2");
           if (onPenalty) onPenalty("+2");
         }
-        if (prev <= -2) return -2;
-        return prev - 1;
+        
+        // At 17 seconds (-2 remaining), force DNF and auto-record
+        if (newRemaining <= -2) {
+          clearInterval(timerRef.current);
+          setPenalty("DNF");
+          if (onPenalty) onPenalty("DNF");
+          // Auto-record DNF when inspection time expires
+          setTimeout(() => {
+            if (onInspectionEnd) onInspectionEnd("DNF");
+            setActive(false);
+          }, 100);
+          return -2;
+        }
+        
+        return newRemaining;
       });
     }, 1000);
     return () => clearInterval(timerRef.current);
     // eslint-disable-next-line
   }, [visible, seconds]);
 
-  // If 17s is reached, start timer immediately
-  useEffect(() => {
-    if (!active) return;
-    if (remaining <= -2) {
-      if (onInspectionEnd) onInspectionEnd("DNF");
-      setActive(false);
-      clearInterval(timerRef.current);
-    }
-  }, [remaining, active, onInspectionEnd]);
-
   // Call this when user starts solve (before inspection ends)
   const handleStartSolve = () => {
+    if (!active) return;
+    
     const elapsed = (Date.now() - startTimeRef.current) / 1000;
     let penaltyToApply = null;
     if (elapsed > seconds && elapsed <= seconds + 2) penaltyToApply = "+2";
     if (elapsed > seconds + 2) penaltyToApply = "DNF";
+    
     setPenalty(penaltyToApply);
     if (onPenalty) onPenalty(penaltyToApply);
     if (onInspectionEnd) onInspectionEnd(penaltyToApply);
     setActive(false);
     clearInterval(timerRef.current);
   };
-
-  // Auto-start solve if 17s is reached
-  useEffect(() => {
-    if (!active) return;
-    if (remaining === -2) {
-      if (onInspectionEnd) onInspectionEnd("DNF");
-      setActive(false);
-      clearInterval(timerRef.current);
-    }
-  }, [remaining, active, onInspectionEnd]);
 
   if (!visible) return null;
 
