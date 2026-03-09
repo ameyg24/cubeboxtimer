@@ -118,20 +118,19 @@ const Timer = ({
     }
   }, [running, stopped]);
 
-  // Color logic
-  let timerColor = "#111";
-  if (running) timerColor = "#43a047"; // green
-  else if (stopped) timerColor = "#e53935"; // red
-  else if (idle) timerColor = "#111"; // black
+  // Color logic using CSS variables
+  let timerColor = "var(--text)";
+  if (running) timerColor = "var(--success)";
+  else if (stopped) timerColor = "var(--danger)";
 
   return (
     <div
       className="timer"
       id="main-timer"
       tabIndex={0}
-      style={{ outline: "none" }}
+      style={{ outline: "none", background: "transparent", boxShadow: "none", border: "none" }}
     >
-      <h1 style={{ color: timerColor, transition: "color 0.2s" }}>
+      <h1 style={{ color: timerColor, transition: "color 0.15s" }}>
         {(displayTime / 1000).toFixed(2)}
       </h1>
       {/* Only show Start/Stop button if hideStartButton and showMainButtons are NOT true */}
