@@ -14,11 +14,25 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+    // Fallback: if Firebase doesn't respond in 2s, render anyway (offline / bad config)
+    const timeout = setTimeout(() => setLoading(false), 2000);
+    let unsubscribe = () => {};
+    try {
+      if (auth) {
+        unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+          clearTimeout(timeout);
+          setUser(firebaseUser);
+          setLoading(false);
+        });
+      } else {
+        clearTimeout(timeout);
+        setLoading(false);
+      }
+    } catch (e) {
+      clearTimeout(timeout);
       setLoading(false);
-    });
-    return unsubscribe;
+    }
+    return () => { unsubscribe(); clearTimeout(timeout); };
   }, []);
 
   const login = async () => {

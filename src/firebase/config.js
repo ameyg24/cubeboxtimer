@@ -12,9 +12,17 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
+let app, db, auth, provider;
+try {
+  app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  auth = getAuth(app);
+  provider = new GoogleAuthProvider();
+} catch (e) {
+  console.warn("Firebase init failed — running in offline/local mode:", e.message);
+  db = null;
+  auth = null;
+  provider = null;
+}
 
 export { db, auth, provider };

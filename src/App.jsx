@@ -6,7 +6,6 @@ import InspectionTimer from "./components/InspectionTimer.jsx";
 import { db } from "./firebase/config";
 import {
   collection,
-  getDocs,
   query,
   orderBy,
   doc,
@@ -14,9 +13,9 @@ import {
   deleteDoc,
   serverTimestamp,
   onSnapshot,
-  enableIndexedDbPersistence,
 } from "firebase/firestore";
 import { AuthProvider, useAuth } from "./components/AuthContext.jsx";
+import { ThemeProvider } from "./components/ThemeContext.jsx";
 import "./App.css";
 import Dashboard from "./components/Dashboard.jsx";
 import SolveList from "./components/SolveList.jsx";
@@ -26,55 +25,17 @@ function ProfileModal({ user, onClose }) {
   return (
     <div
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "rgba(0,0,0,0.25)",
-        zIndex: 2000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+        background: "rgba(0,0,0,0.4)", zIndex: 2000, display: "flex",
+        alignItems: "center", justifyContent: "center",
       }}
     >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 16,
-          boxShadow: "0 4px 32px #ffd6df",
-          padding: "2.5rem 2.5rem 2rem 2.5rem",
-          minWidth: 320,
-          maxWidth: "90vw",
-          textAlign: "center",
-          position: "relative",
-        }}
-      >
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: 16,
-            right: 16,
-            background: "none",
-            border: "none",
-            fontSize: 24,
-            cursor: "pointer",
-            color: "#e53935",
-          }}
-        >
-          ×
-        </button>
-        <h2 style={{ color: "#1a73e8", marginBottom: 16 }}>Profile</h2>
-        <div style={{ fontSize: 18, marginBottom: 8 }}>
-          <b>Name:</b> {user.displayName || "Anonymous"}
-        </div>
-        <div style={{ fontSize: 18, marginBottom: 8 }}>
-          <b>Email:</b> {user.email}
-        </div>
-        <div style={{ fontSize: 16, color: "#888", marginTop: 18 }}>
-          More profile features coming soon!
-        </div>
+      <div style={modalStyle}>
+        <button onClick={onClose} style={modalCloseStyle}>×</button>
+        <h2 style={{ color: "var(--accent)", marginBottom: 16, fontSize: "1.1rem" }}>Profile</h2>
+        <div style={{ marginBottom: 8, color: "var(--text)" }}><b>Name:</b> {user.displayName || "Anonymous"}</div>
+        <div style={{ marginBottom: 8, color: "var(--text)" }}><b>Email:</b> {user.email}</div>
+        <div style={{ color: "var(--text-muted)", marginTop: 18, fontSize: "0.9rem" }}>More profile features coming soon!</div>
       </div>
     </div>
   );
@@ -84,61 +45,40 @@ function SettingsModal({ onClose, inspectionModeEnabled, setInspectionModeEnable
   return (
     <div
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "rgba(0,0,0,0.25)",
-        zIndex: 2000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+        background: "rgba(0,0,0,0.4)", zIndex: 2000, display: "flex",
+        alignItems: "center", justifyContent: "center",
       }}
     >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 16,
-          boxShadow: "0 4px 32px #ffd6df",
-          padding: "2.5rem 2.5rem 2rem 2.5rem",
-          minWidth: 320,
-          maxWidth: "90vw",
-          textAlign: "center",
-          position: "relative",
-        }}
-      >
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: 16,
-            right: 16,
-            background: "none",
-            border: "none",
-            fontSize: 24,
-            cursor: "pointer",
-            color: "#e53935",
-          }}
-        >
-          ×
-        </button>
-        <h2 style={{ color: "#ff4081", marginBottom: 16 }}>Settings</h2>
-        <div style={{ fontSize: 16, color: "#222", margin: "18px 0" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={inspectionModeEnabled}
-              onChange={e => setInspectionModeEnabled(e.target.checked)}
-              style={{ width: 18, height: 18 }}
-            />
-            WCA Inspection Mode (15s inspection before each solve)
+      <div style={modalStyle}>
+        <button onClick={onClose} style={modalCloseStyle}>×</button>
+        <h2 style={{ color: "var(--text)", marginBottom: 16, fontSize: "1.1rem" }}>Settings</h2>
+        <div style={{ margin: "18px 0", color: "var(--text)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+            <input type="checkbox" checked={inspectionModeEnabled} onChange={e => setInspectionModeEnabled(e.target.checked)} style={{ width: 16, height: 16 }} />
+            WCA Inspection Mode (15s before each solve)
           </label>
         </div>
       </div>
     </div>
   );
 }
+
+const modalOverlayStyle = {
+  position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+  background: "rgba(0,0,0,0.4)", zIndex: 2000, display: "flex",
+  alignItems: "center", justifyContent: "center",
+};
+const modalStyle = {
+  background: "var(--surface)", border: "1px solid var(--border)",
+  borderRadius: 12, boxShadow: "var(--shadow-md)",
+  padding: "2rem", minWidth: 300, maxWidth: "90vw",
+  textAlign: "center", position: "relative",
+};
+const modalCloseStyle = {
+  position: "absolute", top: 12, right: 12, background: "none",
+  border: "none", fontSize: 20, cursor: "pointer", color: "var(--text-muted)",
+};
 
 const SCRAMBLE_TYPES = ["WCA", "Other"];
 const CUBE_DIMENSIONS = ["2x2x2", "3x3x3", "4x4x4", "5x5x5"];
@@ -184,9 +124,6 @@ function generateScramble(type, dimension) {
   return scramble.join(" ");
 }
 
-if (typeof window !== "undefined" && db && db.app) {
-  enableIndexedDbPersistence(db).catch(() => {});
-}
 
 function App() {
   const [solves, setSolves] = useState([]);
@@ -393,72 +330,37 @@ function App() {
   const activeSession = sessions.find((s) => s.id === activeSessionId) ||
     sessions[0] || { solves: { "2x2x2": [], "3x3x3": [], "4x4x4": [], "5x5x5": [] } };
   const eventSolves = activeSession.solves[cubeDimension] || [];
-  // Only valid solves (not DNF, millis is a number)
-  const validEventSolves = eventSolves.filter(
-    (s) => typeof s.millis === "number" && !isNaN(s.millis) && s.penalty !== "DNF"
-  );
 
   // Aggregate all solves across all sessions for all-time stats (per event)
   const allSolves = sessions.flatMap((s) =>
     Array.isArray(s.solves?.[cubeDimension]) ? s.solves[cubeDimension] : []
   );
-  const validAllSolves = allSolves.filter(
-    (s) => typeof s.millis === "number" && !isNaN(s.millis) && s.penalty !== "DNF"
-  );
 
-  function computeStats(times, allSolvesForAvg = []) {
-    if (!times.length)
-      return {
-        best: null,
-        worst: null,
-        mean: null,
-        ao5: null,
-        ao12: null,
-        count: 0,
-      };
-    const best = Math.min(...times);
-    const worst = Math.max(...times);
-    const mean = times.reduce((a, b) => a + b, 0) / times.length;
-    
-    // WCA-compliant average calculation
-    const calculateWCAAverage = (solves, count) => {
-      if (allSolvesForAvg.length < count) return null;
-      
-      const lastSolves = allSolvesForAvg.slice(-count);
-      const dnfCount = lastSolves.filter(s => s.penalty === "DNF").length;
-      
-      // If 2 or more DNFs, the average is DNF
-      if (dnfCount >= 2) return "DNF";
-      
-      // Get times (including +2 penalties) for non-DNF solves
-      const solveTimes = lastSolves
-        .filter(s => s.penalty !== "DNF")
-        .map(s => s.millis + (s.penalty === "+2" ? 2000 : 0));
-      
-      if (solveTimes.length < count - 1) return "DNF";
-      
-      // Remove best and worst, then average the middle times
-      solveTimes.sort((a, b) => a - b);
-      const middleTimes = solveTimes.slice(1, -1);
-      const avgMillis = middleTimes.reduce((a, b) => a + b, 0) / middleTimes.length;
-      
-      return avgMillis / 1000; // Convert to seconds
-    };
-    
-    const ao5 = allSolvesForAvg.length > 0 ? calculateWCAAverage(allSolvesForAvg, 5) : 
-      (times.length >= 5 ? times.slice(-5).reduce((a, b) => a + b, 0) / 5 : null);
-    const ao12 = allSolvesForAvg.length > 0 ? calculateWCAAverage(allSolvesForAvg, 12) :
-      (times.length >= 12 ? times.slice(-12).reduce((a, b) => a + b, 0) / 12 : null);
-    
-    return { best, worst, mean, ao5, ao12, count: times.length };
-  }
-
-  // Session stats
-  const sessionTimes = validEventSolves.map((s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000);
-  const sessionStats = computeStats(sessionTimes, eventSolves); // Pass eventSolves for WCA averages
-  // All-time stats
-  const allTimes = validAllSolves.map((s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000);
-  const allTimeStats = computeStats(allTimes, allSolves); // Pass allSolves for WCA averages
+  // Delete a solve by index (local and Firestore)
+  const deleteSolve = async (idx) => {
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === activeSessionId
+          ? {
+              ...s,
+              solves: {
+                ...s.solves,
+                [cubeDimension]: s.solves[cubeDimension].filter((_, i) => i !== idx),
+              },
+            }
+          : s
+      )
+    );
+    if (user) {
+      const sessionsCol = collection(db, "users", user.uid, "sessions");
+      const session = sessions.find((s) => s.id === activeSessionId);
+      if (session) {
+        const newSolves = { ...session.solves };
+        newSolves[cubeDimension] = newSolves[cubeDimension].filter((_, i) => i !== idx);
+        await setDoc(doc(sessionsCol, activeSessionId), { solves: newSolves }, { merge: true });
+      }
+    }
+  };
 
   // Helper to update a solve (local and Firestore)
   const updateSolve = async (idx, patch) => {
@@ -604,14 +506,15 @@ function App() {
               <div style={{ display: "flex", flexDirection: "row", gap: 16, position: "absolute", left: "50%", top: "65%", transform: "translate(-50%, -50%)", zIndex: 10 }}>
                 <button
                   style={{
-                    padding: "10px 24px",
-                    fontSize: 18,
+                    padding: "9px 28px",
+                    fontSize: "1rem",
                     borderRadius: 8,
                     border: "none",
-                    background: "#1a73e8",
+                    background: "var(--accent)",
                     color: "#fff",
                     cursor: "pointer",
                     fontWeight: 600,
+                    letterSpacing: "0.02em",
                   }}
                   onClick={() => {
                     if (inspectionModeEnabled) {
@@ -666,10 +569,8 @@ function App() {
                 }}
               >
                 <Dashboard
-                  sessionStats={sessionStats}
-                  allTimeStats={allTimeStats}
-                  sessionSolves={validEventSolves.map(s => s.millis + (s.penalty === "+2" ? 2000 : 0))}
-                  allSolves={eventSolves}
+                  eventSolves={eventSolves}
+                  allSolves={allSolves}
                 />
               </div>
               <div
@@ -681,7 +582,7 @@ function App() {
                   alignItems: "stretch",
                 }}
               >
-                <SolveList solves={eventSolves} updateSolve={updateSolve} />
+                <SolveList solves={eventSolves} updateSolve={updateSolve} deleteSolve={deleteSolve} />
               </div>
             </div>
           )}
@@ -693,8 +594,10 @@ function App() {
 
 export default function AppWithAuthProvider() {
   return (
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
