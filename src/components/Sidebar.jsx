@@ -26,6 +26,8 @@ const Sidebar = ({ sessions, activeSessionId, setActiveSessionId, addSession, re
 
   const ao5 = calcAo(5);
   const ao12 = calcAo(12);
+  const ao50 = calcAo(50);
+  const ao100 = calcAo(100);
   const fmt = (v) => (v === "DNF" ? "DNF" : v ? v.toFixed(2) + "s" : "-");
 
   return (
@@ -65,6 +67,8 @@ const Sidebar = ({ sessions, activeSessionId, setActiveSessionId, addSession, re
         <div className="stats-row"><span>Mean</span><span>{fmt(mean)}</span></div>
         <div className="stats-row"><span>ao5</span><span style={{ color: "var(--accent)" }}>{fmt(ao5)}</span></div>
         <div className="stats-row"><span>ao12</span><span style={{ color: "var(--accent)" }}>{fmt(ao12)}</span></div>
+        <div className="stats-row"><span>ao50</span><span style={{ color: "var(--accent)" }}>{fmt(ao50)}</span></div>
+        <div className="stats-row"><span>ao100</span><span style={{ color: "var(--accent)" }}>{fmt(ao100)}</span></div>
         <div className="stats-row"><span>Solves</span><span>{allSolves.length}</span></div>
       </div>
 
