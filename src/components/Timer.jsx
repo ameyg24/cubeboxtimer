@@ -143,13 +143,9 @@ const Timer = ({
           {running ? "Stop" : "Start"}
         </button>
       )}
-      {showInstructions && (
-        <div className="timer-instructions">
-          Press <b>Space</b> (release) or click <b>Start</b> to begin.
-          <br />
-          Press <b>Space</b> or click <b>Stop</b> to stop.
-        </div>
-      )}
+      <div className="timer-instructions" style={{ opacity: running ? 0 : 1, transition: "opacity 0.2s" }}>
+        {stopped ? "Space · click Start for next solve" : "Hold Space then release to start"}
+      </div>
     </div>
   );
 };
