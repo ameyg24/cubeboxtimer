@@ -103,25 +103,26 @@ export default function InspectionTimer({
     >
       <div
         style={{
-          background: "#fff",
+          background: "var(--surface)",
           borderRadius: 16,
-          boxShadow: "0 4px 32px #ffd6df",
+          boxShadow: "var(--shadow-md)",
           padding: "2.5rem 2.5rem 2rem 2.5rem",
           minWidth: 320,
           maxWidth: "90vw",
           textAlign: "center",
           position: "relative",
+          border: "1px solid var(--border)",
         }}
       >
-        <h2 style={{ color: "#1a73e8", marginBottom: 16 }}>Inspection</h2>
-        <div style={{ fontSize: 48, fontWeight: 700, color: penalty === "DNF" ? "#e53935" : penalty === "+2" ? "#ff9800" : "#222" }}>
+        <h2 style={{ color: "var(--accent)", marginBottom: 16 }}>Inspection</h2>
+        <div style={{ fontSize: 48, fontWeight: 700, color: penalty === "DNF" ? "var(--danger)" : penalty === "+2" ? "var(--warning)" : "var(--text)" }}>
           {remaining > 0 ? remaining : penalty === "DNF" ? "DNF" : "+2"}
         </div>
-        <div style={{ margin: "18px 0 0 0", color: "#888", fontWeight: 600 }}>
-          {warning === 1 && <span style={{ color: '#ff9800' }}>8s warning!</span>}
-          {warning === 2 && <span style={{ color: '#e53935' }}>12s warning!</span>}
+        <div style={{ margin: "18px 0 0 0", color: "var(--text-muted)", fontWeight: 600 }}>
+          {warning === 1 && <span style={{ color: "var(--warning)" }}>8s warning!</span>}
+          {warning === 2 && <span style={{ color: "var(--danger)" }}>12s warning!</span>}
         </div>
-        <div style={{ margin: "8px 0 0 0", color: "#888" }}>
+        <div style={{ margin: "8px 0 0 0", color: "var(--text-muted)" }}>
           {penalty === null && "Start your solve before time runs out!"}
           {penalty === "+2" && "+2s penalty if you start now."}
           {penalty === "DNF" && "DNF: Inspection overtime."}
@@ -134,7 +135,7 @@ export default function InspectionTimer({
             fontSize: 20,
             borderRadius: 8,
             border: "none",
-            background: "#1a73e8",
+            background: "var(--accent)",
             color: "#fff",
             cursor: "pointer",
             fontWeight: 600,
@@ -153,8 +154,8 @@ export default function InspectionTimer({
               fontSize: 16,
               borderRadius: 8,
               border: "none",
-              background: "#eee",
-              color: "#e53935",
+              background: "var(--surface-alt)",
+              color: "var(--danger)",
               cursor: "pointer",
               fontWeight: 500,
             }}
