@@ -66,9 +66,24 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
         }}
       >
         <span>Solves</span>
-        <span style={{ color: "var(--text-faint)", fontWeight: 500, fontSize: "0.82rem" }}>
-          {solves.length} total
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ color: "var(--text-faint)", fontWeight: 500, fontSize: "0.82rem" }}>
+            {solves.length} total
+          </span>
+          {solves.length > 0 && deleteSolve && (
+            <button
+              title="Undo last solve"
+              onClick={() => deleteSolve(solves.length - 1)}
+              style={{
+                background: "none", border: "1px solid var(--border)", borderRadius: 5,
+                padding: "2px 7px", fontSize: "0.75rem", cursor: "pointer",
+                color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 3,
+              }}
+            >
+              ↩ Undo
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Solve rows */}
