@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAuth } from "./AuthContext.jsx";
 import { useTheme } from "./ThemeContext.jsx";
 import "./Header.css";
@@ -23,6 +24,16 @@ const Header = ({
 }) => {
   const { user, login, logout } = useAuth();
   const { dark, toggleDark } = useTheme();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyScramble = () => {
+    const scramble = scrambles[selectedScrambleIdx];
+    if (!scramble) return;
+    navigator.clipboard.writeText(scramble).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
 
   const handlePrev = () =>
     setSelectedScrambleIdx((i) => (i > 0 ? i - 1 : scrambles.length - 1));
@@ -73,6 +84,19 @@ const Header = ({
         <span className="scramble-string">
           {scrambles[selectedScrambleIdx] || ""}
         </span>
+        <button
+          className="icon-btn"
+          onClick={handleCopyScramble}
+          title="Copy scramble"
+          style={{ color: copied ? "var(--success)" : undefined, fontSize: "0.75rem", padding: "4px 7px" }}
+        >
+          {copied ? "✓" : (
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+            </svg>
+          )}
+        </button>
         <button className="icon-btn" onClick={handleNext} title="Next scramble">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M5 3l4 4-4 4" />
