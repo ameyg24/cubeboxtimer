@@ -136,7 +136,20 @@ const StatRow = ({ label, value, highlight }) => (
   </div>
 );
 
-const StatsCard = ({ title, stats }) => (
+const Ao5Trend = ({ solves }) => {
+  if (solves.length < 10) return null;
+  const cur = wcaAvgN(solves.slice(-5));
+  const prev = wcaAvgN(solves.slice(-10, -5));
+  if (!cur || !prev || cur === "DNF" || prev === "DNF") return null;
+  const better = cur < prev;
+  return (
+    <span style={{ fontSize: "0.8rem", marginLeft: 4, color: better ? "var(--success)" : "var(--danger)", fontWeight: 700 }} title={better ? "Improving" : "Getting slower"}>
+      {better ? "▼" : "▲"}
+    </span>
+  );
+};
+
+const StatsCard = ({ title, stats, solves }) => (
   <div
     style={{
       flex: 1,
@@ -170,7 +183,12 @@ const StatsCard = ({ title, stats }) => (
     <StatRow label="Mean" value={fmt(stats.mean)} />
     <StatRow label="Std Dev" value={fmt(stats.stddev)} />
     <div style={{ height: 6 }} />
-    <StatRow label="ao5" value={fmt(stats.ao5)} highlight="var(--accent)" />
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 2px", borderBottom: "1px solid var(--border)", fontSize: "0.88rem" }}>
+      <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>ao5</span>
+      <span style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "monospace", display: "flex", alignItems: "center" }}>
+        {fmt(stats.ao5)}<Ao5Trend solves={solves || []} />
+      </span>
+    </div>
     <StatRow label="ao12" value={fmt(stats.ao12)} highlight="var(--accent)" />
     <StatRow label="ao50" value={fmt(stats.ao50)} highlight="var(--accent)" />
     <StatRow label="ao100" value={fmt(stats.ao100)} highlight="var(--accent)" />
@@ -367,8 +385,8 @@ const Dashboard = ({ eventSolves, allSolves }) => {
 
       {tab === "stats" && (
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-          <StatsCard title="Session" stats={sessionStats} />
-          <StatsCard title="All-Time" stats={allTimeStats} />
+          <StatsCard title="Session" stats={sessionStats} solves={eventSolves} />
+          <StatsCard title="All-Time" stats={allTimeStats} solves={allSolves} />
         </div>
       )}
 
