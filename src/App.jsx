@@ -452,23 +452,6 @@ function App() {
       {showProfile && (
         <ProfileModal user={user} onClose={() => setShowProfile(false)} />
       )}
-      <InspectionTimer
-        visible={inspectionVisible}
-        onInspectionEnd={(penalty) => {
-          setInspectionVisible(false);
-          setPendingPenalty(penalty);
-          if (penalty === "DNF") {
-            handleSolveComplete({ millis: 0, penalty: "DNF", reviewed: false, id: Date.now() });
-            setTimerRunning(false);
-          } else {
-            setTimerRunning(true);
-            setStartSignal((s) => s + 1);
-          }
-        }}
-        onPenalty={setPendingPenalty}
-        seconds={15}
-        onCancel={() => setInspectionVisible(false)}
-      />
       <div
         className="main-content"
         style={{
@@ -508,6 +491,7 @@ function App() {
             style={{
               width: "100%",
               display: "flex",
+              flexDirection: "column",
               justifyContent: "center",
               alignItems: "center",
               flex: "0 0 340px",
@@ -515,6 +499,7 @@ function App() {
               margin: 0,
               padding: "2rem 0 1.5rem 0",
               position: "relative",
+              gap: 16,
             }}
           >
             {/* Only show Start button (no Start Inspection) when timer is not running, inspection is not visible, and timer is reset (0.00) */}
@@ -570,6 +555,25 @@ function App() {
               pendingPenalty={pendingPenalty}
               inspectionActive={inspectionVisible}
             />
+            {inspectionVisible && (
+              <InspectionTimer
+                visible={inspectionVisible}
+                onInspectionEnd={(penalty) => {
+                  setInspectionVisible(false);
+                  setPendingPenalty(penalty);
+                  if (penalty === "DNF") {
+                    handleSolveComplete({ millis: 0, penalty: "DNF", reviewed: false, id: Date.now() });
+                    setTimerRunning(false);
+                  } else {
+                    setTimerRunning(true);
+                    setStartSignal((s) => s + 1);
+                  }
+                }}
+                onPenalty={setPendingPenalty}
+                seconds={15}
+                onCancel={() => setInspectionVisible(false)}
+              />
+            )}
           </div>
           {!timerRunning && (
             <div
