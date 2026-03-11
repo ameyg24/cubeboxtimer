@@ -206,10 +206,10 @@ const DailyStatsTab = ({ dailyStats }) => {
     textAlign: "left",
     fontWeight: 700,
     fontSize: "0.88rem",
-    color: "#555",
+    color: "var(--text-muted)",
     textTransform: "uppercase",
     letterSpacing: "0.04em",
-    borderBottom: "2px solid #e0e0e0",
+    borderBottom: "2px solid var(--border)",
   };
   const tdStyle = {
     padding: "9px 12px",
@@ -301,7 +301,7 @@ const Dashboard = ({ eventSolves, allSolves }) => {
       <div
         style={{
           display: "flex",
-          borderBottom: "1.5px solid #e0e0e0",
+          borderBottom: "1.5px solid var(--border)",
           gap: 0,
         }}
       >
