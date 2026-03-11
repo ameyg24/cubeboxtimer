@@ -89,76 +89,39 @@ export default function InspectionTimer({
   return (
     <div
       style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "rgba(0,0,0,0.25)",
-        zIndex: 3000,
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
+        gap: 12,
+        padding: "1.2rem 2rem",
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: 14,
+        boxShadow: "var(--shadow-md)",
+        minWidth: 260,
+        textAlign: "center",
       }}
     >
-      <div
-        style={{
-          background: "var(--surface)",
-          borderRadius: 16,
-          boxShadow: "var(--shadow-md)",
-          padding: "2.5rem 2.5rem 2rem 2.5rem",
-          minWidth: 320,
-          maxWidth: "90vw",
-          textAlign: "center",
-          position: "relative",
-          border: "1px solid var(--border)",
-        }}
-      >
-        <h2 style={{ color: "var(--accent)", marginBottom: 16 }}>Inspection</h2>
-        <div style={{ fontSize: 48, fontWeight: 700, color: penalty === "DNF" ? "var(--danger)" : penalty === "+2" ? "var(--warning)" : "var(--text)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Inspection</span>
+        <span style={{ fontSize: 36, fontWeight: 700, fontFamily: "monospace", color: penalty === "DNF" ? "var(--danger)" : penalty === "+2" ? "var(--warning)" : "var(--text)", minWidth: 48 }}>
           {remaining > 0 ? remaining : penalty === "DNF" ? "DNF" : "+2"}
-        </div>
-        <div style={{ margin: "18px 0 0 0", color: "var(--text-muted)", fontWeight: 600 }}>
-          {warning === 1 && <span style={{ color: "var(--warning)" }}>8s warning!</span>}
-          {warning === 2 && <span style={{ color: "var(--danger)" }}>12s warning!</span>}
-        </div>
-        <div style={{ margin: "8px 0 0 0", color: "var(--text-muted)" }}>
-          {penalty === null && "Start your solve before time runs out!"}
-          {penalty === "+2" && "+2s penalty if you start now."}
-          {penalty === "DNF" && "DNF: Inspection overtime."}
-        </div>
+        </span>
+        {warning === 1 && <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--warning)" }}>8s!</span>}
+        {warning === 2 && <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--danger)" }}>12s!</span>}
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
         <button
           onClick={handleStartSolve}
-          style={{
-            marginTop: 32,
-            padding: "12px 32px",
-            fontSize: 20,
-            borderRadius: 8,
-            border: "none",
-            background: "var(--accent)",
-            color: "#fff",
-            cursor: "pointer",
-            fontWeight: 600,
-          }}
           disabled={!active}
+          style={{ padding: "7px 24px", fontSize: "0.95rem", borderRadius: 8, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer", fontWeight: 600 }}
         >
           Start Solve
         </button>
         {onCancel && (
           <button
             onClick={onCancel}
-            style={{
-              marginTop: 16,
-              marginLeft: 16,
-              padding: "8px 20px",
-              fontSize: 16,
-              borderRadius: 8,
-              border: "none",
-              background: "var(--surface-alt)",
-              color: "var(--danger)",
-              cursor: "pointer",
-              fontWeight: 500,
-            }}
+            style={{ padding: "7px 16px", fontSize: "0.95rem", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-alt)", color: "var(--danger)", cursor: "pointer", fontWeight: 500 }}
           >
             Cancel
           </button>
