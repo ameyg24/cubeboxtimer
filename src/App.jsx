@@ -142,6 +142,7 @@ function App() {
   const [pendingPenalty, setPendingPenalty] = useState(null); // null | '+2' | 'DNF'
   const { user } = useAuth();
   const [startSignal, setStartSignal] = useState(0); // for external start
+  const [lastSolveIsPB, setLastSolveIsPB] = useState(false);
   const [inspectionModeEnabled, setInspectionModeEnabled] = useState(() => {
     const local = localStorage.getItem("cubeboxtimer_inspectionModeEnabled");
     return local === null ? true : local === "true";
@@ -309,6 +310,21 @@ function App() {
         id: (typeof time === "object" && time !== null ? time.id : undefined) ?? Date.now(),
       };
     }
+    // Check if this solve is a new personal best
+    if (solveObj.penalty !== "DNF" && solveObj.millis > 0) {
+      const currentBestMillis = eventSolves
+        .filter((s) => s.penalty !== "DNF" && s.millis > 0)
+        .reduce((best, s) => {
+          const t = s.millis + (s.penalty === "+2" ? 2000 : 0);
+          return best === null ? t : Math.min(best, t);
+        }, null);
+      const newTime = solveObj.millis + (solveObj.penalty === "+2" ? 2000 : 0);
+      if (currentBestMillis === null || newTime < currentBestMillis) {
+        setLastSolveIsPB(true);
+        setTimeout(() => setLastSolveIsPB(false), 3000);
+      }
+    }
+
     setSessions((prev) =>
       prev.map((s) =>
         s.id === activeSessionId
@@ -528,6 +544,18 @@ function App() {
                 >
                   Start
                 </button>
+              </div>
+            )}
+            {lastSolveIsPB && (
+              <div style={{
+                position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
+                background: "var(--success)", color: "#fff", fontWeight: 700,
+                fontSize: "0.9rem", padding: "4px 16px", borderRadius: 20,
+                letterSpacing: "0.06em", boxShadow: "var(--shadow-md)",
+                animation: "solveRowIn 0.25s ease",
+                zIndex: 20,
+              }}>
+                PB!
               </div>
             )}
             <Timer
