@@ -274,6 +274,52 @@ const DailyStatsTab = ({ dailyStats }) => {
   );
 };
 
+const HistogramTab = ({ solves }) => {
+  const validTimes = solves
+    .filter((s) => s.penalty !== "DNF" && s.millis > 0)
+    .map((s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000);
+
+  if (validTimes.length === 0) {
+    return (
+      <div style={{ color: "var(--text-faint)", textAlign: "center", padding: "3rem", background: "var(--surface)", borderRadius: 10, border: "1px solid var(--border)" }}>
+        No solves yet. Start solving!
+      </div>
+    );
+  }
+
+  const min = Math.floor(Math.min(...validTimes) * 2) / 2;
+  const max = Math.ceil(Math.max(...validTimes) * 2) / 2;
+  const bucketSize = Math.max(0.5, Math.ceil((max - min) / 12 * 2) / 2);
+  const buckets = [];
+  for (let lo = min; lo < max + bucketSize; lo = Math.round((lo + bucketSize) * 100) / 100) {
+    const hi = Math.round((lo + bucketSize) * 100) / 100;
+    const count = validTimes.filter((t) => t >= lo && t < hi).length;
+    buckets.push({ lo, hi, count });
+  }
+  const maxCount = Math.max(...buckets.map((b) => b.count), 1);
+
+  return (
+    <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "1.2rem 1.4rem", boxShadow: "var(--shadow)" }}>
+      <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        Time Distribution ({validTimes.length} solves)
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        {buckets.filter((b) => b.count > 0).map((b) => (
+          <div key={b.lo} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ minWidth: 70, fontSize: "0.78rem", fontFamily: "monospace", color: "var(--text-muted)", textAlign: "right" }}>
+              {b.lo.toFixed(1)}–{b.hi.toFixed(1)}s
+            </span>
+            <div style={{ flex: 1, background: "var(--surface-alt)", borderRadius: 4, height: 18, overflow: "hidden" }}>
+              <div style={{ width: `${(b.count / maxCount) * 100}%`, height: "100%", background: "var(--accent)", borderRadius: 4, transition: "width 0.3s ease" }} />
+            </div>
+            <span style={{ minWidth: 24, fontSize: "0.78rem", fontFamily: "monospace", color: "var(--text-muted)" }}>{b.count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const Dashboard = ({ eventSolves, allSolves }) => {
   const [tab, setTab] = useState("stats");
 
@@ -314,6 +360,9 @@ const Dashboard = ({ eventSolves, allSolves }) => {
         <button style={tabStyle(tab === "daily")} onClick={() => setTab("daily")}>
           Daily
         </button>
+        <button style={tabStyle(tab === "dist")} onClick={() => setTab("dist")}>
+          Dist
+        </button>
       </div>
 
       {tab === "stats" && (
@@ -326,6 +375,7 @@ const Dashboard = ({ eventSolves, allSolves }) => {
       {tab === "chart" && <StatsChart solves={allSolves} />}
 
       {tab === "daily" && <DailyStatsTab dailyStats={dailyStats} />}
+      {tab === "dist" && <HistogramTab solves={allSolves} />}
     </div>
   );
 };
