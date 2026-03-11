@@ -93,6 +93,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
                 gap: 6,
                 minHeight: 36,
                 transition: "background 0.1s",
+                animation: revIdx === 0 ? "solveRowIn 0.22s ease" : undefined,
               }}
             >
               {/* Index */}
