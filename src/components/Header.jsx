@@ -115,9 +115,10 @@ const Header = ({
           {showSessionPlaceholder ? (
             <option value="" disabled>No sessions</option>
           ) : (
-            sessions.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))
+            sessions.map((s) => {
+              const count = (s.solves?.[cubeDimension] || []).length;
+              return <option key={s.id} value={s.id}>{s.name} ({count})</option>;
+            })
           )}
         </select>
 
