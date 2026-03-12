@@ -21,7 +21,7 @@ function computeFullStats(solvesRaw) {
   const empty = {
     best: null, worst: null, mean: null, stddev: null,
     mo3: null, ao5: null, ao12: null, ao50: null, ao100: null,
-    bestAo5: null, bestAo12: null,
+    bestAo5: null, bestAo12: null, bestStreak: 0,
     count: 0, validCount: 0, dnfCount: 0, plus2Count: 0,
   };
   if (!solvesRaw || solvesRaw.length === 0) return empty;
@@ -67,10 +67,21 @@ function computeFullStats(solvesRaw) {
     }
   }
 
+  let bestStreak = 0, curStreak = 0;
+  for (const s of solvesRaw) {
+    const t = s.penalty === "DNF" ? null : (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000;
+    if (t !== null && t < mean) {
+      curStreak++;
+      if (curStreak > bestStreak) bestStreak = curStreak;
+    } else {
+      curStreak = 0;
+    }
+  }
+
   return {
     best, worst, mean, stddev,
     mo3, ao5, ao12, ao50, ao100,
-    bestAo5, bestAo12,
+    bestAo5, bestAo12, bestStreak,
     count: solvesRaw.length,
     validCount: times.length,
     dnfCount, plus2Count,
@@ -200,6 +211,8 @@ const StatsCard = ({ title, stats, solves }) => (
     <div style={{ height: 8 }} />
     <StatRow label="DNFs" value={stats.dnfCount} highlight={stats.dnfCount > 0 ? "var(--danger)" : undefined} />
     <StatRow label="+2s" value={stats.plus2Count} highlight={stats.plus2Count > 0 ? "var(--warning)" : undefined} />
+    <div style={{ height: 8 }} />
+    <StatRow label="Best streak" value={stats.bestStreak > 0 ? `${stats.bestStreak} solves` : "-"} highlight={stats.bestStreak >= 5 ? "var(--success)" : undefined} />
   </div>
 );
 
