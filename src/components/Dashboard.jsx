@@ -124,7 +124,7 @@ const StatRow = ({ label, value, highlight }) => (
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
-      padding: "5px 2px",
+      padding: "4px 0",
       borderBottom: "1px solid var(--border)",
       fontSize: "0.88rem",
     }}
@@ -156,7 +156,7 @@ const StatsCard = ({ title, stats, solves }) => (
       minWidth: 190,
       background: "var(--surface)",
       borderRadius: 10,
-      padding: "1rem 1.1rem",
+      padding: "16px",
       boxShadow: "var(--shadow)",
       border: "1px solid var(--border)",
       transition: "background 0.2s, border-color 0.2s",
@@ -182,8 +182,8 @@ const StatsCard = ({ title, stats, solves }) => (
     <StatRow label="Worst" value={fmt(stats.worst)} highlight="var(--danger)" />
     <StatRow label="Mean" value={fmt(stats.mean)} />
     <StatRow label="Std Dev" value={fmt(stats.stddev)} />
-    <div style={{ height: 6 }} />
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 2px", borderBottom: "1px solid var(--border)", fontSize: "0.88rem" }}>
+    <div style={{ height: 8 }} />
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid var(--border)", fontSize: "0.88rem" }}>
       <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>ao5</span>
       <span style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "monospace", display: "flex", alignItems: "center" }}>
         {fmt(stats.ao5)}<Ao5Trend solves={solves || []} />
@@ -192,10 +192,10 @@ const StatsCard = ({ title, stats, solves }) => (
     <StatRow label="ao12" value={fmt(stats.ao12)} highlight="var(--accent)" />
     <StatRow label="ao50" value={fmt(stats.ao50)} highlight="var(--accent)" />
     <StatRow label="ao100" value={fmt(stats.ao100)} highlight="var(--accent)" />
-    <div style={{ height: 6 }} />
+    <div style={{ height: 8 }} />
     <StatRow label="Best ao5" value={fmt(stats.bestAo5)} highlight="var(--accent)" />
     <StatRow label="Best ao12" value={fmt(stats.bestAo12)} highlight="var(--accent)" />
-    <div style={{ height: 6 }} />
+    <div style={{ height: 8 }} />
     <StatRow label="DNFs" value={stats.dnfCount} highlight={stats.dnfCount > 0 ? "var(--danger)" : undefined} />
     <StatRow label="+2s" value={stats.plus2Count} highlight={stats.plus2Count > 0 ? "var(--warning)" : undefined} />
   </div>
@@ -321,7 +321,7 @@ const HistogramTab = ({ solves }) => {
       <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.04em" }}>
         Time Distribution ({validTimes.length} solves)
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {buckets.filter((b) => b.count > 0).map((b) => (
           <div key={b.lo} style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ minWidth: 70, fontSize: "0.78rem", fontFamily: "monospace", color: "var(--text-muted)", textAlign: "right" }}>
@@ -346,7 +346,7 @@ const Dashboard = ({ eventSolves, allSolves }) => {
   const dailyStats = useMemo(() => computeDailyStats(allSolves), [allSolves]);
 
   const tabStyle = (active) => ({
-    padding: "7px 16px",
+    padding: "8px 16px",
     border: "none",
     borderRadius: 0,
     background: "transparent",
