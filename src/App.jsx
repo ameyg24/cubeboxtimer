@@ -441,6 +441,10 @@ function App() {
         onShowSettings={() => setShowSettings(true)}
         onShowProfile={() => setShowProfile(true)}
         showSessionPlaceholder={sessions.length === 0}
+        sessionBestMs={eventSolves.filter(s => s.penalty !== "DNF" && s.millis > 0).reduce((best, s) => {
+          const t = s.millis + (s.penalty === "+2" ? 2000 : 0);
+          return best === null ? t : Math.min(best, t);
+        }, null)}
       />
       {showSettings && (
         <SettingsModal

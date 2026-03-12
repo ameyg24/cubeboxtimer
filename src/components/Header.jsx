@@ -21,6 +21,7 @@ const Header = ({
   onShowSettings = () => {},
   onShowProfile = () => {},
   showSessionPlaceholder = false,
+  sessionBestMs = null,
 }) => {
   const { user, login, logout } = useAuth();
   const { dark, toggleDark } = useTheme();
@@ -106,6 +107,16 @@ const Header = ({
 
       {/* Right */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+        {sessionBestMs !== null && (
+          <span style={{
+            fontSize: "0.75rem", fontWeight: 700, fontFamily: "monospace",
+            background: "var(--accent-bg)", color: "var(--accent)",
+            border: "1px solid var(--accent)", borderRadius: 12,
+            padding: "2px 10px", letterSpacing: "0.02em",
+          }} title="Session best">
+            ★ {(sessionBestMs / 1000).toFixed(2)}s
+          </span>
+        )}
         <select
           className="ctrl"
           value={activeSessionId}
