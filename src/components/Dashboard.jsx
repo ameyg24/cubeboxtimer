@@ -384,9 +384,37 @@ const Dashboard = ({ eventSolves, allSolves }) => {
       </div>
 
       {tab === "stats" && (
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-          <StatsCard title="Session" stats={sessionStats} solves={eventSolves} />
-          <StatsCard title="All-Time" stats={allTimeStats} solves={allSolves} />
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+            <StatsCard title="Session" stats={sessionStats} solves={eventSolves} />
+            <StatsCard title="All-Time" stats={allTimeStats} solves={allSolves} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button
+              onClick={() => {
+                const header = "solve,time_s,penalty\n";
+                const rows = eventSolves.map((s, i) => {
+                  const t = s.penalty === "DNF" ? "DNF" : ((s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000).toFixed(3);
+                  return `${i + 1},${t},${s.penalty || ""}`;
+                }).join("\n");
+                const blob = new Blob([header + rows], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "session_solves.csv";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              style={{
+                padding: "8px 16px", fontSize: "0.82rem", borderRadius: 6,
+                border: "1px solid var(--border)", background: "var(--surface-alt)",
+                color: "var(--text-muted)", cursor: "pointer", fontWeight: 600,
+                fontFamily: "inherit",
+              }}
+            >
+              ↓ Export CSV
+            </button>
+          </div>
         </div>
       )}
 
