@@ -20,7 +20,7 @@ function wcaAvgN(solvesSlice) {
 function computeFullStats(solvesRaw) {
   const empty = {
     best: null, worst: null, mean: null, stddev: null,
-    ao5: null, ao12: null, ao50: null, ao100: null,
+    mo3: null, ao5: null, ao12: null, ao50: null, ao100: null,
     bestAo5: null, bestAo12: null,
     count: 0, validCount: 0, dnfCount: 0, plus2Count: 0,
   };
@@ -46,6 +46,7 @@ function computeFullStats(solvesRaw) {
     times.reduce((sum, t) => sum + (t - mean) ** 2, 0) / times.length;
   const stddev = Math.sqrt(variance);
 
+  const mo3 = solvesRaw.length >= 3 ? wcaAvgN(solvesRaw.slice(-3)) : null;
   const ao5 = solvesRaw.length >= 5 ? wcaAvgN(solvesRaw.slice(-5)) : null;
   const ao12 = solvesRaw.length >= 12 ? wcaAvgN(solvesRaw.slice(-12)) : null;
   const ao50 = solvesRaw.length >= 50 ? wcaAvgN(solvesRaw.slice(-50)) : null;
@@ -68,7 +69,7 @@ function computeFullStats(solvesRaw) {
 
   return {
     best, worst, mean, stddev,
-    ao5, ao12, ao50, ao100,
+    mo3, ao5, ao12, ao50, ao100,
     bestAo5, bestAo12,
     count: solvesRaw.length,
     validCount: times.length,
@@ -183,6 +184,7 @@ const StatsCard = ({ title, stats, solves }) => (
     <StatRow label="Mean" value={fmt(stats.mean)} />
     <StatRow label="Std Dev" value={fmt(stats.stddev)} />
     <div style={{ height: 8 }} />
+    <StatRow label="mo3" value={fmt(stats.mo3)} highlight="var(--accent)" />
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid var(--border)", fontSize: "0.88rem" }}>
       <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>ao5</span>
       <span style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "monospace", display: "flex", alignItems: "center" }}>
