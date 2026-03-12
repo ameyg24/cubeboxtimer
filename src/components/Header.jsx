@@ -85,6 +85,11 @@ const Header = ({
         <span className="scramble-string">
           {scrambles[selectedScrambleIdx] || ""}
         </span>
+        {scrambles[selectedScrambleIdx] && (
+          <span style={{ fontSize: "0.72rem", color: "var(--text-faint)", fontWeight: 600, fontFamily: "monospace", whiteSpace: "nowrap" }}>
+            {scrambles[selectedScrambleIdx].split(" ").filter(Boolean).length}M
+          </span>
+        )}
         <button
           className="icon-btn"
           onClick={handleCopyScramble}
