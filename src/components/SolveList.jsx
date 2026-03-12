@@ -54,7 +54,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
       {/* Header */}
       <div
         style={{
-          padding: "0.7rem 1rem",
+          padding: "12px 16px",
           borderBottom: "1px solid var(--border)",
           fontWeight: 700,
           fontSize: "0.88rem",
@@ -102,10 +102,10 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
               style={{
                 display: "flex",
                 alignItems: "center",
-                padding: "6px 10px",
+                padding: "8px 12px",
                 background: isHovered ? "var(--accent-bg)" : "transparent",
                 borderBottom: "1px solid var(--border)",
-                gap: 6,
+                gap: 8,
                 minHeight: 36,
                 transition: "background 0.1s",
                 animation: revIdx === 0 ? "solveRowIn 0.22s ease" : undefined,
@@ -179,7 +179,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
                       })
                     }
                     style={{
-                      padding: "2px 7px",
+                      padding: "4px 8px",
                       fontSize: "0.75rem",
                       background: isPlus2 ? "#e65100" : "#f0f0f0",
                       color: isPlus2 ? "#fff" : "#555",
@@ -199,7 +199,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
                       })
                     }
                     style={{
-                      padding: "2px 7px",
+                      padding: "4px 8px",
                       fontSize: "0.75rem",
                       background: isDNF ? "#c62828" : "#f0f0f0",
                       color: isDNF ? "#fff" : "#555",
@@ -215,7 +215,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
                     title="Delete solve"
                     onClick={() => deleteSolve && deleteSolve(idx)}
                     style={{
-                      padding: "2px 7px",
+                      padding: "4px 8px",
                       fontSize: "0.75rem",
                       background: "#f0f0f0",
                       color: "#c62828",
