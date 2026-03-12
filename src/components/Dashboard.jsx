@@ -342,6 +342,8 @@ const HistogramTab = ({ solves }) => {
 
 const Dashboard = ({ eventSolves, allSolves }) => {
   const [tab, setTab] = useState("stats");
+  const [goalInput, setGoalInput] = useState("");
+  const [goalSec, setGoalSec] = useState(null);
 
   const sessionStats = useMemo(() => computeFullStats(eventSolves), [eventSolves]);
   const allTimeStats = useMemo(() => computeFullStats(allSolves), [allSolves]);
@@ -391,7 +393,37 @@ const Dashboard = ({ eventSolves, allSolves }) => {
             <StatsCard title="Session" stats={sessionStats} solves={eventSolves} />
             <StatsCard title="All-Time" stats={allTimeStats} solves={allSolves} />
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: "0.82rem", color: "var(--text-muted)", fontWeight: 600 }}>Goal:</span>
+              <input
+                type="number"
+                placeholder="e.g. 12.5"
+                value={goalInput}
+                onChange={(e) => setGoalInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { const v = parseFloat(goalInput); setGoalSec(isNaN(v) ? null : v); } }}
+                style={{
+                  width: 80, padding: "4px 8px", fontSize: "0.82rem", borderRadius: 6,
+                  border: "1px solid var(--border)", background: "var(--surface-alt)",
+                  color: "var(--text)", fontFamily: "monospace", outline: "none",
+                }}
+              />
+              <button onClick={() => { const v = parseFloat(goalInput); setGoalSec(isNaN(v) ? null : v); }}
+                style={{ padding: "4px 10px", fontSize: "0.82rem", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-alt)", color: "var(--accent)", cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}>
+                Set
+              </button>
+              {goalSec !== null && (
+                <>
+                  <span style={{ fontSize: "0.82rem", color: "var(--text-faint)" }}>
+                    {eventSolves.filter(s => s.penalty !== "DNF" && (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000 <= goalSec).length} / {eventSolves.filter(s => s.penalty !== "DNF").length} under {goalSec}s
+                  </span>
+                  <button onClick={() => { setGoalSec(null); setGoalInput(""); }}
+                    style={{ padding: "2px 8px", fontSize: "0.75rem", borderRadius: 4, border: "none", background: "none", color: "var(--text-faint)", cursor: "pointer" }}>
+                    ✕
+                  </button>
+                </>
+              )}
+            </div>
             <button
               onClick={() => {
                 const header = "solve,time_s,penalty\n";
