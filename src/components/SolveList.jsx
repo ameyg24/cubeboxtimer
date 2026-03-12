@@ -13,6 +13,17 @@ const fmtTime = (solve) => {
   return secs.toFixed(2) + (solve.penalty === "+2" ? "+" : "");
 };
 
+const relativeTime = (id) => {
+  if (!id || typeof id !== "number") return null;
+  const diffSec = Math.floor((Date.now() - id) / 1000);
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return `${Math.floor(diffHr / 24)}d ago`;
+};
+
 const SolveList = ({ solves, updateSolve, deleteSolve }) => {
   const [hoveredIdx, setHoveredIdx] = useState(null);
 
@@ -137,6 +148,13 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
               >
                 {fmtTime(solve)}
               </span>
+
+              {/* Relative time (when hovered) */}
+              {isHovered && relativeTime(solve.id) && (
+                <span style={{ fontSize: "0.72rem", color: "var(--text-faint)", fontFamily: "monospace", whiteSpace: "nowrap" }}>
+                  {relativeTime(solve.id)}
+                </span>
+              )}
 
               {/* Penalty badge (when not hovered) */}
               {!isHovered && isDNF && (
