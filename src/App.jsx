@@ -504,6 +504,8 @@ function App() {
               padding: "2rem 0 1.5rem 0",
               position: "relative",
               gap: 16,
+              background: timerRunning ? "rgba(22, 163, 74, 0.04)" : undefined,
+              transition: "background 0.4s",
             }}
           >
             {/* Only show Start button (no Start Inspection) when timer is not running, inspection is not visible, and timer is reset (0.00) */}
