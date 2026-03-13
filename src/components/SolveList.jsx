@@ -26,6 +26,7 @@ const relativeTime = (id) => {
 
 const SolveList = ({ solves, updateSolve, deleteSolve }) => {
   const [hoveredIdx, setHoveredIdx] = useState(null);
+  const [focusedIdx, setFocusedIdx] = useState(null);
 
   if (!solves || solves.length === 0) {
     return (
@@ -98,7 +99,16 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
       </div>
 
       {/* Solve rows */}
-      <div style={{ overflowY: "auto", flex: 1 }}>
+      <div
+        style={{ overflowY: "auto", flex: 1 }}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") { e.preventDefault(); setFocusedIdx(i => Math.min((i ?? -1) + 1, reversed.length - 1)); }
+          if (e.key === "ArrowUp") { e.preventDefault(); setFocusedIdx(i => Math.max((i ?? reversed.length) - 1, 0)); }
+          if ((e.key === "Delete" || e.key === "Backspace") && focusedIdx !== null) deleteSolve?.(reversed[focusedIdx].origIdx);
+        }}
+        onBlur={() => setFocusedIdx(null)}
+      >
         {reversed.map((solve, revIdx) => {
           const idx = solve.origIdx;
           const isHovered = hoveredIdx === revIdx;
@@ -114,7 +124,8 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
                 display: "flex",
                 alignItems: "center",
                 padding: "8px 12px",
-                background: isHovered ? "var(--accent-bg)" : "transparent",
+                background: focusedIdx === revIdx ? "var(--accent-bg)" : isHovered ? "var(--accent-bg)" : "transparent",
+                outline: focusedIdx === revIdx ? "2px solid var(--accent)" : "none",
                 borderBottom: "1px solid var(--border)",
                 gap: 8,
                 minHeight: 36,
