@@ -82,7 +82,17 @@ const Header = ({
             <path d="M9 11L5 7l4-4" />
           </svg>
         </button>
-        <span className="scramble-string">
+        <span
+          className="scramble-string"
+          style={{ cursor: "text", userSelect: "text" }}
+          onClick={(e) => {
+            const range = document.createRange();
+            range.selectNodeContents(e.currentTarget);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }}
+        >
           {scrambles[selectedScrambleIdx] || ""}
         </span>
         {scrambles[selectedScrambleIdx] && (
