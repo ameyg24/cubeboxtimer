@@ -21,7 +21,7 @@ function computeFullStats(solvesRaw) {
   const empty = {
     best: null, worst: null, mean: null, stddev: null,
     mo3: null, ao5: null, ao12: null, ao50: null, ao100: null,
-    bestAo5: null, bestAo12: null, bestStreak: 0, totalTime: 0,
+    bestAo5: null, bestAo12: null, worstAo5: null, bestStreak: 0, totalTime: 0,
     count: 0, validCount: 0, dnfCount: 0, plus2Count: 0,
   };
   if (!solvesRaw || solvesRaw.length === 0) return empty;
@@ -52,12 +52,13 @@ function computeFullStats(solvesRaw) {
   const ao50 = solvesRaw.length >= 50 ? wcaAvgN(solvesRaw.slice(-50)) : null;
   const ao100 = solvesRaw.length >= 100 ? wcaAvgN(solvesRaw.slice(-100)) : null;
 
-  let bestAo5 = null;
+  let bestAo5 = null, worstAo5 = null;
   let bestAo12 = null;
   for (let i = 4; i < solvesRaw.length; i++) {
     const avg = wcaAvgN(solvesRaw.slice(i - 4, i + 1));
     if (avg !== null && avg !== "DNF") {
       if (bestAo5 === null || avg < bestAo5) bestAo5 = avg;
+      if (worstAo5 === null || avg > worstAo5) worstAo5 = avg;
     }
   }
   for (let i = 11; i < solvesRaw.length; i++) {
@@ -83,7 +84,7 @@ function computeFullStats(solvesRaw) {
   return {
     best, worst, mean, stddev,
     mo3, ao5, ao12, ao50, ao100,
-    bestAo5, bestAo12, bestStreak, totalTime,
+    bestAo5, bestAo12, worstAo5, bestStreak, totalTime,
     count: solvesRaw.length,
     validCount: times.length,
     dnfCount, plus2Count,
@@ -214,6 +215,7 @@ const StatsCard = ({ title, stats, solves }) => (
     <StatRow label="ao100" value={fmt(stats.ao100)} highlight="var(--accent)" />
     <div style={{ height: 8 }} />
     <StatRow label="Best ao5" value={fmt(stats.bestAo5)} highlight="var(--accent)" />
+    <StatRow label="Worst ao5" value={fmt(stats.worstAo5)} />
     <StatRow label="Best ao12" value={fmt(stats.bestAo12)} highlight="var(--accent)" />
     <div style={{ height: 8 }} />
     <StatRow label="DNFs" value={stats.dnfCount} highlight={stats.dnfCount > 0 ? "var(--danger)" : undefined} />
