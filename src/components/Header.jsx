@@ -77,6 +77,13 @@ const Header = ({
 
       {/* Center — scramble */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, justifyContent: "center", minWidth: 0 }}>
+        <span style={{
+          fontSize: "0.7rem", fontWeight: 700, color: "var(--accent)",
+          background: "var(--accent-bg)", border: "1px solid var(--accent)",
+          borderRadius: 10, padding: "2px 8px", whiteSpace: "nowrap", letterSpacing: "0.02em",
+        }}>
+          {scrambleType} {cubeDimension.split("x").slice(0, 2).join("×")}
+        </span>
         <button className="icon-btn" onClick={handlePrev} title="Previous scramble">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M9 11L5 7l4-4" />
