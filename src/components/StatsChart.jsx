@@ -38,7 +38,9 @@ function buildChartData(solvesRaw) {
     return wcaAvgN(valid.slice(i - 11, i + 1));
   });
 
-  return { labels, times, ao5Data, ao12Data };
+  const mean = times.length ? times.reduce((a, b) => a + b, 0) / times.length : null;
+  const meanData = times.map(() => mean);
+  return { labels, times, ao5Data, ao12Data, meanData };
 }
 
 const StatsChart = ({ solves }) => {
@@ -52,7 +54,7 @@ const StatsChart = ({ solves }) => {
   useEffect(() => {
     if (!chartRef.current) return;
     const ctx = chartRef.current.getContext("2d");
-    const { labels, times, ao5Data, ao12Data } = buildChartData(solves || []);
+    const { labels, times, ao5Data, ao12Data, meanData } = buildChartData(solves || []);
 
     chartInstance.current = new Chart(ctx, {
       type: "line",
@@ -98,6 +100,20 @@ const StatsChart = ({ solves }) => {
             fill: false,
             spanGaps: false,
             order: 1,
+          },
+          {
+            label: "mean",
+            data: meanData,
+            borderColor: "rgba(180,180,180,0.6)",
+            backgroundColor: "transparent",
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            borderWidth: 1.5,
+            borderDash: [6, 4],
+            tension: 0,
+            fill: false,
+            spanGaps: true,
+            order: 0,
           },
         ],
       },
@@ -164,11 +180,12 @@ const StatsChart = ({ solves }) => {
 
   useEffect(() => {
     if (!chartInstance.current) return;
-    const { labels, times, ao5Data, ao12Data } = buildChartData(solves || []);
+    const { labels, times, ao5Data, ao12Data, meanData } = buildChartData(solves || []);
     chartInstance.current.data.labels = labels;
     chartInstance.current.data.datasets[0].data = times;
     chartInstance.current.data.datasets[1].data = ao5Data;
     chartInstance.current.data.datasets[2].data = ao12Data;
+    chartInstance.current.data.datasets[3].data = meanData;
     chartInstance.current.update();
   }, [solves]);
 
