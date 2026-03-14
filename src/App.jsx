@@ -41,24 +41,21 @@ function ProfileModal({ user, onClose }) {
   );
 }
 
-function SettingsModal({ onClose, inspectionModeEnabled, setInspectionModeEnabled }) {
+function SettingsModal({ onClose, inspectionModeEnabled, setInspectionModeEnabled, spaceStartsInspection, setSpaceStartsInspection }) {
+  const row = { display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: 14, color: "var(--text)", fontSize: "0.92rem" };
   return (
-    <div
-      style={{
-        position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
-        background: "rgba(0,0,0,0.4)", zIndex: 2000, display: "flex",
-        alignItems: "center", justifyContent: "center",
-      }}
-    >
+    <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.4)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={modalStyle}>
         <button onClick={onClose} style={modalCloseStyle}>×</button>
-        <h2 style={{ color: "var(--text)", marginBottom: 16, fontSize: "1.1rem" }}>Settings</h2>
-        <div style={{ margin: "18px 0", color: "var(--text)" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-            <input type="checkbox" checked={inspectionModeEnabled} onChange={e => setInspectionModeEnabled(e.target.checked)} style={{ width: 16, height: 16 }} />
-            WCA Inspection Mode (15s before each solve)
-          </label>
-        </div>
+        <h2 style={{ color: "var(--text)", marginBottom: 20, fontSize: "1.1rem" }}>Settings</h2>
+        <label style={row}>
+          <input type="checkbox" checked={inspectionModeEnabled} onChange={e => setInspectionModeEnabled(e.target.checked)} style={{ width: 16, height: 16 }} />
+          WCA inspection (15s before each solve)
+        </label>
+        <label style={{ ...row, opacity: inspectionModeEnabled ? 1 : 0.4, pointerEvents: inspectionModeEnabled ? "auto" : "none" }}>
+          <input type="checkbox" checked={spaceStartsInspection} onChange={e => setSpaceStartsInspection(e.target.checked)} style={{ width: 16, height: 16 }} disabled={!inspectionModeEnabled} />
+          Space bar starts inspection
+        </label>
       </div>
     </div>
   );
@@ -146,6 +143,10 @@ function App() {
   const [lastSolveIsPB, setLastSolveIsPB] = useState(false);
   const [inspectionModeEnabled, setInspectionModeEnabled] = useState(() => {
     const local = localStorage.getItem("cubeboxtimer_inspectionModeEnabled");
+    return local === null ? true : local === "true";
+  });
+  const [spaceStartsInspection, setSpaceStartsInspection] = useState(() => {
+    const local = localStorage.getItem("cubeboxtimer_spaceStartsInspection");
     return local === null ? true : local === "true";
   });
 
@@ -416,6 +417,10 @@ function App() {
     localStorage.setItem("cubeboxtimer_inspectionModeEnabled", inspectionModeEnabled);
   }, [inspectionModeEnabled]);
 
+  useEffect(() => {
+    localStorage.setItem("cubeboxtimer_spaceStartsInspection", spaceStartsInspection);
+  }, [spaceStartsInspection]);
+
   return (
     <div
       className="app-container"
@@ -454,6 +459,8 @@ function App() {
           onClose={() => setShowSettings(false)}
           inspectionModeEnabled={inspectionModeEnabled}
           setInspectionModeEnabled={setInspectionModeEnabled}
+          spaceStartsInspection={spaceStartsInspection}
+          setSpaceStartsInspection={setSpaceStartsInspection}
         />
       )}
       {showProfile && (
@@ -563,6 +570,7 @@ function App() {
               startSignal={startSignal}
               pendingPenalty={pendingPenalty}
               inspectionActive={inspectionVisible}
+              onSpacePressIdle={inspectionModeEnabled && spaceStartsInspection ? () => setInspectionVisible(true) : undefined}
             />
             {inspectionVisible && (
               <InspectionTimer
