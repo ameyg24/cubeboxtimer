@@ -46,7 +46,13 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
     );
   }
 
-  // Show most recent first
+  const bestMillis = solves
+    .filter(s => s.penalty !== "DNF" && s.millis > 0)
+    .reduce((best, s) => {
+      const t = s.millis + (s.penalty === "+2" ? 2000 : 0);
+      return best === null ? t : Math.min(best, t);
+    }, null);
+
   const reversed = [...solves].map((s, origIdx) => ({ ...s, origIdx })).reverse();
 
   return (
@@ -114,6 +120,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
           const isHovered = hoveredIdx === revIdx;
           const isDNF = solve.penalty === "DNF";
           const isPlus2 = solve.penalty === "+2";
+          const isPB = !isDNF && bestMillis !== null && (solve.millis + (isPlus2 ? 2000 : 0)) === bestMillis;
 
           return (
             <div
@@ -124,7 +131,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
                 display: "flex",
                 alignItems: "center",
                 padding: "8px 12px",
-                background: focusedIdx === revIdx ? "var(--accent-bg)" : isHovered ? "var(--accent-bg)" : "transparent",
+                background: focusedIdx === revIdx || isHovered ? "var(--accent-bg)" : isPB ? "rgba(250, 204, 21, 0.08)" : "transparent",
                 outline: focusedIdx === revIdx ? "2px solid var(--accent)" : "none",
                 borderBottom: "1px solid var(--border)",
                 gap: 8,
@@ -134,6 +141,9 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
               }}
             >
               {/* Index */}
+              {isPB && (
+                <span style={{ fontSize: "0.65rem", color: "#ca8a04", fontWeight: 800, letterSpacing: "0.04em" }}>PB</span>
+              )}
               <span
                 style={{
                   color: "var(--text-faint)",
