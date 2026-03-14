@@ -174,9 +174,9 @@ const StatsChart = ({ solves }) => {
 
   return (
     <div
+      className="chart-container"
       style={{
         width: "100%",
-        height: 360,
         background: "var(--surface)",
         border: "1px solid var(--border)",
         borderRadius: 10,

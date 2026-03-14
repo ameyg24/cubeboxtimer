@@ -146,7 +146,14 @@ select.ctrl:focus {
 }
 
 /* ── Responsive ─────────────────────────────────────────── */
+.chart-container {
+  height: 360px;
+}
+
 @media (max-width: 700px) {
+  .chart-container {
+    height: 220px;
+  }
   .timer h1 {
     font-size: 3.5rem;
   }
