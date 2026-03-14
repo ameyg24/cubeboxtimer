@@ -20,6 +20,34 @@ import "./App.css";
 import Dashboard from "./components/Dashboard.jsx";
 import SolveList from "./components/SolveList.jsx";
 
+const SHORTCUTS = [
+  { key: "Space", desc: "Start / stop timer" },
+  { key: "Space (hold)", desc: "Start inspection (if enabled)" },
+  { key: "Escape", desc: "Cancel inspection" },
+  { key: "?", desc: "Toggle this shortcuts panel" },
+];
+
+function ShortcutsModal({ onClose }) {
+  return (
+    <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.4)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={modalStyle}>
+        <button onClick={onClose} style={modalCloseStyle}>×</button>
+        <h2 style={{ color: "var(--text)", marginBottom: 16, fontSize: "1.1rem", textAlign: "left" }}>Keyboard Shortcuts</h2>
+        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+          <tbody>
+            {SHORTCUTS.map(({ key, desc }) => (
+              <tr key={key} style={{ borderBottom: "1px solid var(--border)" }}>
+                <td style={{ padding: "8px 12px 8px 0", fontFamily: "monospace", fontWeight: 700, color: "var(--accent)", whiteSpace: "nowrap", fontSize: "0.88rem" }}>{key}</td>
+                <td style={{ padding: "8px 0", color: "var(--text-muted)", fontSize: "0.88rem" }}>{desc}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function ProfileModal({ user, onClose }) {
   if (!user) return null;
   return (
@@ -141,6 +169,7 @@ function App() {
   const { user } = useAuth();
   const [startSignal, setStartSignal] = useState(0); // for external start
   const [lastSolveIsPB, setLastSolveIsPB] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [inspectionModeEnabled, setInspectionModeEnabled] = useState(() => {
     const local = localStorage.getItem("cubeboxtimer_inspectionModeEnabled");
     return local === null ? true : local === "true";
@@ -421,6 +450,17 @@ function App() {
     localStorage.setItem("cubeboxtimer_spaceStartsInspection", spaceStartsInspection);
   }, [spaceStartsInspection]);
 
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "?" && !e.ctrlKey && !e.metaKey && e.target.tagName !== "INPUT") {
+        setShowShortcuts(s => !s);
+      }
+      if (e.key === "Escape") setShowShortcuts(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div
       className="app-container"
@@ -465,6 +505,9 @@ function App() {
       )}
       {showProfile && (
         <ProfileModal user={user} onClose={() => setShowProfile(false)} />
+      )}
+      {showShortcuts && (
+        <ShortcutsModal onClose={() => setShowShortcuts(false)} />
       )}
       <div
         className="main-content"
