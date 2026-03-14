@@ -150,10 +150,10 @@ const StatRow = ({ label, value, highlight }) => (
   </div>
 );
 
-const Ao5Trend = ({ solves }) => {
-  if (solves.length < 10) return null;
-  const cur = wcaAvgN(solves.slice(-5));
-  const prev = wcaAvgN(solves.slice(-10, -5));
+const AvgTrend = ({ solves, n }) => {
+  if (solves.length < n * 2) return null;
+  const cur = wcaAvgN(solves.slice(-n));
+  const prev = wcaAvgN(solves.slice(-n * 2, -n));
   if (!cur || !prev || cur === "DNF" || prev === "DNF") return null;
   const better = cur < prev;
   return (
@@ -201,10 +201,15 @@ const StatsCard = ({ title, stats, solves }) => (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid var(--border)", fontSize: "0.88rem" }}>
       <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>ao5</span>
       <span style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "monospace", display: "flex", alignItems: "center" }}>
-        {fmt(stats.ao5)}<Ao5Trend solves={solves || []} />
+        {fmt(stats.ao5)}<AvgTrend solves={solves || []} n={5} />
       </span>
     </div>
-    <StatRow label="ao12" value={fmt(stats.ao12)} highlight="var(--accent)" />
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid var(--border)", fontSize: "0.88rem" }}>
+      <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>ao12</span>
+      <span style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "monospace", display: "flex", alignItems: "center" }}>
+        {fmt(stats.ao12)}<AvgTrend solves={solves || []} n={12} />
+      </span>
+    </div>
     <StatRow label="ao50" value={fmt(stats.ao50)} highlight="var(--accent)" />
     <StatRow label="ao100" value={fmt(stats.ao100)} highlight="var(--accent)" />
     <div style={{ height: 8 }} />
