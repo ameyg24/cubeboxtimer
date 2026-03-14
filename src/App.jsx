@@ -385,6 +385,15 @@ function App() {
     Array.isArray(s.solves?.[cubeDimension]) ? s.solves[cubeDimension] : []
   );
 
+  const lastAo5 = (() => {
+    if (eventSolves.length < 5) return null;
+    const slice = eventSolves.slice(-5);
+    const dnfCount = slice.filter(s => s.penalty === "DNF").length;
+    if (dnfCount >= 2) return "DNF";
+    const ts = slice.filter(s => s.penalty !== "DNF").map(s => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000).sort((a, b) => a - b).slice(1, -1);
+    return ts.length ? ts.reduce((a, b) => a + b, 0) / ts.length : null;
+  })();
+
   // Delete a solve by index (local and Firestore)
   const deleteSolve = async (idx) => {
     setSessions((prev) =>
@@ -633,6 +642,11 @@ function App() {
                 seconds={15}
                 onCancel={() => setInspectionVisible(false)}
               />
+            )}
+            {!timerRunning && lastAo5 !== null && (
+              <div style={{ fontSize: "0.82rem", color: "var(--text-muted)", fontFamily: "monospace", letterSpacing: "0.02em" }}>
+                ao5 {lastAo5 === "DNF" ? "DNF" : lastAo5.toFixed(2) + "s"}
+              </div>
             )}
           </div>
           {!timerRunning && (
