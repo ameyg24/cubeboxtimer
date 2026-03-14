@@ -369,6 +369,7 @@ const Dashboard = ({ eventSolves, allSolves }) => {
   const [tab, setTab] = useState("stats");
   const [goalInput, setGoalInput] = useState("");
   const [goalSec, setGoalSec] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   const sessionStats = useMemo(() => computeFullStats(eventSolves), [eventSolves]);
   const allTimeStats = useMemo(() => computeFullStats(allSolves), [allSolves]);
@@ -472,6 +473,28 @@ const Dashboard = ({ eventSolves, allSolves }) => {
               }}
             >
               ↓ Export CSV
+            </button>
+            <button
+              onClick={() => {
+                const lines = eventSolves.map((s, i) => {
+                  const t = s.penalty === "DNF" ? "DNF" : ((s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000).toFixed(2);
+                  return `${i + 1}. ${t}${s.penalty === "+2" ? "+" : ""}`;
+                });
+                const { mean, ao5, ao12, best } = sessionStats;
+                const fmt = v => v === null ? "-" : typeof v === "number" ? v.toFixed(2) + "s" : v;
+                lines.push("", `mean: ${fmt(mean)}  ao5: ${fmt(ao5)}  ao12: ${fmt(ao12)}  best: ${fmt(best)}`);
+                navigator.clipboard.writeText(lines.join("\n"));
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              }}
+              style={{
+                padding: "8px 16px", fontSize: "0.82rem", borderRadius: 6,
+                border: "1px solid var(--border)", background: "var(--surface-alt)",
+                color: copied ? "var(--success)" : "var(--text-muted)", cursor: "pointer", fontWeight: 600,
+                fontFamily: "inherit",
+              }}
+            >
+              {copied ? "Copied!" : "Copy results"}
             </button>
           </div>
         </div>
