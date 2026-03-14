@@ -12,8 +12,9 @@ const Timer = ({
   showMainButtons,
   scramble,
   startSignal,
-  pendingPenalty, // new prop
-  inspectionActive, // NEW: block key controls during inspection
+  pendingPenalty,
+  inspectionActive,
+  onSpacePressIdle,
 }) => {
   const [displayTime, setDisplayTime] = useState(0); // ms
   const [running, setRunning] = useState(false);
@@ -68,7 +69,11 @@ const Timer = ({
         if (inspectionActive) return;
         e.preventDefault();
         if (!runningRef.current && !pendingStart) {
-          setPendingStart(true); // Wait for keyup to start
+          if (onSpacePressIdle) {
+            onSpacePressIdle();
+          } else {
+            setPendingStart(true);
+          }
         } else if (runningRef.current) {
           stopTimer();
         }
@@ -89,7 +94,7 @@ const Timer = ({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [pendingStart, inspectionActive]);
+  }, [pendingStart, inspectionActive, onSpacePressIdle]);
 
   // Start timer if startSignal changes
   useEffect(() => {

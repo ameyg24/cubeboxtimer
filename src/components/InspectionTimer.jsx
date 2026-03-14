@@ -71,18 +71,28 @@ export default function InspectionTimer({
   // Call this when user starts solve (before inspection ends)
   const handleStartSolve = () => {
     if (!active) return;
-    
     const elapsed = (Date.now() - startTimeRef.current) / 1000;
     let penaltyToApply = null;
     if (elapsed > seconds && elapsed <= seconds + 2) penaltyToApply = "+2";
     if (elapsed > seconds + 2) penaltyToApply = "DNF";
-    
     setPenalty(penaltyToApply);
     if (onPenalty) onPenalty(penaltyToApply);
     if (onInspectionEnd) onInspectionEnd(penaltyToApply);
     setActive(false);
     clearInterval(timerRef.current);
   };
+
+  useEffect(() => {
+    if (!visible) return;
+    const onKey = (e) => {
+      if (e.code === "Space" && !e.repeat) {
+        e.preventDefault();
+        handleStartSolve();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visible, active]);
 
   if (!visible) return null;
 
