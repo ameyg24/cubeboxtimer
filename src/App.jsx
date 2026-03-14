@@ -139,7 +139,8 @@ function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [timerRunning, setTimerRunning] = useState(false); // NEW: track timer running state
   const [inspectionVisible, setInspectionVisible] = useState(false);
-  const [pendingPenalty, setPendingPenalty] = useState(null); // null | '+2' | 'DNF'
+  const [pendingPenalty, setPendingPenalty] = useState(null);
+  const [firestoreLoading, setFirestoreLoading] = useState(false);
   const { user } = useAuth();
   const [startSignal, setStartSignal] = useState(0); // for external start
   const [lastSolveIsPB, setLastSolveIsPB] = useState(false);
@@ -189,6 +190,7 @@ function App() {
     const sessionsCol = collection(db, "users", user.uid, "sessions");
     const q = query(sessionsCol, orderBy("createdAt"));
 
+    setFirestoreLoading(true);
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const loadedSessions = [];
       querySnapshot.forEach((docSnap) => {
@@ -207,7 +209,8 @@ function App() {
             : Date.now(),
         });
       });
-      didLoadSessions.current = true; // Mark as loaded
+      didLoadSessions.current = true;
+      setFirestoreLoading(false);
       setSessions(loadedSessions);
       setActiveSessionId((prev) =>
         prev && loadedSessions.some((s) => s.id === prev)
@@ -620,7 +623,15 @@ function App() {
                   alignItems: "stretch",
                 }}
               >
+                {firestoreLoading ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[1,2,3,4].map(i => (
+                    <div key={i} style={{ height: 36, borderRadius: 6, background: "var(--surface-alt)", animation: "skeletonPulse 1.2s ease-in-out infinite", animationDelay: `${i * 0.1}s` }} />
+                  ))}
+                </div>
+              ) : (
                 <SolveList solves={eventSolves} updateSolve={updateSolve} deleteSolve={deleteSolve} />
+              )}
               </div>
             </div>
           )}
