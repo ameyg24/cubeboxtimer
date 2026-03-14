@@ -474,7 +474,28 @@ const Dashboard = ({ eventSolves, allSolves }) => {
 
       {tab === "chart" && <StatsChart solves={allSolves} />}
 
-      {tab === "daily" && <DailyStatsTab dailyStats={dailyStats} />}
+      {tab === "daily" && (() => {
+        const today = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        const todayEntry = dailyStats.find(d => d.date === today);
+        return (
+          <>
+            {todayEntry && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: "0.82rem", color: "var(--text-muted)", fontWeight: 500 }}>Today</span>
+                <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--accent)", fontFamily: "monospace" }}>
+                  {todayEntry.count} solve{todayEntry.count !== 1 ? "s" : ""}
+                </span>
+                {todayEntry.mean && (
+                  <span style={{ fontSize: "0.78rem", color: "var(--text-faint)", fontFamily: "monospace" }}>
+                    avg {todayEntry.mean.toFixed(2)}s
+                  </span>
+                )}
+              </div>
+            )}
+            <DailyStatsTab dailyStats={dailyStats} />
+          </>
+        );
+      })()}
       {tab === "dist" && <HistogramTab solves={allSolves} />}
     </div>
   );
