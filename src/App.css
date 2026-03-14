@@ -86,7 +86,7 @@
   letter-spacing: -2px;
   margin: 0;
   font-variant-numeric: tabular-nums;
-  transition: color 0.15s;
+  transition: color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   font-family: "Courier New", monospace;
 }
 
