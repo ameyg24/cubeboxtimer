@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import Timer from "./components/Timer.jsx";
@@ -178,6 +178,8 @@ function App() {
     const local = localStorage.getItem("cubeboxtimer_spaceStartsInspection");
     return local === null ? true : local === "true";
   });
+
+  const inspectionStartTimeRef = useRef(null);
 
   // Prevent continuous refresh: only sync sessions after initial load
   const didLoadSessions = React.useRef(false);
@@ -470,6 +472,39 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Global spacebar handler: idle → inspection → solve start
+  useEffect(() => {
+    const handleSpace = (e) => {
+      if (e.code !== "Space" || e.repeat) return;
+      if (timerRunning) return; // Timer handles stop internally
+      e.preventDefault();
+
+      if (inspectionVisible) {
+        // End inspection, calculate penalty, start solve
+        const elapsed = (Date.now() - inspectionStartTimeRef.current) / 1000;
+        let penalty = null;
+        if (elapsed > 15 && elapsed <= 17) penalty = "+2";
+        if (elapsed > 17) penalty = "DNF";
+
+        setInspectionVisible(false);
+        if (penalty === "DNF") {
+          handleSolveComplete({ millis: 0, penalty: "DNF", reviewed: false, id: Date.now() });
+          setTimerRunning(false);
+        } else {
+          setPendingPenalty(penalty);
+          setTimerRunning(true);
+          setStartSignal(s => s + 1);
+        }
+      } else {
+        // Start inspection
+        inspectionStartTimeRef.current = Date.now();
+        setInspectionVisible(true);
+      }
+    };
+    window.addEventListener("keydown", handleSpace);
+    return () => window.removeEventListener("keydown", handleSpace);
+  }, [inspectionVisible, timerRunning]);
+
   return (
     <div
       className="app-container"
@@ -586,13 +621,7 @@ function App() {
                     letterSpacing: "0.02em",
                   }}
                   onClick={() => {
-                    if (inspectionModeEnabled) {
-                      setInspectionVisible(true);
-                    } else {
-                      setPendingPenalty(null);
-                      setStartSignal((s) => s + 1);
-                      setTimerRunning(true);
-                    }
+                    setInspectionVisible(true);
                   }}
                 >
                   Start
@@ -622,7 +651,6 @@ function App() {
               startSignal={startSignal}
               pendingPenalty={pendingPenalty}
               inspectionActive={inspectionVisible}
-              onSpacePressIdle={inspectionModeEnabled && spaceStartsInspection ? () => setInspectionVisible(true) : undefined}
             />
             {inspectionVisible && (
               <InspectionTimer

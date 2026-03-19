@@ -82,17 +82,6 @@ export default function InspectionTimer({
     clearInterval(timerRef.current);
   };
 
-  useEffect(() => {
-    if (!visible) return;
-    const onKey = (e) => {
-      if (e.code === "Space" && !e.repeat) {
-        e.preventDefault();
-        handleStartSolve();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [visible, active]);
 
   if (!visible) return null;
 

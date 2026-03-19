@@ -14,7 +14,6 @@ const Timer = ({
   startSignal,
   pendingPenalty,
   inspectionActive,
-  onSpacePressIdle,
 }) => {
   const [displayTime, setDisplayTime] = useState(0); // ms
   const [running, setRunning] = useState(false);
@@ -24,7 +23,6 @@ const Timer = ({
   const startTimeRef = useRef(null);
   const rafRef = useRef(null);
   const runningRef = useRef(false);
-  const [pendingStart, setPendingStart] = useState(false); // for spacebar release logic
   const prevStartSignal = useRef(startSignal);
 
   // Accurate timer using performance.now()
@@ -62,39 +60,17 @@ const Timer = ({
     // Do not reset displayTime here; keep until next start
   };
 
-  // Listen for spacebar globally (start on release, not press)
+  // Spacebar: only handle stop when timer is running
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.code === "Space" && !e.repeat) {
-        if (inspectionActive) return;
+      if (e.code === "Space" && !e.repeat && runningRef.current) {
         e.preventDefault();
-        if (!runningRef.current && !pendingStart) {
-          if (onSpacePressIdle) {
-            onSpacePressIdle();
-          } else {
-            setPendingStart(true);
-          }
-        } else if (runningRef.current) {
-          stopTimer();
-        }
-      }
-    };
-    const handleKeyUp = (e) => {
-      if (e.code === "Space") {
-        if (inspectionActive) return; 
-        if (pendingStart && !runningRef.current) {
-          setPendingStart(false);
-          startTimer();
-        }
+        stopTimer();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [pendingStart, inspectionActive, onSpacePressIdle]);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Start timer if startSignal changes
   useEffect(() => {
