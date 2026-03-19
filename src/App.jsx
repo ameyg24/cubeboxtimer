@@ -180,6 +180,8 @@ function App() {
   });
 
   const inspectionStartTimeRef = useRef(null);
+  const inspectionVisibleRef = useRef(false);
+  const timerRunningRef = useRef(false);
 
   // Prevent continuous refresh: only sync sessions after initial load
   const didLoadSessions = React.useRef(false);
@@ -472,14 +474,18 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Keep refs in sync so the space handler always reads fresh values
+  inspectionVisibleRef.current = inspectionVisible;
+  timerRunningRef.current = timerRunning;
+
   // Global spacebar handler: idle → inspection → solve start
   useEffect(() => {
     const handleSpace = (e) => {
       if (e.code !== "Space" || e.repeat) return;
-      if (timerRunning) return; // Timer handles stop internally
+      if (timerRunningRef.current) return; // Timer handles stop internally
       e.preventDefault();
 
-      if (inspectionVisible) {
+      if (inspectionVisibleRef.current) {
         // End inspection, calculate penalty, start solve
         const elapsed = (Date.now() - inspectionStartTimeRef.current) / 1000;
         let penalty = null;
@@ -488,8 +494,8 @@ function App() {
 
         setInspectionVisible(false);
         if (penalty === "DNF") {
-          handleSolveComplete({ millis: 0, penalty: "DNF", reviewed: false, id: Date.now() });
           setTimerRunning(false);
+          handleSolveComplete({ millis: 0, penalty: "DNF", reviewed: false, id: Date.now() });
         } else {
           setPendingPenalty(penalty);
           setTimerRunning(true);
@@ -503,7 +509,7 @@ function App() {
     };
     window.addEventListener("keydown", handleSpace);
     return () => window.removeEventListener("keydown", handleSpace);
-  }, [inspectionVisible, timerRunning]);
+  }, []); // empty deps — reads live values via refs
 
   return (
     <div
