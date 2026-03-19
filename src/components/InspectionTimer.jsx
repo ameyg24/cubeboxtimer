@@ -36,11 +36,25 @@ export default function InspectionTimer({
       setRemaining((prev) => {
         const newRemaining = prev - 1;
         const elapsed = seconds - newRemaining;
-        
-        // Warning at 8 seconds
-        if (elapsed >= 8 && warning < 1) setWarning(1);
-        // Warning at 12 seconds  
-        if (elapsed >= 12 && warning < 2) setWarning(2);
+
+        // Warning at exactly 8 seconds
+        if (elapsed === 8) {
+          setWarning(1);
+          try {
+            const u = new SpeechSynthesisUtterance("8 seconds");
+            u.rate = 1.1;
+            speechSynthesis.speak(u);
+          } catch (_) {}
+        }
+        // Warning at exactly 12 seconds
+        if (elapsed === 12) {
+          setWarning(2);
+          try {
+            const u = new SpeechSynthesisUtterance("12 seconds");
+            u.rate = 1.1;
+            speechSynthesis.speak(u);
+          } catch (_) {}
+        }
         
         // At 15 seconds (0 remaining), apply +2 penalty
         if (newRemaining <= 0 && newRemaining > -2 && penalty !== "+2") {

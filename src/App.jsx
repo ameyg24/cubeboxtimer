@@ -480,35 +480,49 @@ function App() {
 
   // Global spacebar handler: idle → inspection → solve start
   useEffect(() => {
-    const handleSpace = (e) => {
-      if (e.code !== "Space" || e.repeat) return;
-      if (timerRunningRef.current) return; // Timer handles stop internally
-      e.preventDefault();
-
-      if (inspectionVisibleRef.current) {
-        // End inspection, calculate penalty, start solve
-        const elapsed = (Date.now() - inspectionStartTimeRef.current) / 1000;
-        let penalty = null;
-        if (elapsed > 15 && elapsed <= 17) penalty = "+2";
-        if (elapsed > 17) penalty = "DNF";
-
-        setInspectionVisible(false);
-        if (penalty === "DNF") {
-          setTimerRunning(false);
-          handleSolveComplete({ millis: 0, penalty: "DNF", reviewed: false, id: Date.now() });
-        } else {
-          setPendingPenalty(penalty);
-          setTimerRunning(true);
-          setStartSignal(s => s + 1);
-        }
+    const startSolveFromInspection = () => {
+      const elapsed = (Date.now() - inspectionStartTimeRef.current) / 1000;
+      let penalty = null;
+      if (elapsed > 15 && elapsed <= 17) penalty = "+2";
+      if (elapsed > 17) penalty = "DNF";
+      setInspectionVisible(false);
+      if (penalty === "DNF") {
+        setTimerRunning(false);
+        handleSolveComplete({ millis: 0, penalty: "DNF", reviewed: false, id: Date.now() });
       } else {
-        // Start inspection
+        setPendingPenalty(penalty);
+        setTimerRunning(true);
+        setStartSignal(s => s + 1);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.code !== "Space" || e.repeat) return;
+      if (timerRunningRef.current) return;
+      e.preventDefault();
+      if (!inspectionVisibleRef.current) {
+        // Start inspection on press
         inspectionStartTimeRef.current = Date.now();
         setInspectionVisible(true);
       }
     };
-    window.addEventListener("keydown", handleSpace);
-    return () => window.removeEventListener("keydown", handleSpace);
+
+    const handleKeyUp = (e) => {
+      if (e.code !== "Space") return;
+      if (timerRunningRef.current) return;
+      if (inspectionVisibleRef.current) {
+        // Start solve on release (after inspection)
+        e.preventDefault();
+        startSolveFromInspection();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
+    };
   }, []); // empty deps — reads live values via refs
 
   return (
