@@ -16,14 +16,13 @@ const Header = ({
   setActiveSessionId = () => {},
   addSession = () => {},
   removeSession = () => {},
-  sidebarOpen,
   setSidebarOpen,
   onShowSettings = () => {},
-  onShowProfile = () => {},
   showSessionPlaceholder = false,
   sessionBestMs = null,
+  syncStatus = { label: "synced", state: "synced" },
 }) => {
-  const { user, login, logout } = useAuth();
+  const { user, login, logout, authError } = useAuth();
   const { dark, toggleDark } = useTheme();
   const [copied, setCopied] = useState(false);
 
@@ -139,6 +138,9 @@ const Header = ({
             ★ {(sessionBestMs / 1000).toFixed(2)}s
           </span>
         )}
+        <span className={`sync-badge sync-badge-${syncStatus.state}`} title={syncStatus.title || "Sync status"}>
+          {syncStatus.label}
+        </span>
         <select
           className="ctrl"
           value={activeSessionId}
@@ -213,6 +215,11 @@ const Header = ({
           <button className="icon-btn" onClick={login} title="Sign in" style={{ fontSize: "0.8rem", padding: "4px 10px", color: "var(--accent)", borderColor: "var(--accent)" }}>
             Sign in
           </button>
+        )}
+        {authError && (
+          <span className="auth-error" title={authError}>
+            Auth config needed
+          </span>
         )}
       </div>
     </header>
