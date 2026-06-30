@@ -1,6 +1,6 @@
-# CubeBoxTimer – Rubik’s Cube Timer & Solve Analytics Platform
+# CubeBox – Speedcubing Performance Intelligence Platform
 
-CubeBoxTimer is a modern Rubik’s Cube timer and solve analytics platform built with React and Firebase. It supports session management, advanced statistics, beautiful charts, and persistent user history.
+CubeBox is a modern speedcubing timer and performance analytics platform built with React and Firebase. It supports session management, advanced statistics, beautiful charts, and persistent user history. The timer is the data-capture layer of a broader platform; see [docs/architecture/day1-architecture.md](docs/architecture/day1-architecture.md) for the long-term vision.
 
 ## Features
 

@@ -2,43 +2,28 @@
 import { useEffect, useRef } from "react";
 import { useTheme } from "./ThemeContext.jsx";
 import Chart from "chart.js/auto";
+import {
+  effectiveMillis,
+  isValidSolve,
+  mean as meanOf,
+  rollingAverageOfN,
+} from "../analytics";
 
-// WCA-compliant average of N for chart overlay
-function wcaAvgN(solvesSlice) {
-  if (!solvesSlice || solvesSlice.length < 3) return null;
-  const dnfCount = solvesSlice.filter((s) => s.penalty === "DNF").length;
-  if (dnfCount >= 2) return null; // treat as null for chart (can't plot DNF line)
-  const ts = solvesSlice
-    .filter((s) => s.penalty !== "DNF")
-    .map((s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000);
-  if (ts.length < solvesSlice.length - 1) return null;
-  const sorted = [...ts].sort((a, b) => a - b);
-  const middle = sorted.slice(1, -1);
-  if (middle.length === 0) return null;
-  return middle.reduce((a, b) => a + b, 0) / middle.length;
-}
+// Charts plot valid solves on the x-axis and map non-ok averages to null gaps.
+const resultToSeconds = (r) => (r.status === "ok" ? r.valueMs / 1000 : null);
 
 function buildChartData(solvesRaw) {
-  const valid = solvesRaw.filter(
-    (s) => s && typeof s.millis === "number" && s.penalty !== "DNF"
-  );
+  const valid = (solvesRaw || []).filter(isValidSolve);
 
   const labels = valid.map((_, i) => `#${i + 1}`);
-  const times = valid.map((s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000);
+  const times = valid.map((s) => effectiveMillis(s) / 1000);
 
-  // Rolling ao5: at position i in the valid array, look back in full solvesRaw
-  // We compute per-valid-solve index for simplicity (using valid solve indices)
-  const ao5Data = valid.map((_, i) => {
-    if (i < 4) return null;
-    return wcaAvgN(valid.slice(i - 4, i + 1));
-  });
+  // Rolling overlays are computed across the plotted (valid) solves.
+  const ao5Data = rollingAverageOfN(valid, 5).map(resultToSeconds);
+  const ao12Data = rollingAverageOfN(valid, 12).map(resultToSeconds);
 
-  const ao12Data = valid.map((_, i) => {
-    if (i < 11) return null;
-    return wcaAvgN(valid.slice(i - 11, i + 1));
-  });
-
-  const mean = times.length ? times.reduce((a, b) => a + b, 0) / times.length : null;
+  const meanResult = meanOf(valid);
+  const mean = resultToSeconds(meanResult);
   const meanData = times.map(() => mean);
   return { labels, times, ao5Data, ao12Data, meanData };
 }

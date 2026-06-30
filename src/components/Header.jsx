@@ -51,7 +51,7 @@ const Header = ({
             <rect y="12.5" width="16" height="1.5" rx="0.75" />
           </svg>
         </button>
-        <span className="logo">CubeBoxTimer</span>
+        <span className="logo">CubeBox</span>
 
         <select
           className="ctrl"
