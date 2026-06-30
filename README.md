@@ -83,8 +83,6 @@ CubeBox is organized into three layers:
 - **Analytics** — a pure, framework-free TypeScript module in [`src/analytics/`](src/analytics) that computes all solve statistics using WCA-style averaging rules. It has no React, Firebase, or browser dependencies, which keeps it easy to test and reuse.
 - **Persistence** — Firebase Authentication and Cloud Firestore, with an automatic local-storage fallback so the app works offline and without an account.
 
-See [docs/architecture/overview.md](docs/architecture/overview.md) for contributor-level detail.
-
 ## Testing
 
 Unit tests run with [Vitest](https://vitest.dev):
@@ -112,13 +110,9 @@ docs/           Developer documentation
 .env.example    Example environment variables
 ```
 
-## Contributing
+---
 
-Contributions are welcome. For significant changes, please open an issue to discuss them first. Before submitting a pull request, make sure the tests, type-check, and build all pass:
-
-```sh
-npm run test:run && npm run typecheck && npm run build
-```
+Made with ❤️ for cubers.
 
 ## License
 
