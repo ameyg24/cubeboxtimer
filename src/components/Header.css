@@ -67,6 +67,51 @@
   border-color: var(--accent);
 }
 
+.sync-badge {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  color: var(--text-muted);
+  background: var(--surface-alt);
+}
+
+.sync-badge-synced {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 50%, var(--border));
+}
+
+.sync-badge-pending {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.sync-badge-offline {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
+}
+
+.sync-badge-auth,
+.sync-badge-error {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
+}
+
+.auth-error {
+  border: 1px solid color-mix(in srgb, var(--danger) 55%, var(--border));
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  color: var(--danger);
+  background: var(--surface-alt);
+}
+
 .scramble-string {
   font-family: "Courier New", monospace;
   font-size: 0.88rem;

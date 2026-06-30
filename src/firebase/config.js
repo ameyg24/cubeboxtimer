@@ -1,6 +1,6 @@
 // firebase/config.js - Firebase initialization
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 const firebaseConfig = {
@@ -11,11 +11,20 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
+const firebaseProjectId = firebaseConfig.projectId;
 
 let app, db, auth, provider;
 try {
+  const missingKeys = Object.entries(firebaseConfig)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+  if (missingKeys.length > 0) {
+    throw new Error(`Missing Firebase config: ${missingKeys.join(", ")}`);
+  }
   app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
+  db = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+  });
   auth = getAuth(app);
   provider = new GoogleAuthProvider();
 } catch (e) {
@@ -25,4 +34,4 @@ try {
   provider = null;
 }
 
-export { db, auth, provider };
+export { db, auth, provider, firebaseProjectId };
