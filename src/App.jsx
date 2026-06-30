@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { AuthProvider, useAuth } from "./components/AuthContext.jsx";
 import { ThemeProvider } from "./components/ThemeContext.jsx";
+import { ao5 } from "./analytics";
 import "./App.css";
 import Dashboard from "./components/Dashboard.jsx";
 import SolveList from "./components/SolveList.jsx";
@@ -917,13 +918,13 @@ function App() {
     Array.isArray(s.solves?.[cubeDimension]) ? s.solves[cubeDimension] : []
   );
 
+  // ao5 of the live event, mapped to the display contract this header uses:
+  // null -> hidden, "DNF" -> DNF text, number -> seconds. See src/analytics.
   const lastAo5 = (() => {
-    if (eventSolves.length < 5) return null;
-    const slice = eventSolves.slice(-5);
-    const dnfCount = slice.filter(s => s.penalty === "DNF").length;
-    if (dnfCount >= 2) return "DNF";
-    const ts = slice.filter(s => s.penalty !== "DNF").map(s => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000).sort((a, b) => a - b).slice(1, -1);
-    return ts.length ? ts.reduce((a, b) => a + b, 0) / ts.length : null;
+    const r = ao5(eventSolves);
+    if (r.status === "insufficient") return null;
+    if (r.status === "dnf") return "DNF";
+    return r.valueMs / 1000;
   })();
 
   // Delete a solve by index (local and Firestore)

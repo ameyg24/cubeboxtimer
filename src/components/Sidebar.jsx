@@ -1,33 +1,34 @@
 import "./Sidebar.css";
+import {
+  ao5 as ao5Of,
+  ao12 as ao12Of,
+  ao50 as ao50Of,
+  ao100 as ao100Of,
+  best as bestOf,
+  effectiveMillis,
+  isValidSolve,
+  mean as meanOf,
+} from "../analytics";
+
+// Map an AverageResult to this sidebar's display value:
+// ok -> seconds, dnf -> "DNF", insufficient -> null.
+const toDisplay = (r) =>
+  r.status === "ok" ? r.valueMs / 1000 : r.status === "dnf" ? "DNF" : null;
 
 const Sidebar = ({ sessions, activeSessionId, setActiveSessionId, addSession, removeSession, solves, sidebarOpen }) => {
-  const validSolves = solves.filter(
-    (s) => typeof s.millis === "number" && !isNaN(s.millis) && s.penalty !== "DNF"
-  );
   const allSolves = solves.filter(
     (s) => s && (typeof s.millis === "number" || s.penalty === "DNF")
   );
-  const times = validSolves.map((s) => s.millis / 1000);
-  const best = times.length ? Math.min(...times) : null;
-  const mean = times.length ? times.reduce((a, b) => a + b, 0) / times.length : null;
-  const lastSolve = times.length ? times[times.length - 1] : null;
+  const validSolves = allSolves.filter(isValidSolve);
+  const lastValid = validSolves.length ? validSolves[validSolves.length - 1] : null;
+  const lastSolve = lastValid ? effectiveMillis(lastValid) / 1000 : null;
 
-  const calcAo = (count) => {
-    if (allSolves.length < count) return null;
-    const slice = allSolves.slice(-count);
-    const dnfs = slice.filter((s) => s.penalty === "DNF").length;
-    if (dnfs >= 2) return "DNF";
-    const ts = slice.filter((s) => s.penalty !== "DNF").map((s) => s.millis + (s.penalty === "+2" ? 2000 : 0));
-    if (ts.length < count - 1) return "DNF";
-    ts.sort((a, b) => a - b);
-    const mid = ts.slice(1, -1);
-    return mid.reduce((a, b) => a + b, 0) / mid.length / 1000;
-  };
-
-  const ao5 = calcAo(5);
-  const ao12 = calcAo(12);
-  const ao50 = calcAo(50);
-  const ao100 = calcAo(100);
+  const best = toDisplay(bestOf(solves));
+  const mean = toDisplay(meanOf(solves));
+  const ao5 = toDisplay(ao5Of(solves));
+  const ao12 = toDisplay(ao12Of(solves));
+  const ao50 = toDisplay(ao50Of(solves));
+  const ao100 = toDisplay(ao100Of(solves));
   const fmt = (v) => (v === "DNF" ? "DNF" : v ? v.toFixed(2) + "s" : "-");
 
   return (
