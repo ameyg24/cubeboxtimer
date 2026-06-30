@@ -39,13 +39,41 @@ npm run dev
 
 The app will be available at [http://localhost:5173](http://localhost:5173) (or the port shown in your terminal).
 
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm install` | Install dependencies |
+| `npm run dev` | Start the Vite dev server |
+| `npm run test:run` | Run the unit test suite once (Vitest) |
+| `npm run typecheck` | Type-check the TypeScript analytics module (`tsc --noEmit`) |
+| `npm run build` | Production build |
+| `npm run lint` | Run ESLint (informational; not yet blocking) |
+
+## Analytics
+
+Solve statistics (mean, mo3, ao5, ao12, ao50/ao100, best/worst, session aggregates)
+are computed by a pure, framework-free analytics module in [`src/analytics/`](src/analytics).
+It follows WCA-style averaging rules, is written in TypeScript, and is covered by
+unit tests. See [docs/architecture/day1-architecture.md](docs/architecture/day1-architecture.md)
+for the design and the long-term platform vision.
+
+## Continuous Integration
+
+GitHub Actions runs on every pull request and on pushes to `main`
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): it installs dependencies,
+runs the tests, type-checks, and builds the app.
+
 ## Project Structure
 
 - `src/` – Main source code
+  - `analytics/` – Pure TypeScript stats module (+ unit tests in `__tests__/`)
   - `components/` – React components (Timer, Dashboard, Sidebar, etc.)
   - `firebase/` – Firebase config
   - `App.jsx` – Main app logic
   - `App.css` – Main styles
+- `docs/architecture/` – Architecture notes and platform vision
+- `.github/workflows/` – CI pipeline
 - `.env.example` – Example environment variables (do not commit your real `.env`)
 
 ## Environment Variables
