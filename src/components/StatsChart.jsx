@@ -54,15 +54,15 @@ const StatsChart = ({ solves }) => {
         labels,
         datasets: [
           {
-            label: "Solve Time",
+            label: "Solve",
             data: times,
             borderColor: solveColor,
-            backgroundColor: "rgba(255, 64, 129, 0.08)",
+            backgroundColor: "rgba(255, 64, 129, 0.06)",
             pointBackgroundColor: "#fff",
             pointBorderColor: solveColor,
-            pointRadius: 4,
-            pointHoverRadius: 7,
-            borderWidth: 2,
+            pointRadius: 2,
+            pointHoverRadius: 5,
+            borderWidth: 1.5,
             tension: 0.3,
             fill: true,
             order: 3,
@@ -74,7 +74,7 @@ const StatsChart = ({ solves }) => {
             backgroundColor: "transparent",
             pointRadius: 0,
             pointHoverRadius: 5,
-            borderWidth: 2.5,
+            borderWidth: 2,
             tension: 0.4,
             fill: false,
             spanGaps: false,
@@ -87,7 +87,7 @@ const StatsChart = ({ solves }) => {
             backgroundColor: "transparent",
             pointRadius: 0,
             pointHoverRadius: 5,
-            borderWidth: 2.5,
+            borderWidth: 2,
             tension: 0.4,
             fill: false,
             spanGaps: false,
@@ -121,8 +121,9 @@ const StatsChart = ({ solves }) => {
             display: true,
             labels: {
               color: textColor,
-              font: { size: 12 },
-              padding: 16,
+              font: { size: 11 },
+              padding: 12,
+              boxWidth: 8,
               usePointStyle: true,
             },
           },
@@ -147,13 +148,11 @@ const StatsChart = ({ solves }) => {
         },
         scales: {
           x: {
-            grid: { color: gridColor },
-            title: { display: true, text: "Solve #", color: textColor, font: { size: 12 } },
-            ticks: { color: textColor, font: { size: 11 }, maxTicksLimit: 15 },
+            grid: { display: false },
+            ticks: { color: textColor, font: { size: 11 }, maxTicksLimit: 12 },
           },
           y: {
             grid: { color: gridColor },
-            title: { display: true, text: "Time (s)", color: textColor, font: { size: 12 } },
             ticks: { color: textColor, font: { size: 11 }, callback: (v) => v.toFixed(1) + "s" },
           },
         },
@@ -182,20 +181,8 @@ const StatsChart = ({ solves }) => {
   }, [solves]);
 
   return (
-    <div
-      className="chart-container"
-      style={{
-        width: "100%",
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: 10,
-        boxShadow: "var(--shadow)",
-        padding: "1rem",
-        boxSizing: "border-box",
-        transition: "background 0.2s, border-color 0.2s",
-      }}
-    >
-      <canvas ref={chartRef} style={{ width: "100%", height: "100%" }} />
+    <div className="chart-container">
+      <canvas ref={chartRef} />
     </div>
   );
 };

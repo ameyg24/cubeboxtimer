@@ -1,37 +1,25 @@
-// Dashboard.jsx - CS Timer-style statistics with session, all-time, and daily breakdown
+// Dashboard.jsx - session performance overview built on the analytics engine.
 import { useState, useMemo } from "react";
 import StatsChart from "./StatsChart";
-import { averageOfN, computeSessionStats } from "../analytics";
+import { computeSessionStats } from "../analytics";
 
-// Map an AverageResult to this dashboard's display value:
 // ok -> seconds, dnf -> "DNF", insufficient -> null.
 const toDisplay = (r) =>
   r.status === "ok" ? r.valueMs / 1000 : r.status === "dnf" ? "DNF" : null;
 
-// Display-shaped average of the last n solves (for the rolling trend arrows).
-const avgNDisplay = (solves, n) => toDisplay(averageOfN(solves, n));
-
-// Adapt the pure SessionStats (milliseconds + AverageResult) to the seconds /
-// "DNF" / null shape the cards render with. All stat math lives in src/analytics.
-function computeFullStats(solvesRaw) {
+// Pull just the values the dashboard shows out of the shared analytics engine.
+function computeStats(solvesRaw) {
   const st = computeSessionStats(solvesRaw);
   return {
     best: toDisplay(st.best),
-    worst: toDisplay(st.worst),
     mean: toDisplay(st.mean),
-    stddev: st.stddevMs === null ? null : st.stddevMs / 1000,
-    mo3: toDisplay(st.mo3),
     ao5: toDisplay(st.ao5),
     ao12: toDisplay(st.ao12),
-    ao50: toDisplay(st.ao50),
     ao100: toDisplay(st.ao100),
     bestAo5: toDisplay(st.bestAo5),
     bestAo12: toDisplay(st.bestAo12),
-    worstAo5: toDisplay(st.worstAo5),
-    bestStreak: st.bestStreak,
-    totalTime: st.totalTimeMs / 1000,
+    stddev: st.stddevMs === null ? null : st.stddevMs / 1000,
     count: st.count,
-    validCount: st.validCount,
     dnfCount: st.dnfCount,
     plus2Count: st.plus2Count,
   };
@@ -40,7 +28,7 @@ function computeFullStats(solvesRaw) {
 function computeDailyStats(solvesRaw) {
   const days = {};
   solvesRaw.forEach((s) => {
-    const ts = typeof s.id === "number" ? s.id : Date.now();
+    const ts = typeof s.id === "number" ? s.id : s.localCreatedAt || Date.now();
     const date = new Date(ts);
     const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     if (!days[dayKey]) days[dayKey] = [];
@@ -48,7 +36,7 @@ function computeDailyStats(solvesRaw) {
   });
 
   return Object.entries(days)
-    .sort(([a], [b]) => b.localeCompare(a)) // most recent first
+    .sort(([a], [b]) => b.localeCompare(a))
     .map(([day, solves]) => {
       const st = computeSessionStats(solves);
       const [year, month, dayNum] = day.split("-");
@@ -76,203 +64,101 @@ const fmt = (v) => {
   return v.toFixed(2) + "s";
 };
 
-const StatRow = ({ label, value, highlight }) => (
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      padding: "4px 0",
-      borderBottom: "1px solid var(--border)",
-      fontSize: "0.88rem",
-    }}
-  >
-    <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>{label}</span>
-    <span style={{ fontWeight: 700, color: highlight || "var(--text)", fontFamily: "monospace" }}>
-      {value}
-    </span>
+const StatTile = ({ label, value }) => (
+  <div className="stat-tile">
+    <span className="stat-tile-label">{label}</span>
+    <span className="stat-tile-value">{value}</span>
   </div>
 );
 
-const AvgTrend = ({ solves, n }) => {
-  if (solves.length < n * 2) return null;
-  const cur = avgNDisplay(solves.slice(-n), n);
-  const prev = avgNDisplay(solves.slice(-n * 2, -n), n);
-  if (!cur || !prev || cur === "DNF" || prev === "DNF") return null;
-  const better = cur < prev;
+const StatStrip = ({ stats }) => (
+  <div className="stat-strip">
+    <StatTile label="Best" value={fmt(stats.best)} />
+    <StatTile label="Mean" value={fmt(stats.mean)} />
+    <StatTile label="ao5" value={fmt(stats.ao5)} />
+    <StatTile label="ao12" value={fmt(stats.ao12)} />
+    <StatTile label="Solves" value={stats.count} />
+  </div>
+);
+
+const SummaryRow = ({ label, value, tone }) => (
+  <div className="summary-row">
+    <span>{label}</span>
+    <span className={tone ? `val val-${tone}` : "val"}>{value}</span>
+  </div>
+);
+
+const Overview = ({ session, all, eventSolves, sessionStats }) => {
+  const [copied, setCopied] = useState(false);
+
+  const exportCsv = () => {
+    const header = "solve,time_s,penalty\n";
+    const rows = eventSolves
+      .map((s, i) => {
+        const t = s.penalty === "DNF" ? "DNF" : ((s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000).toFixed(3);
+        return `${i + 1},${t},${s.penalty || ""}`;
+      })
+      .join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "session_solves.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyResults = () => {
+    const lines = eventSolves.map((s, i) => {
+      const t = s.penalty === "DNF" ? "DNF" : ((s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000).toFixed(2);
+      return `${i + 1}. ${t}${s.penalty === "+2" ? "+" : ""}`;
+    });
+    const { mean, ao5, ao12, best } = sessionStats;
+    lines.push("", `mean: ${fmt(mean)}  ao5: ${fmt(ao5)}  ao12: ${fmt(ao12)}  best: ${fmt(best)}`);
+    navigator.clipboard.writeText(lines.join("\n"));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
   return (
-    <span style={{ fontSize: "0.8rem", marginLeft: 4, color: better ? "var(--success)" : "var(--danger)", fontWeight: 700 }} title={better ? "Improving" : "Getting slower"}>
-      {better ? "▼" : "▲"}
-    </span>
-  );
-};
-
-const StatsCard = ({ title, stats, solves }) => (
-  <div
-    style={{
-      flex: 1,
-      minWidth: 190,
-      background: "var(--surface)",
-      borderRadius: 10,
-      padding: "16px",
-      boxShadow: "var(--shadow)",
-      border: "1px solid var(--border)",
-      transition: "background 0.2s, border-color 0.2s",
-    }}
-  >
-    <div
-      style={{
-        fontWeight: 700,
-        fontSize: "0.9rem",
-        marginBottom: 10,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        color: "var(--text)",
-      }}
-    >
-      <span>{title}</span>
-      <span style={{ fontSize: "0.78rem", color: "var(--text-faint)", fontWeight: 500 }}>
-        {stats.count} solves
-      </span>
-    </div>
-    <StatRow label="Best" value={fmt(stats.best)} highlight="var(--success)" />
-    <StatRow label="Worst" value={fmt(stats.worst)} highlight="var(--danger)" />
-    <StatRow label="Mean" value={fmt(stats.mean)} />
-    <StatRow label="Std Dev" value={fmt(stats.stddev)} />
-    <div style={{ height: 8 }} />
-    <StatRow label="mo3" value={fmt(stats.mo3)} highlight="var(--accent)" />
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid var(--border)", fontSize: "0.88rem" }}>
-      <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>ao5</span>
-      <span style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "monospace", display: "flex", alignItems: "center" }}>
-        {fmt(stats.ao5)}<AvgTrend solves={solves || []} n={5} />
-      </span>
-    </div>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid var(--border)", fontSize: "0.88rem" }}>
-      <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>ao12</span>
-      <span style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "monospace", display: "flex", alignItems: "center" }}>
-        {fmt(stats.ao12)}<AvgTrend solves={solves || []} n={12} />
-      </span>
-    </div>
-    <StatRow label="ao50" value={fmt(stats.ao50)} highlight="var(--accent)" />
-    <StatRow label="ao100" value={fmt(stats.ao100)} highlight="var(--accent)" />
-    <div style={{ height: 8 }} />
-    <StatRow label="Best ao5" value={fmt(stats.bestAo5)} highlight="var(--accent)" />
-    <StatRow label="Worst ao5" value={fmt(stats.worstAo5)} />
-    <StatRow label="Best ao12" value={fmt(stats.bestAo12)} highlight="var(--accent)" />
-    <div style={{ height: 8 }} />
-    <StatRow label="DNFs" value={stats.dnfCount} highlight={stats.dnfCount > 0 ? "var(--danger)" : undefined} />
-    <StatRow label="+2s" value={stats.plus2Count} highlight={stats.plus2Count > 0 ? "var(--warning)" : undefined} />
-    {stats.totalTime > 0 && (() => {
-      const s = stats.totalTime;
-      const fmt = s >= 60 ? `${Math.floor(s / 60)}m ${(s % 60).toFixed(0)}s` : `${s.toFixed(1)}s`;
-      return <StatRow label="total time" value={fmt} />;
-    })()}
-    <div style={{ height: 8 }} />
-    <StatRow label="Best streak" value={stats.bestStreak > 0 ? `${stats.bestStreak} solves` : "-"} highlight={stats.bestStreak >= 5 ? "var(--success)" : undefined} />
-  </div>
-);
-
-const DailyStatsTab = ({ dailyStats }) => {
-  if (dailyStats.length === 0) {
-    return (
-      <div
-        style={{
-          color: "var(--text-faint)",
-          textAlign: "center",
-          padding: "3rem",
-          background: "var(--surface)",
-          borderRadius: 10,
-          border: "1px solid var(--border)",
-        }}
-      >
-        No solves yet. Start solving!
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      <div className="summary-grid">
+        <div className="summary-card">
+          <div className="summary-title">This session</div>
+          <SummaryRow label="Consistency (σ)" value={fmt(session.stddev)} />
+          <SummaryRow label="Best ao5" value={fmt(session.bestAo5)} />
+          <SummaryRow label="Best ao12" value={fmt(session.bestAo12)} />
+          <SummaryRow label="DNF" value={session.dnfCount} tone={session.dnfCount > 0 ? "danger" : null} />
+          <SummaryRow label="+2" value={session.plus2Count} tone={session.plus2Count > 0 ? "warning" : null} />
+        </div>
+        <div className="summary-card">
+          <div className="summary-title">All-time</div>
+          <SummaryRow label="Best" value={fmt(all.best)} />
+          <SummaryRow label="Mean" value={fmt(all.mean)} />
+          <SummaryRow label="ao12" value={fmt(all.ao12)} />
+          <SummaryRow label="ao100" value={fmt(all.ao100)} />
+          <SummaryRow label="Solves" value={all.count} />
+        </div>
       </div>
-    );
-  }
-
-  const thStyle = {
-    padding: "10px 12px",
-    textAlign: "left",
-    fontWeight: 700,
-    fontSize: "0.88rem",
-    color: "var(--text-muted)",
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    borderBottom: "2px solid var(--border)",
-  };
-  const tdStyle = {
-    padding: "9px 12px",
-    fontSize: "0.93rem",
-    fontFamily: "monospace",
-  };
-
-  return (
-    <div
-      style={{
-        background: "var(--surface)",
-        borderRadius: 10,
-        boxShadow: "var(--shadow)",
-        border: "1px solid var(--border)",
-        overflow: "hidden",
-        transition: "background 0.2s, border-color 0.2s",
-      }}
-    >
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "var(--surface-alt)" }}>
-              <th style={{ ...thStyle, fontFamily: "inherit" }}>Date</th>
-              <th style={{ ...thStyle, fontFamily: "inherit" }}>Solves</th>
-              <th style={{ ...thStyle, fontFamily: "inherit" }}>Best</th>
-              <th style={{ ...thStyle, fontFamily: "inherit" }}>Mean</th>
-              <th style={{ ...thStyle, fontFamily: "inherit" }}>ao5</th>
-              <th style={{ ...thStyle, fontFamily: "inherit" }}>DNFs</th>
-            </tr>
-          </thead>
-          <tbody>
-            {dailyStats.map((day, i) => (
-              <tr
-                key={day.day}
-                style={{
-                  background: i % 2 === 0 ? "var(--surface)" : "var(--surface-alt)",
-                  borderBottom: "1px solid var(--border)",
-                }}
-              >
-                <td style={{ ...tdStyle, fontFamily: "inherit", fontWeight: 600, color: "var(--text)" }}>
-                  {day.label}
-                </td>
-                <td style={{ ...tdStyle, color: "var(--text-muted)" }}>{day.count}</td>
-                <td style={{ ...tdStyle, color: "var(--success)", fontWeight: 700 }}>{fmt(day.best)}</td>
-                <td style={{ ...tdStyle, color: "var(--text)" }}>{fmt(day.mean)}</td>
-                <td style={{ ...tdStyle, color: "var(--accent)" }}>{fmt(day.ao5)}</td>
-                <td
-                  style={{
-                    ...tdStyle,
-                    color: day.dnfCount > 0 ? "var(--danger)" : "var(--text-faint)",
-                    fontWeight: day.dnfCount > 0 ? 700 : 400,
-                  }}
-                >
-                  {day.dnfCount || "-"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="dash-actions">
+        <button className="dash-btn" onClick={exportCsv}>Export CSV</button>
+        <button className="dash-btn" onClick={copyResults} style={copied ? { color: "var(--success)" } : undefined}>
+          {copied ? "Copied" : "Copy results"}
+        </button>
       </div>
     </div>
   );
 };
 
-const HistogramTab = ({ solves }) => {
+const Distribution = ({ solves }) => {
   const validTimes = solves
     .filter((s) => s.penalty !== "DNF" && s.millis > 0)
     .map((s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000);
 
   if (validTimes.length === 0) {
     return (
-      <div style={{ color: "var(--text-faint)", textAlign: "center", padding: "3rem", background: "var(--surface)", borderRadius: 10, border: "1px solid var(--border)" }}>
-        No solves yet. Start solving!
+      <div className="section-card" style={{ color: "var(--text-faint)", textAlign: "center", padding: "2.5rem" }}>
+        Not enough solves yet to chart a distribution.
       </div>
     );
   }
@@ -289,20 +175,18 @@ const HistogramTab = ({ solves }) => {
   const maxCount = Math.max(...buckets.map((b) => b.count), 1);
 
   return (
-    <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "1.2rem 1.4rem", boxShadow: "var(--shadow)" }}>
-      <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-        Time Distribution ({validTimes.length} solves)
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    <div className="section-card">
+      <div className="section-title">Distribution · {validTimes.length} solves</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         {buckets.filter((b) => b.count > 0).map((b) => (
           <div key={b.lo} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ minWidth: 70, fontSize: "0.78rem", fontFamily: "monospace", color: "var(--text-muted)", textAlign: "right" }}>
+            <span style={{ minWidth: 74, fontSize: "0.78rem", fontFamily: "monospace", color: "var(--text-muted)", textAlign: "right" }}>
               {b.lo.toFixed(1)}–{b.hi.toFixed(1)}s
             </span>
-            <div style={{ flex: 1, background: "var(--surface-alt)", borderRadius: 4, height: 18, overflow: "hidden" }}>
+            <div style={{ flex: 1, background: "var(--surface-alt)", borderRadius: 4, height: 16, overflow: "hidden" }}>
               <div style={{ width: `${(b.count / maxCount) * 100}%`, height: "100%", background: "var(--accent)", borderRadius: 4, transition: "width 0.3s ease" }} />
             </div>
-            <span style={{ minWidth: 24, fontSize: "0.78rem", fontFamily: "monospace", color: "var(--text-muted)" }}>{b.count}</span>
+            <span style={{ minWidth: 22, fontSize: "0.78rem", fontFamily: "monospace", color: "var(--text-faint)" }}>{b.count}</span>
           </div>
         ))}
       </div>
@@ -310,166 +194,92 @@ const HistogramTab = ({ solves }) => {
   );
 };
 
-const Dashboard = ({ eventSolves, allSolves }) => {
-  const [tab, setTab] = useState("stats");
-  const [goalInput, setGoalInput] = useState("");
-  const [goalSec, setGoalSec] = useState(null);
-  const [copied, setCopied] = useState(false);
+const Daily = ({ dailyStats }) => {
+  if (dailyStats.length === 0) {
+    return (
+      <div className="section-card" style={{ color: "var(--text-faint)", textAlign: "center", padding: "2.5rem" }}>
+        No daily activity yet.
+      </div>
+    );
+  }
 
-  const sessionStats = useMemo(() => computeFullStats(eventSolves), [eventSolves]);
-  const allTimeStats = useMemo(() => computeFullStats(allSolves), [allSolves]);
-  const dailyStats = useMemo(() => computeDailyStats(allSolves), [allSolves]);
-
-  const tabStyle = (active) => ({
-    padding: "8px 16px",
-    border: "none",
-    borderRadius: 0,
-    background: "transparent",
-    color: active ? "var(--accent)" : "var(--text-muted)",
-    fontWeight: active ? 700 : 500,
-    cursor: "pointer",
-    fontSize: "0.88rem",
-    borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
-    transition: "color 0.15s, border-color 0.15s",
-    fontFamily: "inherit",
-  });
+  const th = {
+    padding: "8px 12px",
+    textAlign: "left",
+    fontSize: "var(--fs-xs)",
+    fontWeight: 600,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+  };
+  const td = { padding: "9px 12px", fontSize: "0.9rem", fontFamily: "monospace" };
 
   return (
-    <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "1rem" }}>
-      {/* Tab bar */}
-      <div
-        style={{
-          display: "flex",
-          borderBottom: "1.5px solid var(--border)",
-          gap: 0,
-        }}
-      >
-        <button style={tabStyle(tab === "stats")} onClick={() => setTab("stats")}>
-          Stats
-        </button>
-        <button style={tabStyle(tab === "chart")} onClick={() => setTab("chart")}>
-          Chart
-        </button>
-        <button style={tabStyle(tab === "daily")} onClick={() => setTab("daily")}>
-          Daily
-        </button>
-        <button style={tabStyle(tab === "dist")} onClick={() => setTab("dist")}>
-          Dist
-        </button>
+    <div className="section-card" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--border)" }}>
+              <th style={th}>Date</th>
+              <th style={th}>Solves</th>
+              <th style={th}>Best</th>
+              <th style={th}>Mean</th>
+              <th style={th}>ao5</th>
+              <th style={th}>DNF</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dailyStats.map((day) => (
+              <tr key={day.day} style={{ borderBottom: "1px solid var(--border)" }}>
+                <td style={{ ...td, fontFamily: "inherit", fontWeight: 600, color: "var(--text)" }}>{day.label}</td>
+                <td style={{ ...td, color: "var(--text-muted)" }}>{day.count}</td>
+                <td style={{ ...td, color: "var(--text)", fontWeight: 600 }}>{fmt(day.best)}</td>
+                <td style={{ ...td, color: "var(--text-muted)" }}>{fmt(day.mean)}</td>
+                <td style={{ ...td, color: "var(--text-muted)" }}>{fmt(day.ao5)}</td>
+                <td style={{ ...td, color: day.dnfCount > 0 ? "var(--danger)" : "var(--text-faint)" }}>
+                  {day.dnfCount || "-"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const TABS = ["Overview", "Trend", "Distribution", "Daily"];
+
+const Dashboard = ({ eventSolves, allSolves }) => {
+  const [tab, setTab] = useState("Overview");
+
+  const sessionStats = useMemo(() => computeStats(eventSolves), [eventSolves]);
+  const allTimeStats = useMemo(() => computeStats(allSolves), [allSolves]);
+  const dailyStats = useMemo(() => computeDailyStats(allSolves), [allSolves]);
+
+  return (
+    <div className="dashboard">
+      <StatStrip stats={sessionStats} />
+
+      <div className="dash-tabs">
+        {TABS.map((t) => (
+          <button key={t} className={`dash-tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
+            {t}
+          </button>
+        ))}
       </div>
 
-      {tab === "stats" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            <StatsCard title="Session" stats={sessionStats} solves={eventSolves} />
-            <StatsCard title="All-Time" stats={allTimeStats} solves={allSolves} />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: "0.82rem", color: "var(--text-muted)", fontWeight: 600 }}>Goal:</span>
-              <input
-                type="number"
-                placeholder="e.g. 12.5"
-                value={goalInput}
-                onChange={(e) => setGoalInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { const v = parseFloat(goalInput); setGoalSec(isNaN(v) ? null : v); } }}
-                style={{
-                  width: 80, padding: "4px 8px", fontSize: "0.82rem", borderRadius: 6,
-                  border: "1px solid var(--border)", background: "var(--surface-alt)",
-                  color: "var(--text)", fontFamily: "monospace", outline: "none",
-                }}
-              />
-              <button onClick={() => { const v = parseFloat(goalInput); setGoalSec(isNaN(v) ? null : v); }}
-                style={{ padding: "4px 10px", fontSize: "0.82rem", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-alt)", color: "var(--accent)", cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}>
-                Set
-              </button>
-              {goalSec !== null && (
-                <>
-                  <span style={{ fontSize: "0.82rem", color: "var(--text-faint)" }}>
-                    {eventSolves.filter(s => s.penalty !== "DNF" && (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000 <= goalSec).length} / {eventSolves.filter(s => s.penalty !== "DNF").length} under {goalSec}s
-                  </span>
-                  <button onClick={() => { setGoalSec(null); setGoalInput(""); }}
-                    style={{ padding: "2px 8px", fontSize: "0.75rem", borderRadius: 4, border: "none", background: "none", color: "var(--text-faint)", cursor: "pointer" }}>
-                    ✕
-                  </button>
-                </>
-              )}
-            </div>
-            <button
-              onClick={() => {
-                const header = "solve,time_s,penalty\n";
-                const rows = eventSolves.map((s, i) => {
-                  const t = s.penalty === "DNF" ? "DNF" : ((s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000).toFixed(3);
-                  return `${i + 1},${t},${s.penalty || ""}`;
-                }).join("\n");
-                const blob = new Blob([header + rows], { type: "text/csv" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "session_solves.csv";
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-              style={{
-                padding: "8px 16px", fontSize: "0.82rem", borderRadius: 6,
-                border: "1px solid var(--border)", background: "var(--surface-alt)",
-                color: "var(--text-muted)", cursor: "pointer", fontWeight: 600,
-                fontFamily: "inherit",
-              }}
-            >
-              ↓ Export CSV
-            </button>
-            <button
-              onClick={() => {
-                const lines = eventSolves.map((s, i) => {
-                  const t = s.penalty === "DNF" ? "DNF" : ((s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000).toFixed(2);
-                  return `${i + 1}. ${t}${s.penalty === "+2" ? "+" : ""}`;
-                });
-                const { mean, ao5, ao12, best } = sessionStats;
-                const fmt = v => v === null ? "-" : typeof v === "number" ? v.toFixed(2) + "s" : v;
-                lines.push("", `mean: ${fmt(mean)}  ao5: ${fmt(ao5)}  ao12: ${fmt(ao12)}  best: ${fmt(best)}`);
-                navigator.clipboard.writeText(lines.join("\n"));
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              }}
-              style={{
-                padding: "8px 16px", fontSize: "0.82rem", borderRadius: 6,
-                border: "1px solid var(--border)", background: "var(--surface-alt)",
-                color: copied ? "var(--success)" : "var(--text-muted)", cursor: "pointer", fontWeight: 600,
-                fontFamily: "inherit",
-              }}
-            >
-              {copied ? "Copied!" : "Copy results"}
-            </button>
-          </div>
+      {tab === "Overview" && (
+        <Overview session={sessionStats} all={allTimeStats} eventSolves={eventSolves} sessionStats={sessionStats} />
+      )}
+      {tab === "Trend" && (
+        <div className="section-card">
+          <div className="section-title">Trend</div>
+          <StatsChart solves={allSolves} />
         </div>
       )}
-
-      {tab === "chart" && <StatsChart solves={allSolves} />}
-
-      {tab === "daily" && (() => {
-        const today = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
-        const todayEntry = dailyStats.find(d => d.date === today);
-        return (
-          <>
-            {todayEntry && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: "0.82rem", color: "var(--text-muted)", fontWeight: 500 }}>Today</span>
-                <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--accent)", fontFamily: "monospace" }}>
-                  {todayEntry.count} solve{todayEntry.count !== 1 ? "s" : ""}
-                </span>
-                {todayEntry.mean && (
-                  <span style={{ fontSize: "0.78rem", color: "var(--text-faint)", fontFamily: "monospace" }}>
-                    avg {todayEntry.mean.toFixed(2)}s
-                  </span>
-                )}
-              </div>
-            )}
-            <DailyStatsTab dailyStats={dailyStats} />
-          </>
-        );
-      })()}
-      {tab === "dist" && <HistogramTab solves={allSolves} />}
+      {tab === "Distribution" && <Distribution solves={allSolves} />}
+      {tab === "Daily" && <Daily dailyStats={dailyStats} />}
     </div>
   );
 };
