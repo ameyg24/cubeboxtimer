@@ -21,7 +21,7 @@
   --timer-active-bg: rgba(22, 163, 74, 0.04);
 
   /* Chart */
-  --chart-solve: #ff4081;
+  --chart-solve: var(--text-faint);
   --chart-ao5: #1a73e8;
   --chart-ao12: #43a047;
   --chart-mean: rgba(180, 180, 180, 0.6);
@@ -77,7 +77,7 @@ body.dark {
   --overlay: rgba(0, 0, 0, 0.6);
   --timer-active-bg: rgba(74, 222, 128, 0.06);
 
-  --chart-solve: #ff4081;
+  --chart-solve: var(--text-faint);
   --chart-ao5: #60a5fa;
   --chart-ao12: #4ade80;
   --chart-mean: rgba(148, 163, 184, 0.6);

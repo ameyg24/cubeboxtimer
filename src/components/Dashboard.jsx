@@ -158,7 +158,7 @@ const Distribution = ({ solves }) => {
   if (validTimes.length === 0) {
     return (
       <div className="section-card" style={{ color: "var(--text-faint)", textAlign: "center", padding: "2.5rem" }}>
-        Not enough solves yet to chart a distribution.
+        No valid solve times to chart yet.
       </div>
     );
   }
@@ -205,14 +205,14 @@ const Daily = ({ dailyStats }) => {
 
   const th = {
     padding: "8px 12px",
-    textAlign: "left",
+    textAlign: "right",
     fontSize: "var(--fs-xs)",
     fontWeight: 600,
     letterSpacing: "0.04em",
     textTransform: "uppercase",
     color: "var(--text-muted)",
   };
-  const td = { padding: "9px 12px", fontSize: "0.9rem", fontFamily: "monospace" };
+  const td = { padding: "9px 12px", fontSize: "0.9rem", fontFamily: "monospace", textAlign: "right" };
 
   return (
     <div className="section-card" style={{ padding: 0, overflow: "hidden" }}>
@@ -220,7 +220,7 @@ const Daily = ({ dailyStats }) => {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              <th style={th}>Date</th>
+              <th style={{ ...th, textAlign: "left" }}>Date</th>
               <th style={th}>Solves</th>
               <th style={th}>Best</th>
               <th style={th}>Mean</th>
@@ -231,7 +231,7 @@ const Daily = ({ dailyStats }) => {
           <tbody>
             {dailyStats.map((day) => (
               <tr key={day.day} style={{ borderBottom: "1px solid var(--border)" }}>
-                <td style={{ ...td, fontFamily: "inherit", fontWeight: 600, color: "var(--text)" }}>{day.label}</td>
+                <td style={{ ...td, textAlign: "left", fontFamily: "inherit", fontWeight: 600, color: "var(--text)" }}>{day.label}</td>
                 <td style={{ ...td, color: "var(--text-muted)" }}>{day.count}</td>
                 <td style={{ ...td, color: "var(--text)", fontWeight: 600 }}>{fmt(day.best)}</td>
                 <td style={{ ...td, color: "var(--text-muted)" }}>{fmt(day.mean)}</td>
