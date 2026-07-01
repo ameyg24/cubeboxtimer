@@ -89,11 +89,11 @@ const Timer = ({
       className="timer"
       id="main-timer"
       tabIndex={0}
-      style={{ outline: "none", background: "transparent", boxShadow: "none", border: "none" }}
+      style={{ background: "transparent", boxShadow: "none", border: "none" }}
     >
-      <h1 style={{ color: timerColor, transition: "color 0.15s" }}>
+      <div className="timer-value" style={{ color: timerColor, transition: "color 0.15s" }}>
         {(displayTime / 1000).toFixed(2)}
-      </h1>
+      </div>
       {/* Only show Start/Stop button if hideStartButton and showMainButtons are NOT true */}
       {(!hideStartButton && !showMainButtons) && (
         <button

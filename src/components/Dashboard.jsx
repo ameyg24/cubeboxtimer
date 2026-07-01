@@ -142,7 +142,7 @@ const Overview = ({ session, all, eventSolves }) => {
       </div>
       <div className="dash-actions">
         <button className="dash-btn" onClick={exportCsv}>Export CSV</button>
-        <button className="dash-btn" onClick={copyResults} style={copied ? { color: "var(--success)" } : undefined}>
+        <button className="dash-btn" onClick={copyResults} aria-live="polite" style={copied ? { color: "var(--success)" } : undefined}>
           {copied ? "Copied" : "Copy results"}
         </button>
       </div>
@@ -261,25 +261,35 @@ const Dashboard = ({ eventSolves, allSolves }) => {
     <div className="dashboard">
       <StatStrip stats={sessionStats} />
 
-      <div className="dash-tabs">
+      <div className="dash-tabs" role="tablist" aria-label="Statistics view">
         {TABS.map((t) => (
-          <button key={t} className={`dash-tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
+          <button
+            key={t}
+            id={`dash-tab-${t}`}
+            role="tab"
+            aria-selected={tab === t}
+            aria-controls={`dash-panel-${t}`}
+            className={`dash-tab${tab === t ? " active" : ""}`}
+            onClick={() => setTab(t)}
+          >
             {t}
           </button>
         ))}
       </div>
 
-      {tab === "Overview" && (
-        <Overview session={sessionStats} all={allTimeStats} eventSolves={eventSolves} />
-      )}
-      {tab === "Trend" && (
-        <div className="section-card">
-          <div className="section-title">Trend</div>
-          <StatsChart solves={allSolves} />
-        </div>
-      )}
-      {tab === "Distribution" && <Distribution solves={allSolves} />}
-      {tab === "Daily" && <Daily dailyStats={dailyStats} />}
+      <div role="tabpanel" id={`dash-panel-${tab}`} aria-labelledby={`dash-tab-${tab}`}>
+        {tab === "Overview" && (
+          <Overview session={sessionStats} all={allTimeStats} eventSolves={eventSolves} />
+        )}
+        {tab === "Trend" && (
+          <div className="section-card">
+            <div className="section-title">Trend</div>
+            <StatsChart solves={allSolves} />
+          </div>
+        )}
+        {tab === "Distribution" && <Distribution solves={allSolves} />}
+        {tab === "Daily" && <Daily dailyStats={dailyStats} />}
+      </div>
     </div>
   );
 };

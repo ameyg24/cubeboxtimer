@@ -13,12 +13,12 @@
 }
 
 .logo {
+  margin: 0 4px 0 0;
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--accent);
   letter-spacing: 0.2px;
   white-space: nowrap;
-  margin-right: 4px;
 }
 
 .icon-btn {

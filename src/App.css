@@ -61,7 +61,7 @@
   padding: 2rem 1rem;
 }
 
-.timer h1 {
+.timer .timer-value {
   font-size: var(--fs-timer);
   font-weight: 400;
   letter-spacing: -0.02em;

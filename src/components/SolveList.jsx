@@ -25,14 +25,18 @@ const relativeTime = (id) => {
 };
 
 // Hover state lives here, per row, so hovering one row doesn't re-render the
-// whole list — only the row whose hover state actually changed.
+// whole list — only the row whose hover state actually changed. The action
+// buttons also show on keyboard focus, not just mouse hover, so they're
+// reachable without a mouse.
 const SolveRow = ({ solve, idx, isFocused, isPB, isFirst, updateSolve, deleteSolve }) => {
   const [hovered, setHovered] = useState(false);
   const isDNF = solve.penalty === "DNF";
   const isPlus2 = solve.penalty === "+2";
+  const showActions = hovered || isFocused;
 
   return (
     <div
+      role="listitem"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -85,8 +89,8 @@ const SolveRow = ({ solve, idx, isFocused, isPB, isFirst, updateSolve, deleteSol
         </span>
       )}
 
-      {/* Penalty badge (when not hovered) */}
-      {!hovered && isDNF && (
+      {/* Penalty badge (when actions aren't showing) */}
+      {!showActions && isDNF && (
         <span
           style={{
             background: "var(--danger-bg)",
@@ -100,7 +104,7 @@ const SolveRow = ({ solve, idx, isFocused, isPB, isFirst, updateSolve, deleteSol
           DNF
         </span>
       )}
-      {!hovered && isPlus2 && (
+      {!showActions && isPlus2 && (
         <span
           style={{
             background: "var(--warning-bg)",
@@ -115,11 +119,12 @@ const SolveRow = ({ solve, idx, isFocused, isPB, isFirst, updateSolve, deleteSol
         </span>
       )}
 
-      {/* Hover actions */}
-      {hovered && (
+      {/* Actions (hover or keyboard focus) */}
+      {showActions && (
         <div style={{ display: "flex", gap: 4 }}>
           <button
             title="Toggle +2 penalty"
+            aria-label="Toggle +2 penalty"
             onClick={() =>
               updateSolve(idx, {
                 penalty: isPlus2 ? null : "+2",
@@ -140,6 +145,7 @@ const SolveRow = ({ solve, idx, isFocused, isPB, isFirst, updateSolve, deleteSol
           </button>
           <button
             title="Toggle DNF"
+            aria-label="Toggle DNF"
             onClick={() =>
               updateSolve(idx, {
                 penalty: isDNF ? null : "DNF",
@@ -160,6 +166,7 @@ const SolveRow = ({ solve, idx, isFocused, isPB, isFirst, updateSolve, deleteSol
           </button>
           <button
             title="Delete solve"
+            aria-label="Delete solve"
             onClick={() => deleteSolve && deleteSolve(idx)}
             style={{
               padding: "4px 8px",
@@ -181,7 +188,7 @@ const SolveRow = ({ solve, idx, isFocused, isPB, isFirst, updateSolve, deleteSol
 };
 
 const SolveList = ({ solves, updateSolve, deleteSolve }) => {
-  const [focusedIdx, setFocusedIdx] = useState(null);
+  const [focusedId, setFocusedId] = useState(null);
 
   const bestMillis = useMemo(() => {
     if (!solves) return null;
@@ -196,6 +203,14 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
   const reversed = useMemo(
     () => (solves ? [...solves].map((s, origIdx) => ({ ...s, origIdx })).reverse() : []),
     [solves]
+  );
+
+  // Track the focused row by solve id rather than position, so a delete
+  // (from the keyboard, the hover buttons, or the undo button) can't leave
+  // focus pointing at a stale index or silently disappear.
+  const focusedIdx = useMemo(
+    () => reversed.findIndex((s) => s.id === focusedId),
+    [reversed, focusedId]
   );
 
   if (!solves || solves.length === 0) {
@@ -267,14 +282,29 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
 
       {/* Solve rows */}
       <div
+        role="list"
+        aria-label="Solve history"
         style={{ overflowY: "auto", flex: 1 }}
         tabIndex={0}
         onKeyDown={(e) => {
-          if (e.key === "ArrowDown") { e.preventDefault(); setFocusedIdx(i => Math.min((i ?? -1) + 1, reversed.length - 1)); }
-          if (e.key === "ArrowUp") { e.preventDefault(); setFocusedIdx(i => Math.max((i ?? reversed.length) - 1, 0)); }
-          if ((e.key === "Delete" || e.key === "Backspace") && focusedIdx !== null) deleteSolve?.(reversed[focusedIdx].origIdx);
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            const next = Math.min(focusedIdx + 1, reversed.length - 1);
+            setFocusedId(reversed[next]?.id ?? null);
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            const prev = focusedIdx === -1 ? reversed.length - 1 : Math.max(focusedIdx - 1, 0);
+            setFocusedId(reversed[prev]?.id ?? null);
+          }
+          if ((e.key === "Delete" || e.key === "Backspace") && focusedIdx !== -1) {
+            e.preventDefault();
+            const neighborId = reversed[focusedIdx + 1]?.id ?? reversed[focusedIdx - 1]?.id ?? null;
+            deleteSolve?.(reversed[focusedIdx].origIdx);
+            setFocusedId(neighborId);
+          }
         }}
-        onBlur={() => setFocusedIdx(null)}
+        onBlur={() => setFocusedId(null)}
       >
         {reversed.map((solve, revIdx) => {
           const isPlus2 = solve.penalty === "+2";
@@ -285,7 +315,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
               key={solve.id || revIdx}
               solve={solve}
               idx={solve.origIdx}
-              isFocused={focusedIdx === revIdx}
+              isFocused={focusedId === solve.id}
               isPB={isPB}
               isFirst={revIdx === 0}
               updateSolve={updateSolve}
