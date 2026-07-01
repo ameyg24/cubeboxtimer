@@ -1,5 +1,5 @@
 // SolveList.jsx - Scrollable solve list with CS Timer-style interactions
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 const fmtTime = (solve) => {
   if (solve.penalty === "DNF") return "DNF";
@@ -24,9 +24,179 @@ const relativeTime = (id) => {
   return `${Math.floor(diffHr / 24)}d ago`;
 };
 
+// Hover state lives here, per row, so hovering one row doesn't re-render the
+// whole list — only the row whose hover state actually changed.
+const SolveRow = ({ solve, idx, isFocused, isPB, isFirst, updateSolve, deleteSolve }) => {
+  const [hovered, setHovered] = useState(false);
+  const isDNF = solve.penalty === "DNF";
+  const isPlus2 = solve.penalty === "+2";
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "8px 12px",
+        background: isFocused || hovered ? "var(--accent-bg)" : isPB ? "var(--pb-bg)" : "transparent",
+        outline: isFocused ? "2px solid var(--accent)" : "none",
+        borderBottom: "1px solid var(--border)",
+        gap: 8,
+        minHeight: 36,
+        transition: "background 0.1s",
+        animation: isFirst ? "solveRowIn 0.22s ease" : undefined,
+      }}
+    >
+      {/* Index */}
+      {isPB && (
+        <span style={{ fontSize: "0.65rem", color: "var(--pb-fg)", fontWeight: 800, letterSpacing: "0.04em" }}>PB</span>
+      )}
+      <span
+        style={{
+          color: "var(--text-faint)",
+          minWidth: 28,
+          fontSize: "0.78rem",
+          fontWeight: 500,
+          fontFamily: "monospace",
+          userSelect: "none",
+        }}
+      >
+        {idx + 1}
+      </span>
+
+      {/* Time */}
+      <span
+        style={{
+          flex: 1,
+          fontWeight: 700,
+          fontSize: "0.92rem",
+          color: isDNF ? "var(--danger)" : isPlus2 ? "var(--warning)" : "var(--text)",
+          fontFamily: "monospace",
+        }}
+      >
+        {fmtTime(solve)}
+      </span>
+
+      {/* Relative time (when hovered) */}
+      {hovered && relativeTime(solve.id) && (
+        <span style={{ fontSize: "0.72rem", color: "var(--text-faint)", fontFamily: "monospace", whiteSpace: "nowrap" }}>
+          {relativeTime(solve.id)}
+        </span>
+      )}
+
+      {/* Penalty badge (when not hovered) */}
+      {!hovered && isDNF && (
+        <span
+          style={{
+            background: "var(--danger-bg)",
+            color: "var(--danger)",
+            fontSize: "0.72rem",
+            fontWeight: 700,
+            padding: "1px 6px",
+            borderRadius: "var(--radius-sm)",
+          }}
+        >
+          DNF
+        </span>
+      )}
+      {!hovered && isPlus2 && (
+        <span
+          style={{
+            background: "var(--warning-bg)",
+            color: "var(--warning)",
+            fontSize: "0.72rem",
+            fontWeight: 700,
+            padding: "1px 6px",
+            borderRadius: "var(--radius-sm)",
+          }}
+        >
+          +2
+        </span>
+      )}
+
+      {/* Hover actions */}
+      {hovered && (
+        <div style={{ display: "flex", gap: 4 }}>
+          <button
+            title="Toggle +2 penalty"
+            onClick={() =>
+              updateSolve(idx, {
+                penalty: isPlus2 ? null : "+2",
+              })
+            }
+            style={{
+              padding: "4px 8px",
+              fontSize: "0.75rem",
+              background: isPlus2 ? "var(--warning)" : "var(--surface-alt)",
+              color: isPlus2 ? "#fff" : "var(--text-muted)",
+              border: "none",
+              borderRadius: "var(--radius-sm)",
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            +2
+          </button>
+          <button
+            title="Toggle DNF"
+            onClick={() =>
+              updateSolve(idx, {
+                penalty: isDNF ? null : "DNF",
+              })
+            }
+            style={{
+              padding: "4px 8px",
+              fontSize: "0.75rem",
+              background: isDNF ? "var(--danger)" : "var(--surface-alt)",
+              color: isDNF ? "#fff" : "var(--text-muted)",
+              border: "none",
+              borderRadius: "var(--radius-sm)",
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            DNF
+          </button>
+          <button
+            title="Delete solve"
+            onClick={() => deleteSolve && deleteSolve(idx)}
+            style={{
+              padding: "4px 8px",
+              fontSize: "0.75rem",
+              background: "var(--surface-alt)",
+              color: "var(--danger)",
+              border: "none",
+              borderRadius: "var(--radius-sm)",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SolveList = ({ solves, updateSolve, deleteSolve }) => {
-  const [hoveredIdx, setHoveredIdx] = useState(null);
   const [focusedIdx, setFocusedIdx] = useState(null);
+
+  const bestMillis = useMemo(() => {
+    if (!solves) return null;
+    return solves
+      .filter((s) => s.penalty !== "DNF" && s.millis > 0)
+      .reduce((best, s) => {
+        const t = s.millis + (s.penalty === "+2" ? 2000 : 0);
+        return best === null ? t : Math.min(best, t);
+      }, null);
+  }, [solves]);
+
+  const reversed = useMemo(
+    () => (solves ? [...solves].map((s, origIdx) => ({ ...s, origIdx })).reverse() : []),
+    [solves]
+  );
 
   if (!solves || solves.length === 0) {
     return (
@@ -45,15 +215,6 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
       </div>
     );
   }
-
-  const bestMillis = solves
-    .filter(s => s.penalty !== "DNF" && s.millis > 0)
-    .reduce((best, s) => {
-      const t = s.millis + (s.penalty === "+2" ? 2000 : 0);
-      return best === null ? t : Math.min(best, t);
-    }, null);
-
-  const reversed = [...solves].map((s, origIdx) => ({ ...s, origIdx })).reverse();
 
   return (
     <div
@@ -116,159 +277,20 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
         onBlur={() => setFocusedIdx(null)}
       >
         {reversed.map((solve, revIdx) => {
-          const idx = solve.origIdx;
-          const isHovered = hoveredIdx === revIdx;
-          const isDNF = solve.penalty === "DNF";
           const isPlus2 = solve.penalty === "+2";
-          const isPB = !isDNF && bestMillis !== null && (solve.millis + (isPlus2 ? 2000 : 0)) === bestMillis;
+          const isPB = solve.penalty !== "DNF" && bestMillis !== null && (solve.millis + (isPlus2 ? 2000 : 0)) === bestMillis;
 
           return (
-            <div
+            <SolveRow
               key={solve.id || revIdx}
-              onMouseEnter={() => setHoveredIdx(revIdx)}
-              onMouseLeave={() => setHoveredIdx(null)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                padding: "8px 12px",
-                background: focusedIdx === revIdx || isHovered ? "var(--accent-bg)" : isPB ? "var(--pb-bg)" : "transparent",
-                outline: focusedIdx === revIdx ? "2px solid var(--accent)" : "none",
-                borderBottom: "1px solid var(--border)",
-                gap: 8,
-                minHeight: 36,
-                transition: "background 0.1s",
-                animation: revIdx === 0 ? "solveRowIn 0.22s ease" : undefined,
-              }}
-            >
-              {/* Index */}
-              {isPB && (
-                <span style={{ fontSize: "0.65rem", color: "var(--pb-fg)", fontWeight: 800, letterSpacing: "0.04em" }}>PB</span>
-              )}
-              <span
-                style={{
-                  color: "var(--text-faint)",
-                  minWidth: 28,
-                  fontSize: "0.78rem",
-                  fontWeight: 500,
-                  fontFamily: "monospace",
-                  userSelect: "none",
-                }}
-              >
-                {idx + 1}
-              </span>
-
-              {/* Time */}
-              <span
-                style={{
-                  flex: 1,
-                  fontWeight: 700,
-                  fontSize: "0.92rem",
-                  color: isDNF ? "var(--danger)" : isPlus2 ? "var(--warning)" : "var(--text)",
-                  fontFamily: "monospace",
-                }}
-              >
-                {fmtTime(solve)}
-              </span>
-
-              {/* Relative time (when hovered) */}
-              {isHovered && relativeTime(solve.id) && (
-                <span style={{ fontSize: "0.72rem", color: "var(--text-faint)", fontFamily: "monospace", whiteSpace: "nowrap" }}>
-                  {relativeTime(solve.id)}
-                </span>
-              )}
-
-              {/* Penalty badge (when not hovered) */}
-              {!isHovered && isDNF && (
-                <span
-                  style={{
-                    background: "var(--danger-bg)",
-                    color: "var(--danger)",
-                    fontSize: "0.72rem",
-                    fontWeight: 700,
-                    padding: "1px 6px",
-                    borderRadius: "var(--radius-sm)",
-                  }}
-                >
-                  DNF
-                </span>
-              )}
-              {!isHovered && isPlus2 && (
-                <span
-                  style={{
-                    background: "var(--warning-bg)",
-                    color: "var(--warning)",
-                    fontSize: "0.72rem",
-                    fontWeight: 700,
-                    padding: "1px 6px",
-                    borderRadius: "var(--radius-sm)",
-                  }}
-                >
-                  +2
-                </span>
-              )}
-
-              {/* Hover actions */}
-              {isHovered && (
-                <div style={{ display: "flex", gap: 4 }}>
-                  <button
-                    title="Toggle +2 penalty"
-                    onClick={() =>
-                      updateSolve(idx, {
-                        penalty: isPlus2 ? null : "+2",
-                      })
-                    }
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: "0.75rem",
-                      background: isPlus2 ? "var(--warning)" : "var(--surface-alt)",
-                      color: isPlus2 ? "#fff" : "var(--text-muted)",
-                      border: "none",
-                      borderRadius: "var(--radius-sm)",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                    }}
-                  >
-                    +2
-                  </button>
-                  <button
-                    title="Toggle DNF"
-                    onClick={() =>
-                      updateSolve(idx, {
-                        penalty: isDNF ? null : "DNF",
-                      })
-                    }
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: "0.75rem",
-                      background: isDNF ? "var(--danger)" : "var(--surface-alt)",
-                      color: isDNF ? "#fff" : "var(--text-muted)",
-                      border: "none",
-                      borderRadius: "var(--radius-sm)",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                    }}
-                  >
-                    DNF
-                  </button>
-                  <button
-                    title="Delete solve"
-                    onClick={() => deleteSolve && deleteSolve(idx)}
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: "0.75rem",
-                      background: "var(--surface-alt)",
-                      color: "var(--danger)",
-                      border: "none",
-                      borderRadius: "var(--radius-sm)",
-                      cursor: "pointer",
-                      fontWeight: 700,
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
-            </div>
+              solve={solve}
+              idx={solve.origIdx}
+              isFocused={focusedIdx === revIdx}
+              isPB={isPB}
+              isFirst={revIdx === 0}
+              updateSolve={updateSolve}
+              deleteSolve={deleteSolve}
+            />
           );
         })}
       </div>

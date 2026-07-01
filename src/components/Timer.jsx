@@ -3,20 +3,16 @@ import React, { useState, useRef, useEffect } from "react";
 
 const Timer = ({
   onSolveComplete,
-  timerRunning,
   setTimerRunning,
   hideStartButton,
   showMainButtons,
-  scramble,
   startSignal,
   pendingPenalty,
   inspectionActive,
 }) => {
   const [displayTime, setDisplayTime] = useState(0); // ms
   const [running, setRunning] = useState(false);
-  const [showInstructions, setShowInstructions] = useState(false);
   const [stopped, setStopped] = useState(false); // true if just stopped
-  const [idle, setIdle] = useState(true); // true if not running or stopped
   const startTimeRef = useRef(null);
   const rafRef = useRef(null);
   const runningRef = useRef(false);
@@ -28,7 +24,6 @@ const Timer = ({
     if (inspectionActive) return;
     setRunning(true);
     runningRef.current = true;
-    setIdle(false);
     setStopped(false);
     setTimerRunning && setTimerRunning(true);
     startTimeRef.current = performance.now();
@@ -51,7 +46,6 @@ const Timer = ({
     const elapsed = endTime - startTimeRef.current;
     setDisplayTime(elapsed);
     setStopped(true);
-    setIdle(false);
     setTimerRunning && setTimerRunning(false);
     onSolveComplete({ millis: Math.round(elapsed), penalty: pendingPenalty || null });
     // Do not reset displayTime here; keep until next start
@@ -80,21 +74,10 @@ const Timer = ({
   }, [startSignal, inspectionActive]);
 
   useEffect(() => {
-    setShowInstructions(true);
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
-
-  // Reset timer to idle state when user starts again
-  useEffect(() => {
-    if (running) {
-      setIdle(false);
-      setStopped(false);
-    } else if (!running && !stopped) {
-      setIdle(true);
-    }
-  }, [running, stopped]);
 
   // Color logic using CSS variables
   let timerColor = "var(--text)";

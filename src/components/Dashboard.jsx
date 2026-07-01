@@ -88,7 +88,7 @@ const SummaryRow = ({ label, value, tone }) => (
   </div>
 );
 
-const Overview = ({ session, all, eventSolves, sessionStats }) => {
+const Overview = ({ session, all, eventSolves }) => {
   const [copied, setCopied] = useState(false);
 
   const exportCsv = () => {
@@ -113,7 +113,7 @@ const Overview = ({ session, all, eventSolves, sessionStats }) => {
       const t = s.penalty === "DNF" ? "DNF" : ((s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000).toFixed(2);
       return `${i + 1}. ${t}${s.penalty === "+2" ? "+" : ""}`;
     });
-    const { mean, ao5, ao12, best } = sessionStats;
+    const { mean, ao5, ao12, best } = session;
     lines.push("", `mean: ${fmt(mean)}  ao5: ${fmt(ao5)}  ao12: ${fmt(ao12)}  best: ${fmt(best)}`);
     navigator.clipboard.writeText(lines.join("\n"));
     setCopied(true);
@@ -270,7 +270,7 @@ const Dashboard = ({ eventSolves, allSolves }) => {
       </div>
 
       {tab === "Overview" && (
-        <Overview session={sessionStats} all={allTimeStats} eventSolves={eventSolves} sessionStats={sessionStats} />
+        <Overview session={sessionStats} all={allTimeStats} eventSolves={eventSolves} />
       )}
       {tab === "Trend" && (
         <div className="section-card">

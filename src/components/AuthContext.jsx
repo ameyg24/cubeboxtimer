@@ -1,5 +1,5 @@
 // AuthContext.jsx - Provides authentication context and Gmail login
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { auth, provider } from "../firebase/config";
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 
@@ -36,7 +36,7 @@ export function AuthProvider({ children }) {
     return () => { unsubscribe(); clearTimeout(timeout); };
   }, []);
 
-  const login = async () => {
+  const login = useCallback(async () => {
     setAuthError("");
     if (!auth || !provider) {
       const message = "Firebase sign-in is not configured. Add a .env file with VITE_FIREBASE_* values and restart the dev server.";
@@ -51,13 +51,13 @@ export function AuthProvider({ children }) {
       setAuthError(message);
       console.warn("Firebase sign-in failed.", error);
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await signOut(auth);
-  };
+  }, []);
 
-  const value = { user, login, logout, authError };
+  const value = useMemo(() => ({ user, login, logout, authError }), [user, login, logout, authError]);
   return (
     <AuthContext.Provider value={value}>
       {!loading && children}

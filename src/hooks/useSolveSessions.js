@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   collection,
   query,
@@ -662,14 +662,29 @@ export function useSolveSessions({ user, cubeDimension }) {
     }
   };
 
-  // Get solves for current event (all), and valid solves (for stats/count)
-  const activeSession = sessions.find((s) => s.id === activeSessionId) ||
-    sessions[0] || { id: "local", name: "Session", createdAt: Date.now(), solves: createEmptySolves() };
-  const eventSolves = activeSession.solves[cubeDimension] || [];
+  // Get solves for current event (all), and valid solves (for stats/count).
+  // Memoized so the array/object identity only changes when the underlying
+  // session data does, not on every render (e.g. sync status polling) -
+  // consumers like Dashboard and StatsChart rely on that stability to skip
+  // recomputing derived stats and re-rendering the chart.
+  const activeSession = useMemo(
+    () =>
+      sessions.find((s) => s.id === activeSessionId) ||
+      sessions[0] || { id: "local", name: "Session", createdAt: Date.now(), solves: createEmptySolves() },
+    [sessions, activeSessionId]
+  );
+  const eventSolves = useMemo(
+    () => activeSession.solves[cubeDimension] || [],
+    [activeSession, cubeDimension]
+  );
 
   // Aggregate all solves across all sessions for all-time stats (per event)
-  const allSolves = sessions.flatMap((s) =>
-    Array.isArray(s.solves?.[cubeDimension]) ? s.solves[cubeDimension] : []
+  const allSolves = useMemo(
+    () =>
+      sessions.flatMap((s) =>
+        Array.isArray(s.solves?.[cubeDimension]) ? s.solves[cubeDimension] : []
+      ),
+    [sessions, cubeDimension]
   );
 
   // Append a completed solve to the active event and queue the write.
