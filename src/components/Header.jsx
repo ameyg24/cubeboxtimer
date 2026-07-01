@@ -12,7 +12,6 @@ const Header = ({
   setActiveSessionId = () => {},
   addSession = () => {},
   removeSession = () => {},
-  setSidebarOpen,
   onShowSettings = () => {},
   showSessionPlaceholder = false,
   sessionBestMs = null,
@@ -24,14 +23,7 @@ const Header = ({
   return (
     <header className="header-bar">
       {/* Left */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "0 0 auto" }}>
-        <button className="icon-btn" onClick={() => setSidebarOpen((o) => !o)} title="Menu">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <rect y="2" width="16" height="1.5" rx="0.75" />
-            <rect y="7.25" width="16" height="1.5" rx="0.75" />
-            <rect y="12.5" width="16" height="1.5" rx="0.75" />
-          </svg>
-        </button>
+      <div className="header-left" style={{ display: "flex", alignItems: "center", gap: 10, flex: "0 0 auto" }}>
         <span className="logo">CubeBox</span>
 
         <select
@@ -55,10 +47,10 @@ const Header = ({
         </select>
       </div>
 
-      <div style={{ flex: 1 }} />
+      <div className="header-spacer" style={{ flex: 1 }} />
 
       {/* Right */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+      <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
         {sessionBestMs !== null && (
           <span style={{
             fontSize: "0.75rem", fontWeight: 600, fontFamily: "monospace",
