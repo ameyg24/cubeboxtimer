@@ -23,7 +23,7 @@ const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:
 // Shared dialog shell: traps Tab focus while open, moves focus in on mount,
 // restores it to whatever triggered the modal on close, and closes on Escape
 // or a click on the overlay itself.
-function Modal({ titleId, onClose, children }) {
+export function Modal({ titleId, onClose, children }) {
   const dialogRef = useRef(null);
 
   useEffect(() => {
