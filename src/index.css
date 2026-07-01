@@ -53,7 +53,7 @@
   --fs-lg: 1rem;
   --fs-xl: 1.125rem;
   --fs-2xl: 1.5rem;
-  --fs-timer: clamp(3.5rem, 12vw, 6rem);
+  --fs-timer: clamp(3.5rem, 13vw, 8rem);
 }
 
 body.dark {

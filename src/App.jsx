@@ -20,6 +20,7 @@ import { ao5 } from "./analytics";
 import "./App.css";
 import Dashboard from "./components/Dashboard.jsx";
 import SolveList from "./components/SolveList.jsx";
+import ScrambleBar from "./components/ScrambleBar.jsx";
 
 const SHORTCUTS = [
   { key: "Space", desc: "Start / stop timer" },
@@ -1096,9 +1097,6 @@ function App() {
         setScrambleType={setScrambleType}
         cubeDimension={cubeDimension}
         setCubeDimension={setCubeDimension}
-        scrambles={scrambles}
-        selectedScrambleIdx={selectedScrambleIdx}
-        setSelectedScrambleIdx={setSelectedScrambleIdx}
         sessions={sessions}
         activeSessionId={activeSessionId}
         setActiveSessionId={setActiveSessionId}
@@ -1164,6 +1162,13 @@ function App() {
             height: "100%",
           }}
         >
+          {!timerRunning && (
+            <ScrambleBar
+              scrambles={scrambles}
+              selectedScrambleIdx={selectedScrambleIdx}
+              setSelectedScrambleIdx={setSelectedScrambleIdx}
+            />
+          )}
           <div
             className="timer-area"
             style={{
@@ -1172,39 +1177,16 @@ function App() {
               flexDirection: "column",
               justifyContent: "center",
               alignItems: "center",
-              flex: "0 0 340px",
-              minHeight: 340,
+              flex: "1 1 auto",
+              minHeight: "44vh",
               margin: 0,
-              padding: "2rem 0 1.5rem 0",
+              padding: "clamp(1.5rem, 5vh, 3.25rem) 1rem",
               position: "relative",
-              gap: 16,
+              gap: 20,
               background: timerRunning ? "var(--timer-active-bg)" : undefined,
               transition: "background 0.4s",
             }}
           >
-            {/* Only show Start button (no Start Inspection) when timer is not running, inspection is not visible, and timer is reset (0.00) */}
-            {!timerRunning && !inspectionVisible && scrambles[selectedScrambleIdx] && (
-              <div style={{ display: "flex", flexDirection: "row", gap: 16, position: "absolute", left: "50%", top: "65%", transform: "translate(-50%, -50%)", zIndex: 10 }}>
-                <button
-                  style={{
-                    padding: "9px 28px",
-                    fontSize: "1rem",
-                    borderRadius: 8,
-                    border: "none",
-                    background: "var(--accent)",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontWeight: 600,
-                    letterSpacing: "0.02em",
-                  }}
-                  onClick={() => {
-                    setInspectionVisible(true);
-                  }}
-                >
-                  Start
-                </button>
-              </div>
-            )}
             {lastSolveIsPB && (
               <div style={{
                 position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
@@ -1229,6 +1211,11 @@ function App() {
               pendingPenalty={pendingPenalty}
               inspectionActive={inspectionVisible}
             />
+            {!timerRunning && !inspectionVisible && scrambles[selectedScrambleIdx] && (
+              <button className="timer-start" onClick={() => setInspectionVisible(true)}>
+                Start
+              </button>
+            )}
             {inspectionVisible && (
               <InspectionTimer
                 visible={inspectionVisible}
@@ -1256,18 +1243,18 @@ function App() {
           </div>
           {!timerRunning && (
             <div
+              className="content-row"
               style={{
-                flex: 1,
+                flex: "0 0 auto",
                 width: "100%",
                 display: "flex",
-                flexDirection: "row",
                 alignItems: "stretch",
                 justifyContent: "space-between",
-                gap: "2.5rem",
-                padding: "0 2vw 2vw 2vw",
+                gap: "2rem",
+                padding: "0 2vw 2rem",
                 boxSizing: "border-box",
-                height: "100%",
-                maxWidth: "100vw",
+                maxWidth: 1440,
+                margin: "0 auto",
               }}
             >
               <div

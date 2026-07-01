@@ -47,19 +47,41 @@
   border-color: var(--text-muted);
 }
 
-.scramble-string {
-  font-family: "Courier New", monospace;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text);
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 5px 12px;
+/* ── Scramble ───────────────────────────────────────────── */
+.scramble-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) 0;
+  box-sizing: border-box;
+}
+
+.scramble-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   text-align: center;
-  word-break: break-word;
-  max-width: 55vw;
-  line-height: 1.4;
+  font-family: "Courier New", monospace;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  word-spacing: 0.12em;
+  color: var(--text);
+  cursor: text;
+  user-select: text;
+}
+
+.scramble-count {
+  font-family: "Courier New", monospace;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-faint);
+  white-space: nowrap;
 }
 
 /* ── Main layout ────────────────────────────────────────── */
@@ -81,9 +103,9 @@
 }
 
 .timer h1 {
-  font-size: 6rem;
-  font-weight: 300;
-  letter-spacing: -2px;
+  font-size: var(--fs-timer);
+  font-weight: 400;
+  letter-spacing: -0.02em;
   margin: 0;
   font-variant-numeric: tabular-nums;
   transition: color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -95,6 +117,23 @@
   font-size: 0.82rem;
   margin-top: 1rem;
   text-align: center;
+}
+
+.timer-start {
+  padding: 10px 32px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.timer-start:hover {
+  filter: brightness(1.06);
 }
 
 /* ── Sidebar ────────────────────────────────────────────── */
@@ -150,19 +189,26 @@ select.ctrl:focus {
   height: 360px;
 }
 
+@media (max-width: 820px) {
+  .content-row {
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+}
+
 @media (max-width: 700px) {
   .chart-container {
     height: 220px;
-  }
-  .timer h1 {
-    font-size: 3.5rem;
   }
   .header-bar {
     padding: 0 0.75rem;
     gap: 8px;
   }
-  .scramble-string {
-    max-width: 42vw;
-    font-size: 0.78rem;
+  .scramble-bar {
+    padding: var(--space-3) var(--space-2) 0;
+  }
+  .scramble-text {
+    font-size: 0.92rem;
+    line-height: 1.6;
   }
 }
