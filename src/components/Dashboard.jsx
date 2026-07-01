@@ -1,93 +1,39 @@
 // Dashboard.jsx - CS Timer-style statistics with session, all-time, and daily breakdown
 import { useState, useMemo } from "react";
 import StatsChart from "./StatsChart";
+import { averageOfN, computeSessionStats } from "../analytics";
 
-// WCA-compliant trimmed average of N
-function wcaAvgN(solvesSlice) {
-  if (!solvesSlice || solvesSlice.length < 3) return null;
-  const dnfCount = solvesSlice.filter((s) => s.penalty === "DNF").length;
-  if (dnfCount >= 2) return "DNF";
-  const ts = solvesSlice
-    .filter((s) => s.penalty !== "DNF")
-    .map((s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000);
-  if (ts.length < solvesSlice.length - 1) return "DNF";
-  const sorted = [...ts].sort((a, b) => a - b);
-  const middle = sorted.slice(1, -1);
-  if (middle.length === 0) return null;
-  return middle.reduce((a, b) => a + b, 0) / middle.length;
-}
+// Map an AverageResult to this dashboard's display value:
+// ok -> seconds, dnf -> "DNF", insufficient -> null.
+const toDisplay = (r) =>
+  r.status === "ok" ? r.valueMs / 1000 : r.status === "dnf" ? "DNF" : null;
 
+// Display-shaped average of the last n solves (for the rolling trend arrows).
+const avgNDisplay = (solves, n) => toDisplay(averageOfN(solves, n));
+
+// Adapt the pure SessionStats (milliseconds + AverageResult) to the seconds /
+// "DNF" / null shape the cards render with. All stat math lives in src/analytics.
 function computeFullStats(solvesRaw) {
-  const empty = {
-    best: null, worst: null, mean: null, stddev: null,
-    mo3: null, ao5: null, ao12: null, ao50: null, ao100: null,
-    bestAo5: null, bestAo12: null, worstAo5: null, bestStreak: 0, totalTime: 0,
-    count: 0, validCount: 0, dnfCount: 0, plus2Count: 0,
-  };
-  if (!solvesRaw || solvesRaw.length === 0) return empty;
-
-  const validSolves = solvesRaw.filter(
-    (s) => typeof s.millis === "number" && s.penalty !== "DNF"
-  );
-  const times = validSolves.map(
-    (s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000
-  );
-  const dnfCount = solvesRaw.filter((s) => s.penalty === "DNF").length;
-  const plus2Count = solvesRaw.filter((s) => s.penalty === "+2").length;
-
-  if (times.length === 0) {
-    return { ...empty, count: solvesRaw.length, validCount: 0, dnfCount, plus2Count };
-  }
-
-  const best = Math.min(...times);
-  const worst = Math.max(...times);
-  const mean = times.reduce((a, b) => a + b, 0) / times.length;
-  const variance =
-    times.reduce((sum, t) => sum + (t - mean) ** 2, 0) / times.length;
-  const stddev = Math.sqrt(variance);
-
-  const mo3 = solvesRaw.length >= 3 ? wcaAvgN(solvesRaw.slice(-3)) : null;
-  const ao5 = solvesRaw.length >= 5 ? wcaAvgN(solvesRaw.slice(-5)) : null;
-  const ao12 = solvesRaw.length >= 12 ? wcaAvgN(solvesRaw.slice(-12)) : null;
-  const ao50 = solvesRaw.length >= 50 ? wcaAvgN(solvesRaw.slice(-50)) : null;
-  const ao100 = solvesRaw.length >= 100 ? wcaAvgN(solvesRaw.slice(-100)) : null;
-
-  let bestAo5 = null, worstAo5 = null;
-  let bestAo12 = null;
-  for (let i = 4; i < solvesRaw.length; i++) {
-    const avg = wcaAvgN(solvesRaw.slice(i - 4, i + 1));
-    if (avg !== null && avg !== "DNF") {
-      if (bestAo5 === null || avg < bestAo5) bestAo5 = avg;
-      if (worstAo5 === null || avg > worstAo5) worstAo5 = avg;
-    }
-  }
-  for (let i = 11; i < solvesRaw.length; i++) {
-    const avg = wcaAvgN(solvesRaw.slice(i - 11, i + 1));
-    if (avg !== null && avg !== "DNF") {
-      if (bestAo12 === null || avg < bestAo12) bestAo12 = avg;
-    }
-  }
-
-  const totalTime = times.reduce((a, b) => a + b, 0);
-
-  let bestStreak = 0, curStreak = 0;
-  for (const s of solvesRaw) {
-    const t = s.penalty === "DNF" ? null : (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000;
-    if (t !== null && t < mean) {
-      curStreak++;
-      if (curStreak > bestStreak) bestStreak = curStreak;
-    } else {
-      curStreak = 0;
-    }
-  }
-
+  const st = computeSessionStats(solvesRaw);
   return {
-    best, worst, mean, stddev,
-    mo3, ao5, ao12, ao50, ao100,
-    bestAo5, bestAo12, worstAo5, bestStreak, totalTime,
-    count: solvesRaw.length,
-    validCount: times.length,
-    dnfCount, plus2Count,
+    best: toDisplay(st.best),
+    worst: toDisplay(st.worst),
+    mean: toDisplay(st.mean),
+    stddev: st.stddevMs === null ? null : st.stddevMs / 1000,
+    mo3: toDisplay(st.mo3),
+    ao5: toDisplay(st.ao5),
+    ao12: toDisplay(st.ao12),
+    ao50: toDisplay(st.ao50),
+    ao100: toDisplay(st.ao100),
+    bestAo5: toDisplay(st.bestAo5),
+    bestAo12: toDisplay(st.bestAo12),
+    worstAo5: toDisplay(st.worstAo5),
+    bestStreak: st.bestStreak,
+    totalTime: st.totalTimeMs / 1000,
+    count: st.count,
+    validCount: st.validCount,
+    dnfCount: st.dnfCount,
+    plus2Count: st.plus2Count,
   };
 }
 
@@ -104,18 +50,7 @@ function computeDailyStats(solvesRaw) {
   return Object.entries(days)
     .sort(([a], [b]) => b.localeCompare(a)) // most recent first
     .map(([day, solves]) => {
-      const valid = solves.filter(
-        (s) => typeof s.millis === "number" && s.penalty !== "DNF"
-      );
-      const times = valid.map(
-        (s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000
-      );
-      const best = times.length ? Math.min(...times) : null;
-      const mean = times.length
-        ? times.reduce((a, b) => a + b, 0) / times.length
-        : null;
-      const ao5 = solves.length >= 5 ? wcaAvgN(solves.slice(-5)) : null;
-      const dnfCount = solves.filter((s) => s.penalty === "DNF").length;
+      const st = computeSessionStats(solves);
       const [year, month, dayNum] = day.split("-");
       const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(dayNum));
       const label = dateObj.toLocaleDateString("en-US", {
@@ -123,7 +58,15 @@ function computeDailyStats(solvesRaw) {
         day: "numeric",
         year: "numeric",
       });
-      return { day, label, count: solves.length, best, mean, ao5, dnfCount };
+      return {
+        day,
+        label,
+        count: solves.length,
+        best: toDisplay(st.best),
+        mean: toDisplay(st.mean),
+        ao5: toDisplay(st.ao5),
+        dnfCount: st.dnfCount,
+      };
     });
 }
 
@@ -153,8 +96,8 @@ const StatRow = ({ label, value, highlight }) => (
 
 const AvgTrend = ({ solves, n }) => {
   if (solves.length < n * 2) return null;
-  const cur = wcaAvgN(solves.slice(-n));
-  const prev = wcaAvgN(solves.slice(-n * 2, -n));
+  const cur = avgNDisplay(solves.slice(-n), n);
+  const prev = avgNDisplay(solves.slice(-n * 2, -n), n);
   if (!cur || !prev || cur === "DNF" || prev === "DNF") return null;
   const better = cur < prev;
   return (
