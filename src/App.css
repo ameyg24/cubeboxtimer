@@ -54,7 +54,7 @@
   color: var(--text);
   background: var(--surface-alt);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 5px 12px;
   text-align: center;
   word-break: break-word;
@@ -115,7 +115,7 @@
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow);
   transition: background 0.2s, border-color 0.2s;
 }

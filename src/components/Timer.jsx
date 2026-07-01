@@ -1,7 +1,4 @@
-// Timer.js - WCA-compliant timer component (DEPRECATED)
-// This file is no longer needed and should be removed to avoid confusion and import errors.
-// Timer.jsx is now the correct file for the Timer component.
-
+// WCA-compliant timer: renders the running time and reports the final solve.
 import React, { useState, useRef, useEffect } from "react";
 
 const Timer = ({
