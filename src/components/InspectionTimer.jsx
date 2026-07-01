@@ -16,6 +16,8 @@ export default function InspectionTimer({
   const [warning, setWarning] = useState(0); // 0: none, 1: 8s, 2: 12s
   const timerRef = useRef();
   const startTimeRef = useRef();
+  const remainingRef = useRef(seconds);
+  const penaltyRef = useRef(null);
 
   useEffect(() => {
     if (!visible) {
@@ -23,6 +25,8 @@ export default function InspectionTimer({
       setRemaining(seconds);
       setPenalty(null);
       setWarning(0);
+      remainingRef.current = seconds;
+      penaltyRef.current = null;
       clearInterval(timerRef.current);
       return;
     }
@@ -30,53 +34,60 @@ export default function InspectionTimer({
     setRemaining(seconds);
     setPenalty(null);
     setWarning(0);
+    remainingRef.current = seconds;
+    penaltyRef.current = null;
     startTimeRef.current = Date.now();
-    
-    timerRef.current = setInterval(() => {
-      setRemaining((prev) => {
-        const newRemaining = prev - 1;
-        const elapsed = seconds - newRemaining;
 
-        // Warning at exactly 8 seconds
-        if (elapsed === 8) {
-          setWarning(1);
-          try {
-            const u = new SpeechSynthesisUtterance("8 seconds");
-            u.rate = 1.1;
-            speechSynthesis.speak(u);
-          } catch (_) {}
-        }
-        // Warning at exactly 12 seconds
-        if (elapsed === 12) {
-          setWarning(2);
-          try {
-            const u = new SpeechSynthesisUtterance("12 seconds");
-            u.rate = 1.1;
-            speechSynthesis.speak(u);
-          } catch (_) {}
-        }
-        
-        // At 15 seconds (0 remaining), apply +2 penalty
-        if (newRemaining <= 0 && newRemaining > -2 && penalty !== "+2") {
-          setPenalty("+2");
-          if (onPenalty) onPenalty("+2");
-        }
-        
-        // At 17 seconds (-2 remaining), force DNF and auto-record
-        if (newRemaining <= -2) {
-          clearInterval(timerRef.current);
-          setPenalty("DNF");
-          if (onPenalty) onPenalty("DNF");
-          // Auto-record DNF when inspection time expires
-          setTimeout(() => {
-            if (onInspectionEnd) onInspectionEnd("DNF");
-            setActive(false);
-          }, 100);
-          return -2;
-        }
-        
-        return newRemaining;
-      });
+    // The tick runs its side effects here, in the interval callback, rather than
+    // inside a setRemaining updater — updaters must stay pure, and firing the
+    // parent's onPenalty from one warns about updating state during render.
+    timerRef.current = setInterval(() => {
+      const newRemaining = remainingRef.current - 1;
+      remainingRef.current = newRemaining;
+      const elapsed = seconds - newRemaining;
+
+      // Warning at exactly 8 seconds
+      if (elapsed === 8) {
+        setWarning(1);
+        try {
+          const u = new SpeechSynthesisUtterance("8 seconds");
+          u.rate = 1.1;
+          speechSynthesis.speak(u);
+        } catch (_) {}
+      }
+      // Warning at exactly 12 seconds
+      if (elapsed === 12) {
+        setWarning(2);
+        try {
+          const u = new SpeechSynthesisUtterance("12 seconds");
+          u.rate = 1.1;
+          speechSynthesis.speak(u);
+        } catch (_) {}
+      }
+
+      // At 15 seconds (0 remaining), apply +2 penalty
+      if (newRemaining <= 0 && newRemaining > -2 && penaltyRef.current !== "+2") {
+        penaltyRef.current = "+2";
+        setPenalty("+2");
+        if (onPenalty) onPenalty("+2");
+      }
+
+      // At 17 seconds (-2 remaining), force DNF and auto-record
+      if (newRemaining <= -2) {
+        clearInterval(timerRef.current);
+        penaltyRef.current = "DNF";
+        setPenalty("DNF");
+        if (onPenalty) onPenalty("DNF");
+        setRemaining(-2);
+        // Auto-record DNF when inspection time expires
+        setTimeout(() => {
+          if (onInspectionEnd) onInspectionEnd("DNF");
+          setActive(false);
+        }, 100);
+        return;
+      }
+
+      setRemaining(newRemaining);
     }, 1000);
     return () => clearInterval(timerRef.current);
     // eslint-disable-next-line
