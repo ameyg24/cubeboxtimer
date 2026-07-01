@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Header from "./components/Header";
 import Timer from "./components/Timer.jsx";
 import InspectionTimer from "./components/InspectionTimer.jsx";
@@ -238,12 +238,23 @@ function App() {
 
   // ao5 of the live event, mapped to the display contract this header uses:
   // null -> hidden, "DNF" -> DNF text, number -> seconds. See src/analytics.
-  const lastAo5 = (() => {
+  const lastAo5 = useMemo(() => {
     const r = ao5(eventSolves);
     if (r.status === "insufficient") return null;
     if (r.status === "dnf") return "DNF";
     return r.valueMs / 1000;
-  })();
+  }, [eventSolves]);
+
+  const sessionBestMs = useMemo(
+    () =>
+      eventSolves
+        .filter((s) => s.penalty !== "DNF" && s.millis > 0)
+        .reduce((best, s) => {
+          const t = s.millis + (s.penalty === "+2" ? 2000 : 0);
+          return best === null ? t : Math.min(best, t);
+        }, null),
+    [eventSolves]
+  );
 
   useEffect(() => {
     localStorage.setItem("cubeboxtimer_inspectionModeEnabled", inspectionModeEnabled);
@@ -339,10 +350,7 @@ function App() {
         onShowProfile={() => setShowProfile(true)}
         showSessionPlaceholder={sessions.length === 0}
         syncStatus={syncStatus}
-        sessionBestMs={eventSolves.filter(s => s.penalty !== "DNF" && s.millis > 0).reduce((best, s) => {
-          const t = s.millis + (s.penalty === "+2" ? 2000 : 0);
-          return best === null ? t : Math.min(best, t);
-        }, null)}
+        sessionBestMs={sessionBestMs}
       />
       {showSettings && (
         <SettingsModal
@@ -422,8 +430,6 @@ function App() {
             <Timer
               key={activeSessionId + cubeDimension}
               onSolveComplete={handleSolveComplete}
-              scramble={scrambles[selectedScrambleIdx] || ""}
-              timerRunning={timerRunning}
               setTimerRunning={setTimerRunning}
               hideStartButton={!timerRunning ? true : false}
               showMainButtons={!timerRunning && !inspectionVisible && scrambles[selectedScrambleIdx]}

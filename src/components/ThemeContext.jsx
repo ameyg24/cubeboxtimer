@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 
 const ThemeContext = createContext();
 
@@ -12,10 +12,11 @@ export function ThemeProvider({ children }) {
     localStorage.setItem("cubeboxtimer_dark", String(dark));
   }, [dark]);
 
-  const toggleDark = () => setDark((d) => !d);
+  const toggleDark = useCallback(() => setDark((d) => !d), []);
+  const value = useMemo(() => ({ dark, toggleDark }), [dark, toggleDark]);
 
   return (
-    <ThemeContext.Provider value={{ dark, toggleDark }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
