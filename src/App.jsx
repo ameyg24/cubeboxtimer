@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import Header from "./components/Header";
-import Sidebar from "./components/Sidebar";
 import Timer from "./components/Timer.jsx";
 import InspectionTimer from "./components/InspectionTimer.jsx";
 import { db, firebaseProjectId } from "./firebase/config";
@@ -445,7 +444,6 @@ function App() {
   const [cubeDimension, setCubeDimension] = useState("3x3x3");
   const [scrambles, setScrambles] = useState([]);
   const [selectedScrambleIdx, setSelectedScrambleIdx] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [timerRunning, setTimerRunning] = useState(false); // NEW: track timer running state
@@ -1102,8 +1100,6 @@ function App() {
         setActiveSessionId={setActiveSessionId}
         addSession={addSession}
         removeSession={removeSession}
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
         onShowSettings={() => setShowSettings(true)}
         onShowProfile={() => setShowProfile(true)}
         showSessionPlaceholder={sessions.length === 0}
@@ -1139,17 +1135,6 @@ function App() {
           overflow: "hidden",
         }}
       >
-        {sidebarOpen && !timerRunning && (
-          <Sidebar
-            sessions={sessions}
-            activeSessionId={activeSessionId}
-            setActiveSessionId={setActiveSessionId}
-            addSession={addSession}
-            removeSession={removeSession}
-            solves={eventSolves}
-            sidebarOpen={sidebarOpen}
-          />
-        )}
         <div
           style={{
             flex: 1,
@@ -1241,7 +1226,20 @@ function App() {
               </div>
             )}
           </div>
-          {!timerRunning && (
+          {!timerRunning && !firestoreLoading && allSolves.length === 0 && (
+            <div className="empty-state">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+                <line x1="3" y1="15" x2="21" y2="15" />
+                <line x1="9" y1="3" x2="9" y2="21" />
+                <line x1="15" y1="3" x2="15" y2="21" />
+              </svg>
+              <p className="empty-title">No solves yet</p>
+              <p className="empty-sub">Your times and statistics will show up here once you finish your first solve.</p>
+            </div>
+          )}
+          {!timerRunning && (firestoreLoading || allSolves.length > 0) && (
             <div
               className="content-row"
               style={{

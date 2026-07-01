@@ -111,3 +111,23 @@
   color: var(--danger);
   background: var(--surface-alt);
 }
+
+@media (max-width: 900px) {
+  .header-bar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 12px;
+    row-gap: 8px;
+  }
+  .header-spacer {
+    display: none;
+  }
+  .header-left,
+  .header-right {
+    flex-wrap: wrap;
+  }
+  .header-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
