@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useAuth } from "./AuthContext.jsx";
 import { useTheme } from "./ThemeContext.jsx";
 import "./Header.css";
@@ -8,9 +7,6 @@ const Header = ({
   setScrambleType,
   cubeDimension,
   setCubeDimension,
-  scrambles = [],
-  selectedScrambleIdx = 0,
-  setSelectedScrambleIdx = () => {},
   sessions = [],
   activeSessionId,
   setActiveSessionId = () => {},
@@ -24,21 +20,6 @@ const Header = ({
 }) => {
   const { user, login, logout, authError } = useAuth();
   const { dark, toggleDark } = useTheme();
-  const [copied, setCopied] = useState(false);
-
-  const handleCopyScramble = () => {
-    const scramble = scrambles[selectedScrambleIdx];
-    if (!scramble) return;
-    navigator.clipboard.writeText(scramble).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-
-  const handlePrev = () =>
-    setSelectedScrambleIdx((i) => (i > 0 ? i - 1 : scrambles.length - 1));
-  const handleNext = () =>
-    setSelectedScrambleIdx((i) => (i < scrambles.length - 1 ? i + 1 : 0));
 
   return (
     <header className="header-bar">
@@ -74,68 +55,18 @@ const Header = ({
         </select>
       </div>
 
-      {/* Center — scramble */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, justifyContent: "center", minWidth: 0 }}>
-        <span style={{
-          fontSize: "0.7rem", fontWeight: 700, color: "var(--accent)",
-          background: "var(--accent-bg)", border: "1px solid var(--accent)",
-          borderRadius: 10, padding: "2px 8px", whiteSpace: "nowrap", letterSpacing: "0.02em",
-        }}>
-          {scrambleType} {cubeDimension.split("x").slice(0, 2).join("×")}
-        </span>
-        <button className="icon-btn" onClick={handlePrev} title="Previous scramble">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M9 11L5 7l4-4" />
-          </svg>
-        </button>
-        <span
-          className="scramble-string"
-          style={{ cursor: "text", userSelect: "text" }}
-          onClick={(e) => {
-            const range = document.createRange();
-            range.selectNodeContents(e.currentTarget);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-          }}
-        >
-          {scrambles[selectedScrambleIdx] || ""}
-        </span>
-        {scrambles[selectedScrambleIdx] && (
-          <span style={{ fontSize: "0.72rem", color: "var(--text-faint)", fontWeight: 600, fontFamily: "monospace", whiteSpace: "nowrap" }}>
-            {scrambles[selectedScrambleIdx].split(" ").filter(Boolean).length}M
-          </span>
-        )}
-        <button
-          className="icon-btn"
-          onClick={handleCopyScramble}
-          title="Copy scramble"
-          style={{ color: copied ? "var(--success)" : undefined, fontSize: "0.75rem", padding: "4px 7px" }}
-        >
-          {copied ? "✓" : (
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="9" y="9" width="13" height="13" rx="2" />
-              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-            </svg>
-          )}
-        </button>
-        <button className="icon-btn" onClick={handleNext} title="Next scramble">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M5 3l4 4-4 4" />
-          </svg>
-        </button>
-      </div>
+      <div style={{ flex: 1 }} />
 
       {/* Right */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
         {sessionBestMs !== null && (
           <span style={{
-            fontSize: "0.75rem", fontWeight: 700, fontFamily: "monospace",
-            background: "var(--accent-bg)", color: "var(--accent)",
-            border: "1px solid var(--accent)", borderRadius: 12,
+            fontSize: "0.75rem", fontWeight: 600, fontFamily: "monospace",
+            background: "var(--surface-alt)", color: "var(--text-muted)",
+            border: "1px solid var(--border)", borderRadius: "var(--radius-pill)",
             padding: "2px 10px", letterSpacing: "0.02em",
           }} title="Session best">
-            ★ {(sessionBestMs / 1000).toFixed(2)}s
+            <span style={{ color: "var(--accent)" }}>★</span> {(sessionBestMs / 1000).toFixed(2)}s
           </span>
         )}
         <span className={`sync-badge sync-badge-${syncStatus.state}`} title={syncStatus.title || "Sync status"}>

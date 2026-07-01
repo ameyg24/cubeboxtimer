@@ -111,19 +111,3 @@
   color: var(--danger);
   background: var(--surface-alt);
 }
-
-.scramble-string {
-  font-family: "Courier New", monospace;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--text);
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 5px 12px;
-  text-align: center;
-  word-break: break-word;
-  max-width: 52vw;
-  line-height: 1.5;
-  transition: background 0.2s, border-color 0.2s;
-}
