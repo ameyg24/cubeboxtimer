@@ -39,7 +39,8 @@ const ScrambleBar = ({ scrambles = [], selectedScrambleIdx = 0, setSelectedScram
         className="icon-btn"
         onClick={copy}
         title="Copy scramble"
-        aria-label="Copy scramble"
+        aria-label={copied ? "Scramble copied" : "Copy scramble"}
+        aria-live="polite"
         style={{ color: copied ? "var(--success)" : undefined }}
       >
         {copied ? "✓" : (

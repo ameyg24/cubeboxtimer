@@ -18,68 +18,110 @@ const SHORTCUTS = [
   { key: "?", desc: "Toggle this shortcuts panel" },
 ];
 
-function ShortcutsModal({ onClose }) {
+const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+// Shared dialog shell: traps Tab focus while open, moves focus in on mount,
+// restores it to whatever triggered the modal on close, and closes on Escape
+// or a click on the overlay itself.
+function Modal({ titleId, onClose, children }) {
+  const dialogRef = useRef(null);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement;
+    const dialog = dialogRef.current;
+    const first = dialog.querySelector(FOCUSABLE_SELECTOR);
+    (first || dialog).focus();
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = dialog.querySelectorAll(FOCUSABLE_SELECTOR);
+      if (items.length === 0) return;
+      const firstItem = items[0];
+      const lastItem = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === firstItem) {
+        e.preventDefault();
+        lastItem.focus();
+      } else if (!e.shiftKey && document.activeElement === lastItem) {
+        e.preventDefault();
+        firstItem.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [onClose]);
+
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "var(--overlay)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={modalStyle}>
-        <button onClick={onClose} style={modalCloseStyle}>×</button>
-        <h2 style={{ color: "var(--text)", marginBottom: 16, fontSize: "1.1rem", textAlign: "left" }}>Keyboard Shortcuts</h2>
-        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-          <tbody>
-            {SHORTCUTS.map(({ key, desc }) => (
-              <tr key={key} style={{ borderBottom: "1px solid var(--border)" }}>
-                <td style={{ padding: "8px 12px 8px 0", fontFamily: "monospace", fontWeight: 700, color: "var(--accent)", whiteSpace: "nowrap", fontSize: "0.88rem" }}>{key}</td>
-                <td style={{ padding: "8px 0", color: "var(--text-muted)", fontSize: "0.88rem" }}>{desc}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div
+      style={overlayStyle}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div ref={dialogRef} style={modalStyle} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+        <button onClick={onClose} style={modalCloseStyle} aria-label="Close">×</button>
+        {children}
       </div>
     </div>
+  );
+}
+
+function ShortcutsModal({ onClose }) {
+  return (
+    <Modal titleId="shortcuts-title" onClose={onClose}>
+      <h2 id="shortcuts-title" style={{ color: "var(--text)", marginBottom: 16, fontSize: "1.1rem", textAlign: "left" }}>Keyboard Shortcuts</h2>
+      <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+        <tbody>
+          {SHORTCUTS.map(({ key, desc }) => (
+            <tr key={key} style={{ borderBottom: "1px solid var(--border)" }}>
+              <td style={{ padding: "8px 12px 8px 0", fontFamily: "monospace", fontWeight: 700, color: "var(--accent)", whiteSpace: "nowrap", fontSize: "0.88rem" }}>{key}</td>
+              <td style={{ padding: "8px 0", color: "var(--text-muted)", fontSize: "0.88rem" }}>{desc}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Modal>
   );
 }
 
 function ProfileModal({ user, onClose }) {
   if (!user) return null;
   return (
-    <div
-      style={{
-        position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
-        background: "var(--overlay)", zIndex: 2000, display: "flex",
-        alignItems: "center", justifyContent: "center",
-      }}
-    >
-      <div style={modalStyle}>
-        <button onClick={onClose} style={modalCloseStyle}>×</button>
-        <h2 style={{ color: "var(--accent)", marginBottom: 16, fontSize: "1.1rem" }}>Profile</h2>
-        <div style={{ marginBottom: 8, color: "var(--text)" }}><b>Name:</b> {user.displayName || "Anonymous"}</div>
-        <div style={{ marginBottom: 8, color: "var(--text)" }}><b>Email:</b> {user.email}</div>
-        <div style={{ color: "var(--text-muted)", marginTop: 18, fontSize: "0.9rem" }}>More profile features coming soon!</div>
-      </div>
-    </div>
+    <Modal titleId="profile-title" onClose={onClose}>
+      <h2 id="profile-title" style={{ color: "var(--accent)", marginBottom: 16, fontSize: "1.1rem" }}>Profile</h2>
+      <div style={{ marginBottom: 8, color: "var(--text)" }}><b>Name:</b> {user.displayName || "Anonymous"}</div>
+      <div style={{ marginBottom: 8, color: "var(--text)" }}><b>Email:</b> {user.email}</div>
+      <div style={{ color: "var(--text-muted)", marginTop: 18, fontSize: "0.9rem" }}>More profile features coming soon!</div>
+    </Modal>
   );
 }
 
 function SettingsModal({ onClose, inspectionModeEnabled, setInspectionModeEnabled, spaceStartsInspection, setSpaceStartsInspection }) {
   const row = { display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: 14, color: "var(--text)", fontSize: "0.92rem" };
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "var(--overlay)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={modalStyle}>
-        <button onClick={onClose} style={modalCloseStyle}>×</button>
-        <h2 style={{ color: "var(--text)", marginBottom: 20, fontSize: "1.1rem" }}>Settings</h2>
-        <label style={row}>
-          <input type="checkbox" checked={inspectionModeEnabled} onChange={e => setInspectionModeEnabled(e.target.checked)} style={{ width: 16, height: 16 }} />
-          WCA inspection (15s before each solve)
-        </label>
-        <label style={{ ...row, opacity: inspectionModeEnabled ? 1 : 0.4, pointerEvents: inspectionModeEnabled ? "auto" : "none" }}>
-          <input type="checkbox" checked={spaceStartsInspection} onChange={e => setSpaceStartsInspection(e.target.checked)} style={{ width: 16, height: 16 }} disabled={!inspectionModeEnabled} />
-          Space bar starts inspection
-        </label>
-      </div>
-    </div>
+    <Modal titleId="settings-title" onClose={onClose}>
+      <h2 id="settings-title" style={{ color: "var(--text)", marginBottom: 20, fontSize: "1.1rem" }}>Settings</h2>
+      <label style={row}>
+        <input type="checkbox" checked={inspectionModeEnabled} onChange={e => setInspectionModeEnabled(e.target.checked)} style={{ width: 16, height: 16 }} />
+        WCA inspection (15s before each solve)
+      </label>
+      <label style={{ ...row, opacity: inspectionModeEnabled ? 1 : 0.4, pointerEvents: inspectionModeEnabled ? "auto" : "none" }}>
+        <input type="checkbox" checked={spaceStartsInspection} onChange={e => setSpaceStartsInspection(e.target.checked)} style={{ width: 16, height: 16 }} disabled={!inspectionModeEnabled} />
+        Space bar starts inspection
+      </label>
+    </Modal>
   );
 }
 
+const overlayStyle = {
+  position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+  background: "var(--overlay)", zIndex: 2000, display: "flex",
+  alignItems: "center", justifyContent: "center",
+};
 const modalStyle = {
   background: "var(--surface)", border: "1px solid var(--border)",
   borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-md)",
@@ -269,7 +311,6 @@ function App() {
       if (e.key === "?" && !e.ctrlKey && !e.metaKey && e.target.tagName !== "INPUT") {
         setShowShortcuts(s => !s);
       }
-      if (e.key === "Escape") setShowShortcuts(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -416,7 +457,7 @@ function App() {
             }}
           >
             {lastSolveIsPB && (
-              <div style={{
+              <div role="status" style={{
                 position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
                 background: "var(--success)", color: "#fff", fontWeight: 700,
                 fontSize: "0.9rem", padding: "4px 16px", borderRadius: 20,
@@ -469,7 +510,7 @@ function App() {
           </div>
           {!timerRunning && !firestoreLoading && allSolves.length === 0 && (
             <div className="empty-state">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+              <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <line x1="3" y1="9" x2="21" y2="9" />
                 <line x1="3" y1="15" x2="21" y2="15" />

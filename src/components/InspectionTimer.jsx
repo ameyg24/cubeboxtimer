@@ -133,6 +133,11 @@ export default function InspectionTimer({
         </span>
         {warning === 1 && <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--warning)" }}>8s!</span>}
         {warning === 2 && <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--danger)" }}>12s!</span>}
+        {penalty && (
+          <span className="sr-only" role="status">
+            {penalty === "DNF" ? "Inspection time exceeded, solve recorded as DNF" : "Plus two second penalty applied"}
+          </span>
+        )}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button
