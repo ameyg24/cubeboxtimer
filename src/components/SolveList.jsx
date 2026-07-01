@@ -34,7 +34,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
-          borderRadius: 10,
+          borderRadius: "var(--radius-md)",
           padding: "2rem",
           color: "var(--text-faint)",
           textAlign: "center",
@@ -60,7 +60,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
       style={{
         background: "var(--surface)",
         border: "1px solid var(--border)",
-        borderRadius: 10,
+        borderRadius: "var(--radius-md)",
         boxShadow: "var(--shadow)",
         overflow: "hidden",
         display: "flex",
@@ -131,7 +131,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
                 display: "flex",
                 alignItems: "center",
                 padding: "8px 12px",
-                background: focusedIdx === revIdx || isHovered ? "var(--accent-bg)" : isPB ? "rgba(250, 204, 21, 0.08)" : "transparent",
+                background: focusedIdx === revIdx || isHovered ? "var(--accent-bg)" : isPB ? "var(--pb-bg)" : "transparent",
                 outline: focusedIdx === revIdx ? "2px solid var(--accent)" : "none",
                 borderBottom: "1px solid var(--border)",
                 gap: 8,
@@ -142,7 +142,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
             >
               {/* Index */}
               {isPB && (
-                <span style={{ fontSize: "0.65rem", color: "#ca8a04", fontWeight: 800, letterSpacing: "0.04em" }}>PB</span>
+                <span style={{ fontSize: "0.65rem", color: "var(--pb-fg)", fontWeight: 800, letterSpacing: "0.04em" }}>PB</span>
               )}
               <span
                 style={{
@@ -181,12 +181,12 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
               {!isHovered && isDNF && (
                 <span
                   style={{
-                    background: "#ffeaea",
-                    color: "#c62828",
+                    background: "var(--danger-bg)",
+                    color: "var(--danger)",
                     fontSize: "0.72rem",
                     fontWeight: 700,
                     padding: "1px 6px",
-                    borderRadius: 4,
+                    borderRadius: "var(--radius-sm)",
                   }}
                 >
                   DNF
@@ -195,12 +195,12 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
               {!isHovered && isPlus2 && (
                 <span
                   style={{
-                    background: "#fff3e0",
-                    color: "#e65100",
+                    background: "var(--warning-bg)",
+                    color: "var(--warning)",
                     fontSize: "0.72rem",
                     fontWeight: 700,
                     padding: "1px 6px",
-                    borderRadius: 4,
+                    borderRadius: "var(--radius-sm)",
                   }}
                 >
                   +2
@@ -220,10 +220,10 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
                     style={{
                       padding: "4px 8px",
                       fontSize: "0.75rem",
-                      background: isPlus2 ? "#e65100" : "#f0f0f0",
-                      color: isPlus2 ? "#fff" : "#555",
+                      background: isPlus2 ? "var(--warning)" : "var(--surface-alt)",
+                      color: isPlus2 ? "#fff" : "var(--text-muted)",
                       border: "none",
-                      borderRadius: 4,
+                      borderRadius: "var(--radius-sm)",
                       cursor: "pointer",
                       fontWeight: 600,
                     }}
@@ -240,10 +240,10 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
                     style={{
                       padding: "4px 8px",
                       fontSize: "0.75rem",
-                      background: isDNF ? "#c62828" : "#f0f0f0",
-                      color: isDNF ? "#fff" : "#555",
+                      background: isDNF ? "var(--danger)" : "var(--surface-alt)",
+                      color: isDNF ? "#fff" : "var(--text-muted)",
                       border: "none",
-                      borderRadius: 4,
+                      borderRadius: "var(--radius-sm)",
                       cursor: "pointer",
                       fontWeight: 600,
                     }}
@@ -256,10 +256,10 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
                     style={{
                       padding: "4px 8px",
                       fontSize: "0.75rem",
-                      background: "#f0f0f0",
-                      color: "#c62828",
+                      background: "var(--surface-alt)",
+                      color: "var(--danger)",
                       border: "none",
-                      borderRadius: 4,
+                      borderRadius: "var(--radius-sm)",
                       cursor: "pointer",
                       fontWeight: 700,
                     }}

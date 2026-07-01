@@ -30,7 +30,7 @@ const SHORTCUTS = [
 
 function ShortcutsModal({ onClose }) {
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.4)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "var(--overlay)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={modalStyle}>
         <button onClick={onClose} style={modalCloseStyle}>×</button>
         <h2 style={{ color: "var(--text)", marginBottom: 16, fontSize: "1.1rem", textAlign: "left" }}>Keyboard Shortcuts</h2>
@@ -55,7 +55,7 @@ function ProfileModal({ user, onClose }) {
     <div
       style={{
         position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
-        background: "rgba(0,0,0,0.4)", zIndex: 2000, display: "flex",
+        background: "var(--overlay)", zIndex: 2000, display: "flex",
         alignItems: "center", justifyContent: "center",
       }}
     >
@@ -73,7 +73,7 @@ function ProfileModal({ user, onClose }) {
 function SettingsModal({ onClose, inspectionModeEnabled, setInspectionModeEnabled, spaceStartsInspection, setSpaceStartsInspection }) {
   const row = { display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: 14, color: "var(--text)", fontSize: "0.92rem" };
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.4)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "var(--overlay)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={modalStyle}>
         <button onClick={onClose} style={modalCloseStyle}>×</button>
         <h2 style={{ color: "var(--text)", marginBottom: 20, fontSize: "1.1rem" }}>Settings</h2>
@@ -92,7 +92,7 @@ function SettingsModal({ onClose, inspectionModeEnabled, setInspectionModeEnable
 
 const modalStyle = {
   background: "var(--surface)", border: "1px solid var(--border)",
-  borderRadius: 12, boxShadow: "var(--shadow-md)",
+  borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-md)",
   padding: "2rem", minWidth: 300, maxWidth: "90vw",
   textAlign: "center", position: "relative",
 };
@@ -1178,7 +1178,7 @@ function App() {
               padding: "2rem 0 1.5rem 0",
               position: "relative",
               gap: 16,
-              background: timerRunning ? "rgba(22, 163, 74, 0.04)" : undefined,
+              background: timerRunning ? "var(--timer-active-bg)" : undefined,
               transition: "background 0.4s",
             }}
           >

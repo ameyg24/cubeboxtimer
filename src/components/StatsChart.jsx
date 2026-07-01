@@ -41,6 +41,13 @@ const StatsChart = ({ solves }) => {
     const ctx = chartRef.current.getContext("2d");
     const { labels, times, ao5Data, ao12Data, meanData } = buildChartData(solves || []);
 
+    const styles = getComputedStyle(document.body);
+    const token = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
+    const solveColor = token("--chart-solve", "#ff4081");
+    const ao5Color = token("--chart-ao5", "#1a73e8");
+    const ao12Color = token("--chart-ao12", "#43a047");
+    const meanColor = token("--chart-mean", "rgba(180,180,180,0.6)");
+
     chartInstance.current = new Chart(ctx, {
       type: "line",
       data: {
@@ -49,10 +56,10 @@ const StatsChart = ({ solves }) => {
           {
             label: "Solve Time",
             data: times,
-            borderColor: "#ff4081",
+            borderColor: solveColor,
             backgroundColor: "rgba(255, 64, 129, 0.08)",
             pointBackgroundColor: "#fff",
-            pointBorderColor: "#ff4081",
+            pointBorderColor: solveColor,
             pointRadius: 4,
             pointHoverRadius: 7,
             borderWidth: 2,
@@ -63,7 +70,7 @@ const StatsChart = ({ solves }) => {
           {
             label: "ao5",
             data: ao5Data,
-            borderColor: "#1a73e8",
+            borderColor: ao5Color,
             backgroundColor: "transparent",
             pointRadius: 0,
             pointHoverRadius: 5,
@@ -76,7 +83,7 @@ const StatsChart = ({ solves }) => {
           {
             label: "ao12",
             data: ao12Data,
-            borderColor: "#43a047",
+            borderColor: ao12Color,
             backgroundColor: "transparent",
             pointRadius: 0,
             pointHoverRadius: 5,
@@ -89,7 +96,7 @@ const StatsChart = ({ solves }) => {
           {
             label: "mean",
             data: meanData,
-            borderColor: "rgba(180,180,180,0.6)",
+            borderColor: meanColor,
             backgroundColor: "transparent",
             pointRadius: 0,
             pointHoverRadius: 0,
