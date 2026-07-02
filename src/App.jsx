@@ -3,6 +3,7 @@ import Header from "./components/Header";
 import Timer from "./components/Timer.jsx";
 import InspectionTimer from "./components/InspectionTimer.jsx";
 import { Modal } from "./components/Modal.jsx";
+import ErrorBoundary, { ErrorFallback } from "./components/ErrorBoundary.jsx";
 import { AuthProvider, useAuth } from "./components/AuthContext.jsx";
 import { ThemeProvider } from "./components/ThemeContext.jsx";
 import { ao5, effectiveMillis, isValidSolve } from "./analytics";
@@ -436,10 +437,21 @@ function App() {
                   alignItems: "stretch",
                 }}
               >
-                <Dashboard
-                  eventSolves={eventSolves}
-                  allSolves={allSolves}
-                />
+                <ErrorBoundary
+                  fallback={(retry) => (
+                    <ErrorFallback
+                      compact
+                      title="Couldn't load your stats"
+                      message="Something went wrong rendering the dashboard. Your solve history hasn't been affected."
+                      onRetry={retry}
+                    />
+                  )}
+                >
+                  <Dashboard
+                    eventSolves={eventSolves}
+                    allSolves={allSolves}
+                  />
+                </ErrorBoundary>
               </div>
               <div
                 style={{
@@ -472,7 +484,18 @@ export default function AppWithAuthProvider() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <App />
+        <ErrorBoundary
+          fallback={(retry) => (
+            <ErrorFallback
+              title="Something went wrong"
+              message="CubeBox hit a snag. Your solves are safe — try again, or reload the page if that doesn't help."
+              onRetry={retry}
+              secondaryAction={{ label: "Reload page", onClick: () => window.location.reload() }}
+            />
+          )}
+        >
+          <App />
+        </ErrorBoundary>
       </AuthProvider>
     </ThemeProvider>
   );
