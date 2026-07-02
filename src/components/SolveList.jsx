@@ -1,9 +1,10 @@
 // SolveList.jsx - Scrollable solve list with CS Timer-style interactions
 import { useMemo, useState } from "react";
+import { effectiveMillis, isValidSolve } from "../analytics";
 
 const fmtTime = (solve) => {
   if (solve.penalty === "DNF") return "DNF";
-  const millis = solve.millis + (solve.penalty === "+2" ? 2000 : 0);
+  const millis = effectiveMillis(solve);
   const secs = millis / 1000;
   if (secs >= 60) {
     const mins = Math.floor(secs / 60);
@@ -193,9 +194,9 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
   const bestMillis = useMemo(() => {
     if (!solves) return null;
     return solves
-      .filter((s) => s.penalty !== "DNF" && s.millis > 0)
+      .filter(isValidSolve)
       .reduce((best, s) => {
-        const t = s.millis + (s.penalty === "+2" ? 2000 : 0);
+        const t = effectiveMillis(s);
         return best === null ? t : Math.min(best, t);
       }, null);
   }, [solves]);
@@ -307,8 +308,7 @@ const SolveList = ({ solves, updateSolve, deleteSolve }) => {
         onBlur={() => setFocusedId(null)}
       >
         {reversed.map((solve, revIdx) => {
-          const isPlus2 = solve.penalty === "+2";
-          const isPB = solve.penalty !== "DNF" && bestMillis !== null && (solve.millis + (isPlus2 ? 2000 : 0)) === bestMillis;
+          const isPB = solve.penalty !== "DNF" && bestMillis !== null && effectiveMillis(solve) === bestMillis;
 
           return (
             <SolveRow

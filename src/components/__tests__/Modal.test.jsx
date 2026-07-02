@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import { useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Modal } from "../App.jsx";
+import { Modal } from "../Modal.jsx";
 
 // Every dialog in the app (settings, profile, shortcuts) is this same shell,
 // so testing it directly covers all three without needing to render the

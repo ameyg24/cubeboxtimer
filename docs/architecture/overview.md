@@ -8,7 +8,10 @@ CubeBox is a React single-page application built with Vite, organized into three
 layers:
 
 1. **UI (React/JSX)** — components in `src/components` plus the `App.jsx` shell
-   handle the timer, inspection, session management, dashboard, and charts.
+   handle the timer, inspection, dashboard, and charts. Session and solve state
+   (including offline-first Firestore sync) is extracted into the
+   `useSolveSessions` hook (`src/hooks`), which components call into rather than
+   owning that state themselves.
 2. **Analytics (TypeScript)** — `src/analytics` is a pure, framework-free module
    that computes every solve statistic. It has no React, Firebase, or browser
    dependencies.
@@ -34,9 +37,9 @@ type AverageResult =
   | { status: "insufficient" };
 ```
 
-Consumers decide presentation: the dashboard and sidebar render `dnf` and
-`insufficient` as text, while charts map them to gaps (`null`). All computation is
-done in milliseconds; UI consumers convert to seconds for display.
+Consumers decide presentation: the dashboard renders `dnf` and `insufficient` as
+text, while charts map them to gaps (`null`). All computation is done in
+milliseconds; UI consumers convert to seconds for display.
 
 ### Statistic semantics (WCA-style)
 

@@ -1,5 +1,6 @@
 import { useAuth } from "./AuthContext.jsx";
 import { useTheme } from "./ThemeContext.jsx";
+import { CUBE_DIMENSIONS } from "../hooks/useSolveSessions.js";
 import "./Header.css";
 
 const Header = ({
@@ -32,7 +33,7 @@ const Header = ({
           onChange={(e) => setCubeDimension(e.target.value)}
           aria-label="Cube size"
         >
-          {["2x2x2", "3x3x3", "4x4x4", "5x5x5"].map((d) => (
+          {CUBE_DIMENSIONS.map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
         </select>

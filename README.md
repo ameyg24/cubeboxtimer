@@ -91,7 +91,7 @@ Unit tests run with [Vitest](https://vitest.dev):
 npm run test:run
 ```
 
-The analytics module is covered by tests for averaging rules, penalties (+2 / DNF), and edge cases.
+The analytics module is covered by tests for averaging rules, penalties (+2 / DNF), and edge cases. Components and hooks are covered too — session persistence and offline sync (`useSolveSessions`), keyboard interaction and focus handling in the solve list and dialogs, and the inspection timer's warning/penalty timing.
 
 ## Continuous Integration
 
@@ -102,9 +102,11 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 ```
 src/
   analytics/    Pure TypeScript stats module (+ unit tests)
-  components/   React components (Timer, Dashboard, Sidebar, …)
+  components/   React components (Timer, Dashboard, Header, Modal, …)
+  hooks/        Stateful logic extracted out of components (session/solve persistence)
   firebase/     Firebase initialization
   App.jsx       Application shell and timer logic
+  __tests__/    Tests for App-level modules; each other directory keeps its own
 docs/           Developer documentation
 .github/        CI workflows
 .env.example    Example environment variables

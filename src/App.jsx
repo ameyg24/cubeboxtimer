@@ -2,9 +2,11 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Header from "./components/Header";
 import Timer from "./components/Timer.jsx";
 import InspectionTimer from "./components/InspectionTimer.jsx";
+import { Modal } from "./components/Modal.jsx";
 import { AuthProvider, useAuth } from "./components/AuthContext.jsx";
 import { ThemeProvider } from "./components/ThemeContext.jsx";
-import { ao5 } from "./analytics";
+import { ao5, effectiveMillis, isValidSolve } from "./analytics";
+import { generateScramble } from "./scramble.js";
 import "./App.css";
 import Dashboard from "./components/Dashboard.jsx";
 import SolveList from "./components/SolveList.jsx";
@@ -17,58 +19,6 @@ const SHORTCUTS = [
   { key: "Escape", desc: "Cancel inspection" },
   { key: "?", desc: "Toggle this shortcuts panel" },
 ];
-
-const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-
-// Shared dialog shell: traps Tab focus while open, moves focus in on mount,
-// restores it to whatever triggered the modal on close, and closes on Escape
-// or a click on the overlay itself.
-export function Modal({ titleId, onClose, children }) {
-  const dialogRef = useRef(null);
-
-  useEffect(() => {
-    const previouslyFocused = document.activeElement;
-    const dialog = dialogRef.current;
-    const first = dialog.querySelector(FOCUSABLE_SELECTOR);
-    (first || dialog).focus();
-
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const items = dialog.querySelectorAll(FOCUSABLE_SELECTOR);
-      if (items.length === 0) return;
-      const firstItem = items[0];
-      const lastItem = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === firstItem) {
-        e.preventDefault();
-        lastItem.focus();
-      } else if (!e.shiftKey && document.activeElement === lastItem) {
-        e.preventDefault();
-        firstItem.focus();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      previouslyFocused?.focus?.();
-    };
-  }, [onClose]);
-
-  return (
-    <div
-      style={overlayStyle}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div ref={dialogRef} style={modalStyle} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
-        <button onClick={onClose} style={modalCloseStyle} aria-label="Close">×</button>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 function ShortcutsModal({ onClose }) {
   return (
@@ -115,66 +65,6 @@ function SettingsModal({ onClose, inspectionModeEnabled, setInspectionModeEnable
       </label>
     </Modal>
   );
-}
-
-const overlayStyle = {
-  position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
-  background: "var(--overlay)", zIndex: 2000, display: "flex",
-  alignItems: "center", justifyContent: "center",
-};
-const modalStyle = {
-  background: "var(--surface)", border: "1px solid var(--border)",
-  borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-md)",
-  padding: "2rem", minWidth: 300, maxWidth: "90vw",
-  textAlign: "center", position: "relative",
-};
-const modalCloseStyle = {
-  position: "absolute", top: 12, right: 12, background: "none",
-  border: "none", fontSize: 20, cursor: "pointer", color: "var(--text-muted)",
-};
-
-const SCRAMBLE_TYPES = ["WCA", "Other"];
-
-function generateScramble(type, dimension) {
-  // Simple scramble generator for demo; replace with a real one for production
-  const moves = {
-    "2x2x2": ["R", "U", "F", "L", "D", "B"],
-    "3x3x3": ["R", "U", "F", "L", "D", "B"],
-    "4x4x4": ["Rw", "Uw", "Fw", "Lw", "Dw", "Bw", "R", "U", "F", "L", "D", "B"],
-    "5x5x5": [
-      "3Rw",
-      "3Uw",
-      "3Fw",
-      "3Lw",
-      "3Dw",
-      "3Bw",
-      "Rw",
-      "Uw",
-      "Fw",
-      "Lw",
-      "Dw",
-      "Bw",
-      "R",
-      "U",
-      "F",
-      "L",
-      "D",
-      "B",
-    ],
-  };
-  const len = dimension === "2x2x2" ? 9 : dimension === "3x3x3" ? 20 : 40;
-  const scrambleMoves = moves[dimension] || moves["3x3x3"];
-  let scramble = [];
-  let last = "";
-  for (let i = 0; i < len; i++) {
-    let move;
-    do {
-      move = scrambleMoves[Math.floor(Math.random() * scrambleMoves.length)];
-    } while (move[0] === last[0]);
-    last = move;
-    scramble.push(move + ["", "'", "2"][Math.floor(Math.random() * 3)]);
-  }
-  return scramble.join(" ");
 }
 
 
@@ -259,14 +149,14 @@ function App() {
       localCreatedAt: solveObj.localCreatedAt || Date.now(),
     };
     // Check if this solve is a new personal best
-    if (solveObj.penalty !== "DNF" && solveObj.millis > 0) {
+    if (isValidSolve(solveObj)) {
       const currentBestMillis = eventSolves
-        .filter((s) => s.penalty !== "DNF" && s.millis > 0)
+        .filter(isValidSolve)
         .reduce((best, s) => {
-          const t = s.millis + (s.penalty === "+2" ? 2000 : 0);
+          const t = effectiveMillis(s);
           return best === null ? t : Math.min(best, t);
         }, null);
-      const newTime = solveObj.millis + (solveObj.penalty === "+2" ? 2000 : 0);
+      const newTime = effectiveMillis(solveObj);
       if (currentBestMillis === null || newTime < currentBestMillis) {
         setLastSolveIsPB(true);
         setTimeout(() => setLastSolveIsPB(false), 3000);
@@ -290,9 +180,9 @@ function App() {
   const sessionBestMs = useMemo(
     () =>
       eventSolves
-        .filter((s) => s.penalty !== "DNF" && s.millis > 0)
+        .filter(isValidSolve)
         .reduce((best, s) => {
-          const t = s.millis + (s.penalty === "+2" ? 2000 : 0);
+          const t = effectiveMillis(s);
           return best === null ? t : Math.min(best, t);
         }, null),
     [eventSolves]

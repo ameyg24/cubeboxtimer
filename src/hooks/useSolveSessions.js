@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import { db, firebaseProjectId } from "../firebase/config";
 
-const CUBE_DIMENSIONS = ["2x2x2", "3x3x3", "4x4x4", "5x5x5"];
+export const CUBE_DIMENSIONS = ["2x2x2", "3x3x3", "4x4x4", "5x5x5"];
 const WRITE_QUEUE_KEY = "cbt_write_queue";
 const SYNC_WRITE_TIMEOUT_MS = 10000;
 

@@ -53,7 +53,7 @@ export default function InspectionTimer({
           const u = new SpeechSynthesisUtterance("8 seconds");
           u.rate = 1.1;
           speechSynthesis.speak(u);
-        } catch (_) {}
+        } catch {}
       }
       // Warning at exactly 12 seconds
       if (elapsed === 12) {
@@ -62,7 +62,7 @@ export default function InspectionTimer({
           const u = new SpeechSynthesisUtterance("12 seconds");
           u.rate = 1.1;
           speechSynthesis.speak(u);
-        } catch (_) {}
+        } catch {}
       }
 
       // At 15 seconds (0 remaining), apply +2 penalty
