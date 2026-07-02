@@ -6,6 +6,7 @@ CubeBox is an open-source speedcubing platform for recording solves, analyzing p
 
 - **WCA-style timer** — start and stop with the spacebar or a tap, with a visual countdown.
 - **Inspection & penalties** — 15-second inspection with automatic +2 and DNF handling per WCA rules.
+- **WCA-style scrambles** — random-move scrambles for 2x2x2 through 5x5x5 using standard outer-block-turn notation, with no repeated face and no three consecutive moves on the same axis. This is not the random-state scrambling the WCA uses officially for 2x2x2/3x3x3 (that requires a full cube solver); see [`src/scramble.js`](src/scramble.js) for the exact rules.
 - **Session management** — create, switch, and delete sessions; each tracks its own solves.
 - **Performance statistics** — best, worst, mean, mo3, ao5, ao12, ao50, ao100, and session/all-time aggregates.
 - **Interactive charts** — visualize trends and rolling averages with Chart.js.
