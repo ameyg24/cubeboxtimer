@@ -1,7 +1,10 @@
 // Dashboard.jsx - session performance overview built on the analytics engine.
-import { useState, useMemo } from "react";
-import StatsChart from "./StatsChart";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { computeSessionStats, effectiveMillis, isValidSolve } from "../analytics";
+
+// Chart.js is a large dependency only needed once someone opens the Trend
+// tab, so it's split into its own chunk instead of shipping with every load.
+const StatsChart = lazy(() => import("./StatsChart.jsx"));
 
 // ok -> seconds, dnf -> "DNF", insufficient -> null.
 const toDisplay = (r) =>
@@ -284,7 +287,16 @@ const Dashboard = ({ eventSolves, allSolves }) => {
         {tab === "Trend" && (
           <div className="section-card">
             <div className="section-title">Trend</div>
-            <StatsChart solves={allSolves} />
+            <Suspense
+              fallback={
+                <div
+                  className="chart-container"
+                  style={{ background: "var(--surface-alt)", borderRadius: "var(--radius-md)", animation: "skeletonPulse 1.2s ease-in-out infinite" }}
+                />
+              }
+            >
+              <StatsChart solves={allSolves} />
+            </Suspense>
           </div>
         )}
         {tab === "Distribution" && <Distribution solves={allSolves} />}
