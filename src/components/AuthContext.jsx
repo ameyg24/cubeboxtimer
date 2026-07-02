@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
         clearTimeout(timeout);
         setLoading(false);
       }
-    } catch (e) {
+    } catch {
       clearTimeout(timeout);
       setLoading(false);
     }

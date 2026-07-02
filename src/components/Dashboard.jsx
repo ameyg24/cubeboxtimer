@@ -1,7 +1,7 @@
 // Dashboard.jsx - session performance overview built on the analytics engine.
 import { useState, useMemo } from "react";
 import StatsChart from "./StatsChart";
-import { computeSessionStats } from "../analytics";
+import { computeSessionStats, effectiveMillis, isValidSolve } from "../analytics";
 
 // ok -> seconds, dnf -> "DNF", insufficient -> null.
 const toDisplay = (r) =>
@@ -95,7 +95,7 @@ const Overview = ({ session, all, eventSolves }) => {
     const header = "solve,time_s,penalty\n";
     const rows = eventSolves
       .map((s, i) => {
-        const t = s.penalty === "DNF" ? "DNF" : ((s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000).toFixed(3);
+        const t = s.penalty === "DNF" ? "DNF" : (effectiveMillis(s) / 1000).toFixed(3);
         return `${i + 1},${t},${s.penalty || ""}`;
       })
       .join("\n");
@@ -110,7 +110,7 @@ const Overview = ({ session, all, eventSolves }) => {
 
   const copyResults = () => {
     const lines = eventSolves.map((s, i) => {
-      const t = s.penalty === "DNF" ? "DNF" : ((s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000).toFixed(2);
+      const t = s.penalty === "DNF" ? "DNF" : (effectiveMillis(s) / 1000).toFixed(2);
       return `${i + 1}. ${t}${s.penalty === "+2" ? "+" : ""}`;
     });
     const { mean, ao5, ao12, best } = session;
@@ -152,8 +152,8 @@ const Overview = ({ session, all, eventSolves }) => {
 
 const Distribution = ({ solves }) => {
   const validTimes = solves
-    .filter((s) => s.penalty !== "DNF" && s.millis > 0)
-    .map((s) => (s.millis + (s.penalty === "+2" ? 2000 : 0)) / 1000);
+    .filter(isValidSolve)
+    .map((s) => effectiveMillis(s) / 1000);
 
   if (validTimes.length === 0) {
     return (
