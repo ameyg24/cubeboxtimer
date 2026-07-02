@@ -44,3 +44,20 @@ export type {
   RecordType,
   TimedSolve,
 } from "./records";
+export {
+  DEFAULT_PRACTICE_WINDOW_DAYS,
+  computeAdjustmentFactor,
+  computeConfidence,
+  computePracticeWindow,
+  predictCompetitionResult,
+} from "./competitionPrediction";
+export type {
+  AdjustmentFactorResult,
+  CompetitionComparison,
+  CompetitionResultInput,
+  ConfidenceLevel,
+  PracticeVsOfficial,
+  PracticeWindow,
+  PredictionResult,
+  TimedPracticeSolve,
+} from "./competitionPrediction";

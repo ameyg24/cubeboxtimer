@@ -103,6 +103,26 @@ solve or editing its penalty is reflected correctly on the very next
 recompute, because there's no separately-persisted snapshot that could drift
 out of sync with the real solve list.
 
+### Competition performance prediction (`competitionPrediction.ts`)
+
+`predictCompetitionResult` extrapolates from practice data to a likely
+official result: for every past `CompetitionResult`, it compares the
+practice average in the `computePracticeWindow` immediately before that
+competition against the official average, and averages that gap
+(`computeAdjustmentFactor`) into a single, fully transparent adjustment
+factor — applied to the current practice window to produce a prediction.
+Confidence (`computeConfidence`) is a fixed rule ladder over sample size and
+gap variance, not a fitted score. Like `records.ts`, this reuses existing
+analytics (`mean`, `rollingAverageOfN`, `computeSessionStats`) rather than
+re-deriving them, and computes nothing that isn't already derivable from
+solves and competition results.
+
+**This module is backend-only.** It has no Dashboard tab, no charts, and no
+WCA integration yet — those are explicitly out of scope for the milestone
+that introduced it. What exists today is the pure prediction engine plus
+`CompetitionResult` persistence (below); a future milestone would wire it
+into the UI.
+
 ## Persistence and offline behavior
 
 `localStorage` keys are prefixed `cubeboxtimer_*`. These are storage keys, not
@@ -120,6 +140,20 @@ remaining entries stay queued and retry automatically once the app detects
 it's back online. This means solving works identically whether or not
 Firebase is configured, signed in, or reachable — the only thing that
 changes is whether writes eventually reach Firestore or stay local.
+
+`CompetitionResult` (used by the prediction module above) is persisted the
+same way, via `useCompetitionResults` (`src/hooks`): its own localStorage
+key (`cubeboxtimer_competitions`), its own write queue
+(`cbt_competition_write_queue`), and the same Firestore-REST flush loop.
+The Firestore REST helpers (`toFirestoreValue`, `firestoreRestRequest`,
+etc.) are shared between both hooks via `src/hooks/firestoreRest.js` rather
+than duplicated, since they have no solve- or competition-specific
+knowledge. Unlike solves, competitions aren't nested under a session — each
+is a flat document under `users/{uid}/competitions/{id}` — so there's no
+per-session solve-subcollection listener or embedded-solve migration to
+mirror; the equivalent "migration readiness" seam is
+`normalizeCompetitionDoc`, the same defensive-shape-coercion role
+`normalizeSolveDoc` plays for solves.
 
 ## Testing
 
