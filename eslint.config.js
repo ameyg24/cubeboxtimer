@@ -44,4 +44,15 @@ export default defineConfig([
       'no-console': 'off',
     },
   },
+  {
+    // These two files intentionally co-locate a context Provider with its
+    // useX() hook (useAuth/useTheme) — a standard React pattern. It trips
+    // react-refresh's "only export components" rule, which is a Fast
+    // Refresh nicety, not a correctness issue; splitting the hook into its
+    // own file would be churn for no real benefit.
+    files: ['src/components/AuthContext.jsx', 'src/components/ThemeContext.jsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

@@ -1,4 +1,4 @@
-// AuthContext.jsx - Provides authentication context and Gmail login
+// AuthContext.jsx - Provides authentication context and Google sign-in
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { auth, provider } from "../firebase/config";
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";

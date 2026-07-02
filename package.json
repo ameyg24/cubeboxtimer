@@ -3,6 +3,28 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "description": "A WCA-style speedcubing timer with an offline-first architecture and a pure TypeScript analytics engine for solve statistics and personal records.",
+  "author": "Amey Gaba",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ameyg24/cubeboxtimer"
+  },
+  "homepage": "https://github.com/ameyg24/cubeboxtimer#readme",
+  "bugs": {
+    "url": "https://github.com/ameyg24/cubeboxtimer/issues"
+  },
+  "keywords": [
+    "speedcubing",
+    "rubiks-cube",
+    "cube-timer",
+    "wca",
+    "react",
+    "firebase"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
