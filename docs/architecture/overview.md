@@ -63,3 +63,8 @@ stable.
 
 The analytics module is unit-tested with Vitest in `src/analytics/__tests__`.
 Because the module is pure, the tests are fast and need no DOM or network.
+
+## Observability
+
+Logging and performance instrumentation are covered separately in
+[`docs/architecture/observability.md`](observability.md).

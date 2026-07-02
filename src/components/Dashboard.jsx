@@ -1,18 +1,38 @@
 // Dashboard.jsx - session performance overview built on the analytics engine.
 import { useState, useMemo, lazy, Suspense } from "react";
 import { computeSessionStats, effectiveMillis, isValidSolve } from "../analytics";
+import { logger } from "../logger.js";
 
 // Chart.js is a large dependency only needed once someone opens the Trend
 // tab, so it's split into its own chunk instead of shipping with every load.
-const StatsChart = lazy(() => import("./StatsChart.jsx"));
+const StatsChart = lazy(() => {
+  const startedAt = performance.now();
+  logger.debug("Loading chart module...");
+  return import("./StatsChart.jsx")
+    .then((mod) => {
+      logger.info("Chart module loaded.", { durationMs: Math.round(performance.now() - startedAt) });
+      return mod;
+    })
+    .catch((error) => {
+      logger.error("Failed to load chart module.", { error, durationMs: Math.round(performance.now() - startedAt) });
+      throw error;
+    });
+});
 
 // ok -> seconds, dnf -> "DNF", insufficient -> null.
 const toDisplay = (r) =>
   r.status === "ok" ? r.valueMs / 1000 : r.status === "dnf" ? "DNF" : null;
 
 // Pull just the values the dashboard shows out of the shared analytics engine.
+// The analytics module itself stays framework/browser-free (see src/analytics),
+// so timing is measured here at the call site instead.
 function computeStats(solvesRaw) {
+  const startedAt = performance.now();
   const st = computeSessionStats(solvesRaw);
+  logger.debug("Computed session stats.", {
+    solveCount: solvesRaw.length,
+    durationMs: Math.round(performance.now() - startedAt),
+  });
   return {
     best: toDisplay(st.best),
     mean: toDisplay(st.mean),
@@ -29,6 +49,7 @@ function computeStats(solvesRaw) {
 }
 
 function computeDailyStats(solvesRaw) {
+  const startedAt = performance.now();
   const days = {};
   solvesRaw.forEach((s) => {
     const ts = typeof s.id === "number" ? s.id : s.localCreatedAt || Date.now();
@@ -38,7 +59,7 @@ function computeDailyStats(solvesRaw) {
     days[dayKey].push(s);
   });
 
-  return Object.entries(days)
+  const result = Object.entries(days)
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([day, solves]) => {
       const st = computeSessionStats(solves);
@@ -59,6 +80,13 @@ function computeDailyStats(solvesRaw) {
         dnfCount: st.dnfCount,
       };
     });
+
+  logger.debug("Computed daily stats.", {
+    solveCount: solvesRaw.length,
+    dayCount: result.length,
+    durationMs: Math.round(performance.now() - startedAt),
+  });
+  return result;
 }
 
 const fmt = (v) => {
@@ -118,7 +146,9 @@ const Overview = ({ session, all, eventSolves }) => {
     });
     const { mean, ao5, ao12, best } = session;
     lines.push("", `mean: ${fmt(mean)}  ao5: ${fmt(ao5)}  ao12: ${fmt(ao12)}  best: ${fmt(best)}`);
-    navigator.clipboard.writeText(lines.join("\n"));
+    navigator.clipboard.writeText(lines.join("\n"))
+      .then(() => logger.debug("Copied session results to clipboard."))
+      .catch((error) => logger.warn("Failed to copy session results to clipboard.", { error }));
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
