@@ -6,7 +6,14 @@ import { Modal } from "./components/Modal.jsx";
 import ErrorBoundary, { ErrorFallback } from "./components/ErrorBoundary.jsx";
 import { AuthProvider, useAuth } from "./components/AuthContext.jsx";
 import { ThemeProvider } from "./components/ThemeContext.jsx";
-import { ao5, effectiveMillis, isValidSolve } from "./analytics";
+import {
+  ao5,
+  effectiveMillis,
+  isValidSolve,
+  computeRecordHistory,
+  toChronological,
+  RECORD_TYPE_LABELS,
+} from "./analytics";
 import { generateScramble } from "./scramble.js";
 import "./App.css";
 import Dashboard from "./components/Dashboard.jsx";
@@ -96,7 +103,7 @@ function App() {
     updateSolve,
   } = useSolveSessions({ user, cubeDimension });
   const [startSignal, setStartSignal] = useState(0); // for external start
-  const [lastSolveIsPB, setLastSolveIsPB] = useState(false);
+  const [lastPbTypes, setLastPbTypes] = useState([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [inspectionModeEnabled, setInspectionModeEnabled] = useState(() => {
     const local = localStorage.getItem("cubeboxtimer_inspectionModeEnabled");
@@ -162,19 +169,16 @@ function App() {
       cubeDimension,
       localCreatedAt: solveObj.localCreatedAt || Date.now(),
     };
-    // Check if this solve is a new personal best
-    if (isValidSolve(solveObj)) {
-      const currentBestMillis = eventSolves
-        .filter(isValidSolve)
-        .reduce((best, s) => {
-          const t = effectiveMillis(s);
-          return best === null ? t : Math.min(best, t);
-        }, null);
-      const newTime = effectiveMillis(solveObj);
-      if (currentBestMillis === null || newTime < currentBestMillis) {
-        setLastSolveIsPB(true);
-        setTimeout(() => setLastSolveIsPB(false), 3000);
-      }
+    // Check whether this solve sets any all-time record (single and/or an
+    // aoN). Computed against allSolves + this solve, before addSolve updates
+    // state, mirroring the timing of the old session-scoped check it replaces.
+    const preview = computeRecordHistory(toChronological([...allSolves, solveObj]));
+    const newRecordTypes = preview.history
+      .filter((event) => event.solveId === solveObj.id)
+      .map((event) => event.recordType);
+    if (newRecordTypes.length > 0) {
+      setLastPbTypes(newRecordTypes);
+      setTimeout(() => setLastPbTypes([]), 3000);
     }
 
     addSolve(solveObj);
@@ -360,7 +364,7 @@ function App() {
               transition: "background 0.4s",
             }}
           >
-            {lastSolveIsPB && (
+            {lastPbTypes.length > 0 && (
               <div role="status" style={{
                 position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
                 background: "var(--success)", color: "#fff", fontWeight: 700,
@@ -369,7 +373,7 @@ function App() {
                 animation: "solveRowIn 0.25s ease",
                 zIndex: 20,
               }}>
-                PB!
+                New {lastPbTypes.map((type) => RECORD_TYPE_LABELS[type]).join(" & ")} PB!
               </div>
             )}
             <Timer

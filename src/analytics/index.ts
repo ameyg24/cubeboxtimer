@@ -30,3 +30,17 @@ export {
 } from "./averages";
 export { computeSessionStats } from "./sessionStats";
 export type { SessionStats } from "./sessionStats";
+export {
+  RECORD_TYPES,
+  RECORD_TYPE_LABELS,
+  computeRecordHistory,
+  toChronological,
+} from "./records";
+export type {
+  CurrentRecords,
+  RecordEvent,
+  RecordHistoryResult,
+  RecordMark,
+  RecordType,
+  TimedSolve,
+} from "./records";

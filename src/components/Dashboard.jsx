@@ -1,6 +1,14 @@
 // Dashboard.jsx - session performance overview built on the analytics engine.
 import { useState, useMemo, lazy, Suspense } from "react";
-import { computeSessionStats, effectiveMillis, isValidSolve } from "../analytics";
+import {
+  computeSessionStats,
+  computeRecordHistory,
+  toChronological,
+  effectiveMillis,
+  isValidSolve,
+  RECORD_TYPES,
+  RECORD_TYPE_LABELS,
+} from "../analytics";
 import { logger } from "../logger.js";
 
 // Chart.js is a large dependency only needed once someone opens the Trend
@@ -84,6 +92,21 @@ function computeDailyStats(solvesRaw) {
   logger.debug("Computed daily stats.", {
     solveCount: solvesRaw.length,
     dayCount: result.length,
+    durationMs: Math.round(performance.now() - startedAt),
+  });
+  return result;
+}
+
+// Records are fully derived from solvesRaw — no separate storage. This only
+// re-runs when allSolves changes identity (an actual add/edit/delete), not
+// on every render, so a deleted or re-penalized solve is always reflected
+// correctly on the next recompute instead of drifting from a stale cache.
+function computeRecords(solvesRaw) {
+  const startedAt = performance.now();
+  const result = computeRecordHistory(toChronological(solvesRaw));
+  logger.debug("Computed record history.", {
+    solveCount: solvesRaw.length,
+    recordCount: result.history.length,
     durationMs: Math.round(performance.now() - startedAt),
   });
   return result;
@@ -281,7 +304,74 @@ const Daily = ({ dailyStats }) => {
   );
 };
 
-const TABS = ["Overview", "Trend", "Distribution", "Daily"];
+const recordDateLabel = (timestamp) =>
+  new Date(timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+const CurrentRecords = ({ currentRecords }) => (
+  <div className="stat-strip">
+    {RECORD_TYPES.map((type) => (
+      <StatTile
+        key={type}
+        label={RECORD_TYPE_LABELS[type]}
+        value={fmt(currentRecords[type] ? currentRecords[type].valueMs / 1000 : null)}
+      />
+    ))}
+  </div>
+);
+
+const PbTimeline = ({ history }) => {
+  if (history.length === 0) {
+    return (
+      <div className="section-card" style={{ color: "var(--text-faint)", textAlign: "center", padding: "2.5rem" }}>
+        No records yet — solve to start building your history.
+      </div>
+    );
+  }
+
+  const newestFirst = [...history].reverse();
+
+  return (
+    <div className="section-card" style={{ padding: 0, overflow: "hidden" }}>
+      <div role="list" aria-label="PB timeline">
+        {newestFirst.map((event) => (
+          <div
+            key={`${event.solveId}-${event.recordType}`}
+            role="listitem"
+            style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}
+          >
+            <div style={{ fontSize: "0.72rem", color: "var(--text-faint)", fontFamily: "monospace" }}>
+              {recordDateLabel(event.timestamp)}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 2 }}>
+              <span style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.88rem" }}>
+                {RECORD_TYPE_LABELS[event.recordType]}
+              </span>
+              <span style={{ fontFamily: "monospace", fontWeight: 600, color: "var(--accent)", fontSize: "0.92rem" }}>
+                {event.previousValueMs !== null ? `${fmt(event.previousValueMs / 1000)} → ` : ""}
+                {fmt(event.valueMs / 1000)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const Records = ({ recordHistory }) => (
+  <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+    <div>
+      <div className="section-title">Current Records</div>
+      <CurrentRecords currentRecords={recordHistory.currentRecords} />
+    </div>
+    <div>
+      <div className="section-title">PB Timeline</div>
+      <PbTimeline history={recordHistory.history} />
+    </div>
+  </div>
+);
+
+const TABS = ["Overview", "Trend", "Distribution", "Daily", "Records"];
 
 const Dashboard = ({ eventSolves, allSolves }) => {
   const [tab, setTab] = useState("Overview");
@@ -289,6 +379,7 @@ const Dashboard = ({ eventSolves, allSolves }) => {
   const sessionStats = useMemo(() => computeStats(eventSolves), [eventSolves]);
   const allTimeStats = useMemo(() => computeStats(allSolves), [allSolves]);
   const dailyStats = useMemo(() => computeDailyStats(allSolves), [allSolves]);
+  const recordHistory = useMemo(() => computeRecords(allSolves), [allSolves]);
 
   return (
     <div className="dashboard">
@@ -331,6 +422,7 @@ const Dashboard = ({ eventSolves, allSolves }) => {
         )}
         {tab === "Distribution" && <Distribution solves={allSolves} />}
         {tab === "Daily" && <Daily dailyStats={dailyStats} />}
+        {tab === "Records" && <Records recordHistory={recordHistory} />}
       </div>
     </div>
   );
