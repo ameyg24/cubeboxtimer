@@ -13,6 +13,7 @@ import Dashboard from "./components/Dashboard.jsx";
 import SolveList from "./components/SolveList.jsx";
 import ScrambleBar from "./components/ScrambleBar.jsx";
 import { useSolveSessions, createSolveId } from "./hooks/useSolveSessions.js";
+import { logger } from "./logger.js";
 
 const SHORTCUTS = [
   { key: "Space", desc: "Start / stop timer" },
@@ -111,12 +112,24 @@ function App() {
   const timerRunningRef = useRef(false);
 
   useEffect(() => {
+    const startedAt = performance.now();
     const newScrambles = Array.from({ length: 5 }, () =>
       generateScramble(scrambleType, cubeDimension)
     );
+    logger.debug("Generated scrambles.", {
+      count: newScrambles.length,
+      cubeDimension,
+      durationMs: Math.round(performance.now() - startedAt),
+    });
     setScrambles(newScrambles);
     setSelectedScrambleIdx(0);
   }, [scrambleType, cubeDimension]);
+
+  // Fires once after the app shell first commits — the simplest reliable
+  // proxy for "time to interactive" without adding a dedicated timing API.
+  useEffect(() => {
+    logger.info("App mounted.", { elapsedMs: Math.round(performance.now()) });
+  }, []);
 
   // Update: add solve to correct event, with penalty if present
   const handleSolveComplete = async (time) => {
@@ -438,6 +451,7 @@ function App() {
                 }}
               >
                 <ErrorBoundary
+                  name="dashboard"
                   fallback={(retry) => (
                     <ErrorFallback
                       compact
@@ -485,6 +499,7 @@ export default function AppWithAuthProvider() {
     <ThemeProvider>
       <AuthProvider>
         <ErrorBoundary
+          name="app-shell"
           fallback={(retry) => (
             <ErrorFallback
               title="Something went wrong"

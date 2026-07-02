@@ -26,6 +26,7 @@ export default defineConfig([
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
       'no-empty': ['error', { allowEmptyCatch: true }],
+      'no-console': 'error',
     },
   },
   {
@@ -33,6 +34,14 @@ export default defineConfig([
     extends: [...tseslint.configs.recommended],
     languageOptions: {
       globals: globals.browser,
+    },
+  },
+  {
+    // The one place console is allowed to appear directly — everything else
+    // logs through src/logger.js.
+    files: ['src/logger.js'],
+    rules: {
+      'no-console': 'off',
     },
   },
 ])

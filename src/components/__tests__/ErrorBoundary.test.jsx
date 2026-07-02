@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ErrorBoundary, { ErrorFallback } from "../ErrorBoundary.jsx";
+import { logger } from "../../logger.js";
 
 // React logs caught render errors to console.error; keep test output clean
 // without hiding assertions on what actually got logged.
@@ -62,6 +63,59 @@ describe("ErrorBoundary", () => {
 
     expect(screen.getByText("Sibling content")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Panel crashed");
+  });
+
+  it("preserves the caught error and component stack for the fallback", () => {
+    let captured = null;
+    render(
+      <ErrorBoundary
+        fallback={(retry, info) => {
+          captured = info;
+          return <div role="alert">Fallback UI</div>;
+        }}
+      >
+        <Bomb control={{ shouldThrow: true }} />
+      </ErrorBoundary>
+    );
+
+    expect(captured.error).toBeInstanceOf(Error);
+    expect(captured.error.message).toBe("boom");
+    expect(typeof captured.componentStack).toBe("string");
+  });
+
+  it("logs the crash and the boundary name through the logger", () => {
+    const logErrorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    render(
+      <ErrorBoundary name="test-boundary" fallback={() => <div role="alert">Fallback UI</div>}>
+        <Bomb control={{ shouldThrow: true }} />
+      </ErrorBoundary>
+    );
+
+    expect(logErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("crashed"),
+      expect.objectContaining({ boundary: "test-boundary" })
+    );
+  });
+
+  it("logs when retry is triggered", async () => {
+    const user = userEvent.setup();
+    const logInfoSpy = vi.spyOn(logger, "info").mockImplementation(() => {});
+    const control = { shouldThrow: true };
+
+    render(
+      <ErrorBoundary name="test-boundary" fallback={(retry) => <button onClick={retry}>Try again</button>}>
+        <Bomb control={control} />
+      </ErrorBoundary>
+    );
+
+    control.shouldThrow = false;
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(logInfoSpy).toHaveBeenCalledWith(
+      expect.stringContaining("retry"),
+      expect.objectContaining({ boundary: "test-boundary" })
+    );
   });
 });
 

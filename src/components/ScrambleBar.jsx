@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { logger } from "../logger.js";
 
 const selectAll = (e) => {
   const range = document.createRange();
@@ -18,10 +19,15 @@ const ScrambleBar = ({ scrambles = [], selectedScrambleIdx = 0, setSelectedScram
   const prev = () => setSelectedScrambleIdx((i) => (i > 0 ? i - 1 : scrambles.length - 1));
   const next = () => setSelectedScrambleIdx((i) => (i < scrambles.length - 1 ? i + 1 : 0));
   const copy = () => {
-    navigator.clipboard.writeText(scramble).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+    navigator.clipboard.writeText(scramble)
+      .then(() => {
+        logger.debug("Copied scramble to clipboard.");
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch((error) => {
+        logger.warn("Failed to copy scramble to clipboard.", { error });
+      });
   };
 
   return (

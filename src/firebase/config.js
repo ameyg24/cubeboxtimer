@@ -2,6 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { initializeFirestore } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { logger } from "../logger.js";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -27,8 +28,9 @@ try {
   });
   auth = getAuth(app);
   provider = new GoogleAuthProvider();
+  logger.info("Firebase initialized.", { projectId: firebaseProjectId });
 } catch (e) {
-  console.warn("Firebase init failed — running in offline/local mode:", e.message);
+  logger.warn("Firebase init failed — running in offline/local mode.", { error: e.message });
   db = null;
   auth = null;
   provider = null;

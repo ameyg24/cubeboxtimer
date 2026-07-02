@@ -1,26 +1,36 @@
 import { Component } from "react";
+import { logger } from "../logger.js";
 
 // Class component: componentDidCatch / getDerivedStateFromError have no hook
-// equivalent. Renders fallback(retry) in place of children once a descendant
-// throws during render; calling retry clears the error and remounts children.
+// equivalent. Renders fallback(retry, info) in place of children once a
+// descendant throws during render; calling retry clears the error and
+// remounts children. The caught error and component stack are kept on state
+// and passed to fallback (not rendered by CubeBox's own fallback UI — no
+// stack traces in the UI — but available for a future diagnostics hook).
 export default class ErrorBoundary extends Component {
-  state = { hasError: false };
+  state = { hasError: false, error: null, componentStack: null };
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
   }
 
   componentDidCatch(error, info) {
-    console.error("CubeBox: a component crashed while rendering.", error, info.componentStack);
+    logger.error("A component crashed while rendering.", {
+      boundary: this.props.name || "unnamed",
+      error,
+      componentStack: info.componentStack,
+    });
+    this.setState({ componentStack: info.componentStack });
   }
 
   retry = () => {
-    this.setState({ hasError: false });
+    logger.info("Error boundary retry triggered.", { boundary: this.props.name || "unnamed" });
+    this.setState({ hasError: false, error: null, componentStack: null });
   };
 
   render() {
     if (this.state.hasError) {
-      return this.props.fallback(this.retry);
+      return this.props.fallback(this.retry, { error: this.state.error, componentStack: this.state.componentStack });
     }
     return this.props.children;
   }

@@ -10,6 +10,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { db, firebaseProjectId } from "../firebase/config";
+import { logger } from "../logger.js";
 
 export const CUBE_DIMENSIONS = ["2x2x2", "3x3x3", "4x4x4", "5x5x5"];
 const WRITE_QUEUE_KEY = "cbt_write_queue";
@@ -45,7 +46,8 @@ function readWriteQueue() {
       writeWriteQueue(sanitized);
     }
     return sanitized;
-  } catch {
+  } catch (error) {
+    logger.warn("Failed to read the local write queue; treating it as empty.", { error });
     return [];
   }
 }
@@ -334,9 +336,11 @@ export function useSolveSessions({ user, cubeDimension }) {
     if (!user || !db || !navigator.onLine || flushingQueueRef.current) return;
     flushingQueueRef.current = true;
     setSyncing(true);
+    const startedAt = performance.now();
     try {
       setSyncError("");
       const queue = readWriteQueue();
+      logger.debug("Firestore sync flush started.", { pendingWrites: queue.length });
       for (const item of queue) {
         if (!["createSolve", "updateSolve", "deleteSolve"].includes(item.type)) continue;
         const session = sessionsRef.current.find((s) => s.id === item.sessionId);
@@ -377,9 +381,15 @@ export function useSolveSessions({ user, cubeDimension }) {
         removeQueuedWrite(item);
         refreshPendingWriteCount();
       }
+      logger.info("Firestore sync flush completed.", {
+        durationMs: Math.round(performance.now() - startedAt),
+      });
     } catch (error) {
       setSyncError(error?.message || "Sync failed.");
-      console.warn("Failed to flush solve queue; will retry later.", error);
+      logger.warn("Firestore sync flush failed; will retry later.", {
+        error,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
     } finally {
       flushingQueueRef.current = false;
       setSyncing(false);
@@ -391,11 +401,13 @@ export function useSolveSessions({ user, cubeDimension }) {
     if (!user) {
       // Try to load from localStorage ONCE on mount only
       if (!didLoadSessions.current) {
+        const startedAt = performance.now();
         const local = localStorage.getItem("cubeboxtimer_sessions");
         let loaded = null;
         try {
           loaded = local ? JSON.parse(local) : null;
-        } catch {
+        } catch (error) {
+          logger.warn("Failed to parse locally saved sessions; starting fresh.", { error });
           loaded = null;
         }
         if (loaded && Array.isArray(loaded) && loaded.length > 0) {
@@ -404,6 +416,10 @@ export function useSolveSessions({ user, cubeDimension }) {
           // Restore last active session if possible
           const lastActive = localStorage.getItem("cubeboxtimer_activeSessionId");
           setActiveSessionId(pickActiveSessionId(lastActive, mergedLocalSessions));
+          logger.info("Session load completed from localStorage.", {
+            sessionCount: mergedLocalSessions.length,
+            durationMs: Math.round(performance.now() - startedAt),
+          });
         } else {
           const mergedLocalSessions = applyPendingQueueToSessions([
             {
@@ -415,11 +431,16 @@ export function useSolveSessions({ user, cubeDimension }) {
           ]);
           setSessions(mergedLocalSessions);
           setActiveSessionId(mergedLocalSessions[0]?.id || "local");
+          logger.info("Session load completed with a fresh default session (no local data found).", {
+            durationMs: Math.round(performance.now() - startedAt),
+          });
         }
       }
       didLoadSessions.current = true;
       return;
     }
+    const sessionLoadStartedAt = performance.now();
+    let loggedInitialFirestoreLoad = false;
     const sessionsCol = collection(db, "users", user.uid, "sessions");
     const q = query(sessionsCol, orderBy("createdAt"));
     const solveUnsubscribes = new Map();
@@ -438,8 +459,11 @@ export function useSolveSessions({ user, cubeDimension }) {
             migratingSessionsRef.current.add(docSnap.id);
             const sessionRef = doc(sessionsCol, docSnap.id);
             migrateEmbeddedSolves(sessionRef, docSnap.id, data)
+              .then(() => {
+                logger.debug("Migrated embedded solves to top-level documents.", { sessionId: docSnap.id });
+              })
               .catch((error) => {
-                console.error("Failed to migrate embedded solves", error);
+                logger.error("Failed to migrate embedded solves.", { sessionId: docSnap.id, error });
                 migratingSessionsRef.current.delete(docSnap.id);
               });
           }
@@ -465,6 +489,12 @@ export function useSolveSessions({ user, cubeDimension }) {
           setFirestoreLoading(false);
           setSessions(mergedDefaultSessions);
           setActiveSessionId((prev) => pickActiveSessionId(prev, mergedDefaultSessions, "default"));
+          if (!loggedInitialFirestoreLoad) {
+            loggedInitialFirestoreLoad = true;
+            logger.info("Session load completed from Firestore (no remote sessions found).", {
+              durationMs: Math.round(performance.now() - sessionLoadStartedAt),
+            });
+          }
           if (!didCreateDefaultRemoteSessionRef.current && navigator.onLine) {
             didCreateDefaultRemoteSessionRef.current = true;
             setDoc(
@@ -472,7 +502,7 @@ export function useSolveSessions({ user, cubeDimension }) {
               { name: defaultSession.name, createdAt: serverTimestamp() },
               { merge: true }
             ).catch((error) => {
-              console.warn("Failed to create default session.", error);
+              logger.warn("Failed to create default session.", { error });
               didCreateDefaultRemoteSessionRef.current = false;
             });
           }
@@ -507,7 +537,7 @@ export function useSolveSessions({ user, cubeDimension }) {
               );
             },
             (error) => {
-              console.warn(`Failed to listen for solves in session ${session.id}.`, error);
+              logger.warn(`Failed to listen for solves in session ${session.id}.`, { error });
               setSessions((prev) =>
                 applyPendingQueueToSessions(
                   prev.map((existing) =>
@@ -537,9 +567,16 @@ export function useSolveSessions({ user, cubeDimension }) {
         setActiveSessionId((prev) =>
           pickActiveSessionId(prev, applyPendingQueueToSessions(loadedSessions))
         );
+        if (!loggedInitialFirestoreLoad) {
+          loggedInitialFirestoreLoad = true;
+          logger.info("Session load completed from Firestore.", {
+            sessionCount: loadedSessions.length,
+            durationMs: Math.round(performance.now() - sessionLoadStartedAt),
+          });
+        }
       },
       (error) => {
-        console.warn("Failed to listen for Firestore sessions.", error);
+        logger.warn("Failed to listen for Firestore sessions.", { error });
         setFirestoreLoading(false);
         setSessions((prev) => {
           const sessionsWithPending = applyPendingQueueToSessions(normalizeSessionsShape(prev));
@@ -641,11 +678,16 @@ export function useSolveSessions({ user, cubeDimension }) {
     setSessions((prev) => [...prev, newSession]);
     setActiveSessionId(newId);
     if (user) {
-      const sessionsCol = collection(db, "users", user.uid, "sessions");
-      await setDoc(doc(sessionsCol, newId), {
-        name: newSession.name,
-        createdAt: serverTimestamp(),
-      });
+      try {
+        const sessionsCol = collection(db, "users", user.uid, "sessions");
+        await setDoc(doc(sessionsCol, newId), {
+          name: newSession.name,
+          createdAt: serverTimestamp(),
+        });
+        logger.debug("Created session in Firestore.", { sessionId: newId });
+      } catch (error) {
+        logger.warn("Failed to create session in Firestore; it still exists locally.", { sessionId: newId, error });
+      }
     }
   };
 
@@ -657,8 +699,13 @@ export function useSolveSessions({ user, cubeDimension }) {
       setActiveSessionId(sessions[0].id);
     }
     if (user) {
-      const sessionsCol = collection(db, "users", user.uid, "sessions");
-      await deleteDoc(doc(sessionsCol, id));
+      try {
+        const sessionsCol = collection(db, "users", user.uid, "sessions");
+        await deleteDoc(doc(sessionsCol, id));
+        logger.debug("Deleted session from Firestore.", { sessionId: id });
+      } catch (error) {
+        logger.warn("Failed to delete session from Firestore; it was removed locally.", { sessionId: id, error });
+      }
     }
   };
 
