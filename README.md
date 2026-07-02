@@ -3,7 +3,7 @@
 [![CI](https://github.com/ameyg24/cubeboxtimer/actions/workflows/ci.yml/badge.svg)](https://github.com/ameyg24/cubeboxtimer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-CubeBox is an open-source speedcubing platform for recording solves, analyzing performance, and helping cubers improve through data-driven insights. It provides a WCA-style timer with inspection and penalties, session management, and rich statistics and charts, with optional cloud sync via Firebase.
+CubeBox is an offline-first speedcubing performance platform for recording solves, analyzing performance, and helping cubers improve through data-driven insights. It provides a WCA-style timer with inspection and penalties, session management, and rich statistics and charts, with optional cloud sync via Firebase.
 
 ## Features
 
@@ -115,7 +115,7 @@ The analytics module — averaging rules, penalties (+2 / DNF), edge cases, and 
 
 ## Continuous Integration
 
-GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every pull request and on pushes to `main`, installing dependencies and running the tests, type-check, lint, and build — the same commands described in [CONTRIBUTING.md](CONTRIBUTING.md).
+GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push to `main`, installing dependencies and running the tests, type-check, lint, and build. The same four commands (`npm run test:run`, `typecheck`, `lint`, `build`) can be run locally before pushing.
 
 ## Project Structure
 
@@ -135,11 +135,6 @@ docs/
 firestore.rules Firestore security rules (deploy this to your own Firebase project)
 .env.example    Example environment variables
 ```
-
-## Contributing
-
-Bug reports and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md)
-for local setup, conventions, and what CI checks before merge.
 
 ---
 

@@ -127,8 +127,7 @@ The analytics module (including record detection) is unit-tested with Vitest
 in `src/analytics/__tests__`. Because the module is pure, the tests are fast
 and need no DOM or network. Components and hooks have their own
 `__tests__` directories alongside them, using `@testing-library/react` with
-a `// @vitest-environment jsdom` pragma per file — see
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md) for the conventions.
+a `// @vitest-environment jsdom` pragma per file.
 
 ## Observability
 
