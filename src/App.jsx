@@ -20,6 +20,7 @@ import Dashboard from "./components/Dashboard.jsx";
 import SolveList from "./components/SolveList.jsx";
 import ScrambleBar from "./components/ScrambleBar.jsx";
 import { useSolveSessions, createSolveId } from "./hooks/useSolveSessions.js";
+import { useCompetitionResults } from "./hooks/useCompetitionResults.js";
 import { logger } from "./logger.js";
 
 const SHORTCUTS = [
@@ -102,6 +103,12 @@ function App() {
     deleteSolve,
     updateSolve,
   } = useSolveSessions({ user, cubeDimension });
+  const {
+    competitions,
+    addCompetitionResult,
+    updateCompetitionResult,
+    deleteCompetitionResult,
+  } = useCompetitionResults({ user });
   const [startSignal, setStartSignal] = useState(0); // for external start
   const [lastPbTypes, setLastPbTypes] = useState([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -468,6 +475,11 @@ function App() {
                   <Dashboard
                     eventSolves={eventSolves}
                     allSolves={allSolves}
+                    cubeDimension={cubeDimension}
+                    competitions={competitions}
+                    addCompetitionResult={addCompetitionResult}
+                    updateCompetitionResult={updateCompetitionResult}
+                    deleteCompetitionResult={deleteCompetitionResult}
                   />
                 </ErrorBoundary>
               </div>

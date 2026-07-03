@@ -80,6 +80,8 @@ export interface PredictionResult {
   confidenceLevel: ConfidenceLevel;
   adjustmentFactorPct: number | null;
   competitionsUsed: number;
+  /** Per-competition practice-vs-official breakdown, in `pastResultsForEvent` order. */
+  comparisons: CompetitionComparison[];
 }
 
 export const DEFAULT_PRACTICE_WINDOW_DAYS = 14;
@@ -234,6 +236,7 @@ export function predictCompetitionResult(
     adjustmentFactorPct,
     competitionsUsed: comparisons.length,
     confidenceLevel,
+    comparisons,
   };
 
   if (adjustmentFactorPct === null || practiceAverageMs === null) {

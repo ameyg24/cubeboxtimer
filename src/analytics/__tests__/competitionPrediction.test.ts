@@ -209,6 +209,25 @@ describe("predictCompetitionResult", () => {
     expect(result.confidenceRangeMs).not.toBeNull();
   });
 
+  it("exposes the per-competition comparison breakdown alongside the prediction", () => {
+    const solves = [
+      solveAt(35, 10000),
+      solveAt(32, 10000),
+      solveAt(5, 12000),
+      solveAt(2, 12000),
+    ];
+    const pastResults = [competition("c1", 30, 11000)];
+    const result = predictCompetitionResult(solves, pastResults, "3x3x3", BASE);
+
+    expect(result.comparisons).toHaveLength(1);
+    expect(result.comparisons[0]).toMatchObject({
+      competitionId: "c1",
+      practiceAverageMs: 10000,
+      officialAverageMs: 11000,
+      gapPct: expect.closeTo(0.1, 10),
+    });
+  });
+
   it("applies the averaged adjustment factor from multiple past competitions", () => {
     const solves = [
       // practice window before competition 1 (30 days back): 10000ms

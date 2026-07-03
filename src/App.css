@@ -307,6 +307,125 @@ select.ctrl:focus {
   border-color: var(--accent);
 }
 
+input.ctrl {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-btn);
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input.ctrl:hover,
+input.ctrl:focus {
+  border-color: var(--accent);
+}
+
+input.ctrl[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.form-error {
+  font-size: var(--fs-xs);
+  color: var(--danger);
+  font-weight: 500;
+}
+
+/* ── Competition prediction ─────────────────────────────── */
+.prediction-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.prediction-value {
+  font-family: "Courier New", monospace;
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.prediction-margin {
+  font-family: "Courier New", monospace;
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+.prediction-confidence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.confidence-badge {
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.confidence-badge-high {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.confidence-badge-medium {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.confidence-badge-low {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.confidence-badge-insufficient {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+}
+
+.prediction-basis {
+  font-size: var(--fs-sm);
+  color: var(--text-faint);
+}
+
+.competition-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.competition-row:last-child {
+  border-bottom: none;
+}
+
 /* ── Accessibility ──────────────────────────────────────── */
 *:focus-visible {
   outline: 2px solid var(--accent);

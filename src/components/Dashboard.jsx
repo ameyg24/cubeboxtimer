@@ -10,6 +10,7 @@ import {
   RECORD_TYPE_LABELS,
 } from "../analytics";
 import { logger } from "../logger.js";
+import CompetitionTab from "./CompetitionTab.jsx";
 
 // Chart.js is a large dependency only needed once someone opens the Trend
 // tab, so it's split into its own chunk instead of shipping with every load.
@@ -371,9 +372,17 @@ const Records = ({ recordHistory }) => (
   </div>
 );
 
-const TABS = ["Overview", "Trend", "Distribution", "Daily", "Records"];
+const TABS = ["Overview", "Trend", "Distribution", "Daily", "Records", "Competition"];
 
-const Dashboard = ({ eventSolves, allSolves }) => {
+const Dashboard = ({
+  eventSolves,
+  allSolves,
+  cubeDimension,
+  competitions,
+  addCompetitionResult,
+  updateCompetitionResult,
+  deleteCompetitionResult,
+}) => {
   const [tab, setTab] = useState("Overview");
 
   const sessionStats = useMemo(() => computeStats(eventSolves), [eventSolves]);
@@ -423,6 +432,16 @@ const Dashboard = ({ eventSolves, allSolves }) => {
         {tab === "Distribution" && <Distribution solves={allSolves} />}
         {tab === "Daily" && <Daily dailyStats={dailyStats} />}
         {tab === "Records" && <Records recordHistory={recordHistory} />}
+        {tab === "Competition" && (
+          <CompetitionTab
+            cubeDimension={cubeDimension}
+            practiceSolves={allSolves}
+            competitions={competitions}
+            addCompetitionResult={addCompetitionResult}
+            updateCompetitionResult={updateCompetitionResult}
+            deleteCompetitionResult={deleteCompetitionResult}
+          />
+        )}
       </div>
     </div>
   );
