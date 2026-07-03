@@ -668,8 +668,13 @@ export function useSolveSessions({ user, cubeDimension }) {
     [sessions, cubeDimension]
   );
 
-  // Append a completed solve to the active event and queue the write.
-  const addSolve = (solveObj) => {
+  // Append a solve to an event and queue the write. Defaults to the
+  // currently active cubeDimension (the live timer's case), but accepts an
+  // explicit override so a manually backfilled past solve can target a
+  // different event than whatever's currently selected in the header - the
+  // same session, same write-queue path, just a different array key.
+  const addSolve = (solveObj, dimensionOverride) => {
+    const dimension = CUBE_DIMENSIONS.includes(dimensionOverride) ? dimensionOverride : cubeDimension;
     setSessions((prev) =>
       prev.map((s) =>
         s.id === activeSession.id
@@ -677,7 +682,7 @@ export function useSolveSessions({ user, cubeDimension }) {
               ...s,
               solves: {
                 ...s.solves,
-                [cubeDimension]: [...(s.solves[cubeDimension] || []), solveObj],
+                [dimension]: [...(s.solves[dimension] || []), solveObj],
               },
             }
           : s
@@ -689,7 +694,7 @@ export function useSolveSessions({ user, cubeDimension }) {
       sessionId: activeSession.id,
       sessionName: activeSession.name,
       sessionCreatedAt: activeSession.createdAt,
-      cubeDimension,
+      cubeDimension: dimension,
       solve: solveObj,
       ts: Date.now(),
     });

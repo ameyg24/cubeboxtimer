@@ -71,7 +71,7 @@ function computeBacktest(practiceSolves, competitionsForEvent, event) {
   return result;
 }
 
-function PredictionCard({ prediction, emptyState, competitionCount }) {
+function PredictionCard({ prediction, emptyState, competitionCount, cubeDimension }) {
   if (emptyState) {
     if (emptyState.type === "no-history") {
       return <div className="section-card" style={EMPTY_STYLE}>No competition history yet.</div>;
@@ -85,17 +85,25 @@ function PredictionCard({ prediction, emptyState, competitionCount }) {
     }
     // insufficient-practice-match: there's competition history, but not
     // enough of it has a matching practice window - show why, and how far
-    // off the user is, rather than a bare "not enough data."
+    // off the user is (with the real counts inline), rather than a bare
+    // "not enough data," plus a concrete next step.
+    const matchingCount = prediction.comparisons.length;
     return (
       <div className="section-card" style={EMPTY_STYLE}>
         <div>
-          Prediction needs at least 2 past competitions with matching practice solves in the{" "}
-          {DEFAULT_PRACTICE_WINDOW_DAYS} days before each competition.
+          CubeBox found {competitionCount} {cubeDimension} competition{competitionCount === 1 ? "" : "s"}, but{" "}
+          {matchingCount} {matchingCount === 1 ? "has" : "have"} practice solves recorded in the{" "}
+          {DEFAULT_PRACTICE_WINDOW_DAYS} days before the competition date.
         </div>
         <div style={{ marginTop: 12, fontSize: "0.8rem", display: "flex", flexDirection: "column", gap: 2 }}>
           <div>Competitions for this event: {competitionCount}</div>
-          <div>Competitions with matching practice data: {prediction.comparisons.length}</div>
+          <div>Competitions with matching practice data: {matchingCount}</div>
+          <div>Required for prediction: at least 2</div>
           <div>Practice window: {DEFAULT_PRACTICE_WINDOW_DAYS} days before each competition</div>
+        </div>
+        <div style={{ marginTop: 12, fontSize: "0.8rem", color: "var(--text-muted)" }}>
+          Add past practice solves near those competition dates, or record future practice before your next
+          competition.
         </div>
       </div>
     );
@@ -175,11 +183,11 @@ function CalibrationTable({ comparisons, competitionsById, totalCompetitionsForE
     return (
       <div className="section-card" style={EMPTY_STYLE}>
         <div>
-          Historical calibration needs competitions that have practice solves in the {DEFAULT_PRACTICE_WINDOW_DAYS}{" "}
-          days before the competition date.
+          Historical calibration needs a competition result and practice solves from the{" "}
+          {DEFAULT_PRACTICE_WINDOW_DAYS} days before that competition.
         </div>
         <div style={{ marginTop: 12, fontSize: "0.8rem", display: "flex", flexDirection: "column", gap: 2 }}>
-          <div>Competitions for this event: {totalCompetitionsForEvent}</div>
+          <div>Competition results for this event: {totalCompetitionsForEvent}</div>
           <div>Comparable competitions found: {comparisons.length}</div>
         </div>
       </div>
@@ -189,7 +197,7 @@ function CalibrationTable({ comparisons, competitionsById, totalCompetitionsForE
   return (
     <div className="section-card" style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table aria-label="Historical calibration" style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
               <th scope="col" style={{ ...th, textAlign: "left" }}>Competition</th>
@@ -586,7 +594,12 @@ const CompetitionTab = ({
       />
 
       <div aria-live="polite">
-        <PredictionCard prediction={prediction} emptyState={emptyState} competitionCount={competitionsForEvent.length} />
+        <PredictionCard
+          prediction={prediction}
+          emptyState={emptyState}
+          competitionCount={competitionsForEvent.length}
+          cubeDimension={cubeDimension}
+        />
       </div>
 
       <WhySection prediction={prediction} show={emptyState === null} />

@@ -125,11 +125,13 @@ describe("CompetitionTab", () => {
       />
     );
     const card = screen
-      .getByText(/Prediction needs at least 2 past competitions with matching practice solves/)
+      .getByText(/CubeBox found 2 3x3x3 competitions, but 0 have practice solves recorded/)
       .closest(".section-card");
     expect(within(card).getByText("Competitions for this event: 2")).toBeInTheDocument();
     expect(within(card).getByText("Competitions with matching practice data: 0")).toBeInTheDocument();
+    expect(within(card).getByText("Required for prediction: at least 2")).toBeInTheDocument();
     expect(within(card).getByText(/Practice window: 14 days/)).toBeInTheDocument();
+    expect(within(card).getByText(/Add past practice solves near those competition dates/)).toBeInTheDocument();
   });
 
   it("historical calibration empty state explains what's needed and shows competition/comparable counts", () => {
@@ -144,9 +146,9 @@ describe("CompetitionTab", () => {
       />
     );
     const card = screen
-      .getByText(/Historical calibration needs competitions that have practice solves/)
+      .getByText(/Historical calibration needs a competition result and practice solves/)
       .closest(".section-card");
-    expect(within(card).getByText("Competitions for this event: 2")).toBeInTheDocument();
+    expect(within(card).getByText("Competition results for this event: 2")).toBeInTheDocument();
     expect(within(card).getByText("Comparable competitions found: 0")).toBeInTheDocument();
   });
 

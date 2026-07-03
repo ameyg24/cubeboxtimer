@@ -118,8 +118,10 @@ re-deriving them, and computes nothing that isn't already derivable from
 solves and competition results.
 
 This is surfaced in the Dashboard's Competition tab (`CompetitionTab.jsx`)
-as the Prediction card and Why? section. There is still no WCA API
-integration — every `CompetitionResult` is manually entered.
+as the Prediction card and Why? section. `CompetitionResult`s can be
+entered manually or imported from the WCA public API (see "WCA competition
+import" below) — either way, this module only ever sees the same
+persisted shape and treats both sources identically.
 
 ### Prediction backtesting (`backtesting.ts`)
 
@@ -288,11 +290,54 @@ competitionsForEvent.length`), that other events have results too — so a
 user who just imported results across several events doesn't mistake "not
 shown for 2x2x2 right now" for "wasn't imported." The prediction and
 historical-calibration empty states go further than a bare "not enough
-data": both name the actual requirement (2+ past competitions with
-practice solves in the `DEFAULT_PRACTICE_WINDOW_DAYS`-day window before
-each competition date) and show the current counts (competitions logged
-for this event vs. how many have matching practice data) rather than
-leaving the user to guess what's missing or how close they are.
+data": both build the actual sentence from the real counts (e.g. "CubeBox
+found 5 3x3x3 competitions, but 0 have practice solves recorded in the
+`DEFAULT_PRACTICE_WINDOW_DAYS` days before the competition date"), repeat
+those counts as a small breakdown, and the prediction card adds a concrete
+next step ("Add past practice solves near those competition dates, or
+record future practice before your next competition") — see "Backfilling
+practice solves" below for the UI that instruction points at.
+
+### Backfilling practice solves (`SolveList.jsx`, `useSolveSessions.js`)
+
+Importing WCA history is only useful to the prediction model if there's
+practice data near each competition's date — for anyone who started using
+CubeBox after those competitions happened, that data doesn't exist yet.
+Two additions close that gap, both living in `SolveList.jsx` (the same file
+that already handled solve deletion) rather than a new component, since
+they're really the same "manage past solves" concern:
+
+- **Delete is now always reachable, not just on hover/focus.** The
+  hover/keyboard-revealed action bar (+2, DNF, delete) still exists for
+  quick access, but every row also renders a persistent, smaller delete
+  button (`Delete solve N`, a distinct accessible name from the action
+  bar's plain `Delete solve`) whenever that fuller bar isn't showing. Touch
+  devices have no hover state at all, so without this a delete control
+  would have been practically unreachable there — keyboard deletion
+  (arrow-key row focus + Delete/Backspace) and the "Undo last solve" button
+  are both unchanged.
+- **"+ Add past solve"** (in the list header and the empty state) opens a
+  form — event, date, penalty (none/+2/DNF), time in seconds — and calls
+  the exact same `addSolve` the live timer uses, through the exact same
+  offline-first write-queue path (`useSolveSessions.js`) — no second
+  storage mechanism. A DNF always stores `millis: 0` (matching how the live
+  timer records one) and disables the time field, since a DNF's raw time
+  isn't meaningful; a +2 stores the raw time as-is, with the 2000ms penalty
+  applied later by `effectiveMillis()` exactly like a live +2 solve, never
+  added at write time. The date input sets `localCreatedAt` directly (the
+  same field `computePracticeWindow` filters on), so a backfilled solve
+  participates in prediction/calibration exactly like one the timer
+  recorded on that date.
+
+  `addSolve` gained an optional second argument, an explicit event
+  override, specifically for this form: the live timer's `addSolve(solve)`
+  still implicitly targets whatever cube size is currently selected in the
+  header, but a backfilled solve needs to target whichever event the user
+  picks in the form - which may not be the header's current selection (a
+  4x4x4 competition backfill shouldn't require switching the header away
+  from 3x3x3 first). `deleteSolve`/`updateSolve` didn't need the same
+  treatment - they only ever operate on rows already visible in
+  `SolveList`, which is always the active event's solves.
 
 ## Persistence and offline behavior
 

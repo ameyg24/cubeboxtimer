@@ -122,6 +122,38 @@ describe("useSolveSessions", () => {
     expect(result.current.eventSolves[0].id).toBe("b");
   });
 
+  it("adds a solve to an explicit event override, independent of the currently active cubeDimension", () => {
+    const { result, rerender } = renderHook(
+      ({ cubeDimension }) => useSolveSessions({ user: null, cubeDimension }),
+      { initialProps: { cubeDimension: "3x3x3" } }
+    );
+
+    act(() => {
+      // Backfilling a 4x4x4 practice solve while the header is on 3x3x3 -
+      // the manual "Add past solve" form's whole point.
+      result.current.addSolve(solve({ id: "a", cubeDimension: "4x4x4" }), "4x4x4");
+    });
+
+    expect(result.current.eventSolves).toHaveLength(0);
+    const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    expect(persisted[0].solves["4x4x4"]).toHaveLength(1);
+    expect(persisted[0].solves["3x3x3"]).toHaveLength(0);
+
+    rerender({ cubeDimension: "4x4x4" });
+    expect(result.current.eventSolves).toHaveLength(1);
+    expect(result.current.eventSolves[0].id).toBe("a");
+  });
+
+  it("ignores an invalid dimension override and falls back to the active cubeDimension", () => {
+    const { result } = renderHook(() => useSolveSessions({ user: null, cubeDimension: "3x3x3" }));
+
+    act(() => {
+      result.current.addSolve(solve({ id: "a" }), "not-a-real-dimension");
+    });
+
+    expect(result.current.eventSolves).toHaveLength(1);
+  });
+
   it("keeps solves for different cube sizes separate", () => {
     const { result, rerender } = renderHook(
       ({ cubeDimension }) => useSolveSessions({ user: null, cubeDimension }),

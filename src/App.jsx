@@ -499,7 +499,13 @@ function App() {
                   ))}
                 </div>
               ) : (
-                <SolveList solves={eventSolves} updateSolve={updateSolve} deleteSolve={deleteSolve} />
+                <SolveList
+                  solves={eventSolves}
+                  updateSolve={updateSolve}
+                  deleteSolve={deleteSolve}
+                  addSolve={addSolve}
+                  cubeDimension={cubeDimension}
+                />
               )}
               </div>
             </div>
