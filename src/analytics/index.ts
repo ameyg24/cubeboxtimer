@@ -63,3 +63,5 @@ export type {
 } from "./competitionPrediction";
 export { runBacktest } from "./backtesting";
 export type { BacktestCase, BacktestResult, BacktestSummary } from "./backtesting";
+export { explainPrediction } from "./predictionExplanation";
+export type { PredictionExplanation, PredictionFactors } from "./predictionExplanation";

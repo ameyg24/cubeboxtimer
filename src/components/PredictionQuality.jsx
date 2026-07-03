@@ -1,12 +1,13 @@
 // PredictionQuality.jsx - "How accurate have our predictions actually been?"
-// Runs the pure backtesting engine (analytics/backtesting.ts) over the
-// user's own competition history and displays the result. This file only
-// formats and lays out numbers runBacktest already computed - see that
-// module for the actual evaluation math. Chart.js is only needed once this
-// section renders, so PredictionErrorChart is lazy-loaded exactly like
-// StatsChart is for the Trend tab.
+// Displays the result of the pure backtesting engine
+// (analytics/backtesting.ts), computed once by the parent CompetitionTab
+// and passed in as `backtest` (shared with PredictionBreakdown/Factors, so
+// the backtest only runs once per render rather than once per consumer).
+// This file only formats and lays out numbers runBacktest already computed
+// - see that module for the actual evaluation math. Chart.js is only
+// needed once this section renders, so PredictionErrorChart is lazy-loaded
+// exactly like StatsChart is for the Trend tab.
 import { lazy, Suspense, useMemo } from "react";
-import { runBacktest } from "../analytics";
 import { logger } from "../logger.js";
 
 const PredictionErrorChart = lazy(() => {
@@ -46,21 +47,6 @@ const fmtPct = (v) => `${v.toFixed(1)}%`;
 const fmtSignedPct = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
 const fmtDate = (iso) =>
   iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "-";
-
-// Runs the pure backtest and logs around it (start, finish, evaluation
-// count, duration) — analytics/backtesting.ts itself stays framework- and
-// logger-free, matching every other module in src/analytics.
-function computeBacktest(practiceSolves, competitionsForEvent, event) {
-  const startedAt = performance.now();
-  logger.debug("Backtest started.", { event, competitionCount: competitionsForEvent.length });
-  const result = runBacktest(practiceSolves, competitionsForEvent, event);
-  logger.info("Backtest finished.", {
-    event,
-    evaluatedCount: result.summary.evaluatedCount,
-    durationMs: Math.round(performance.now() - startedAt),
-  });
-  return result;
-}
 
 // Never fabricates a metric: explains why there isn't one instead.
 function backtestEmptyMessage(competitionCount, backtest) {
@@ -140,13 +126,8 @@ function PredictionHistoryTable({ cases, competitionsById }) {
   );
 }
 
-const PredictionQuality = ({ cubeDimension, practiceSolves, competitionsForEvent, competitionsById }) => {
-  const backtest = useMemo(
-    () => computeBacktest(practiceSolves, competitionsForEvent, cubeDimension),
-    [practiceSolves, competitionsForEvent, cubeDimension]
-  );
-
-  const emptyMessage = backtestEmptyMessage(competitionsForEvent.length, backtest);
+const PredictionQuality = ({ backtest, competitionCount, competitionsById }) => {
+  const emptyMessage = backtestEmptyMessage(competitionCount, backtest);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>

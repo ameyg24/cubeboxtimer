@@ -5,10 +5,11 @@
 // through useCompetitionResults (src/hooks), passed down as props exactly
 // like SolveList receives addSolve/updateSolve/deleteSolve from App.jsx.
 import { useId, useMemo, useState } from "react";
-import { predictCompetitionResult } from "../analytics";
+import { explainPrediction, predictCompetitionResult, runBacktest } from "../analytics";
 import { CUBE_DIMENSIONS } from "../hooks/useSolveSessions.js";
 import { Modal } from "./Modal.jsx";
 import PredictionQuality from "./PredictionQuality.jsx";
+import { PredictionBreakdown, PredictionFactors } from "./PredictionExplanation.jsx";
 import { logger } from "../logger.js";
 
 const CONFIDENCE_LABELS = { insufficient: "Insufficient", low: "Low", medium: "Medium", high: "High" };
@@ -41,6 +42,23 @@ function predictionEmptyMessage(competitionCount, prediction) {
     return "Not enough matching practice data yet to make a reliable prediction.";
   }
   return null;
+}
+
+// Runs the pure backtest and logs around it (start, finish, evaluation
+// count, duration) — analytics/backtesting.ts itself stays framework- and
+// logger-free, matching every other module in src/analytics. Computed once
+// here so PredictionQuality and PredictionBreakdown/Factors share the same
+// result instead of each re-running the backtest independently.
+function computeBacktest(practiceSolves, competitionsForEvent, event) {
+  const startedAt = performance.now();
+  logger.debug("Backtest started.", { event, competitionCount: competitionsForEvent.length });
+  const result = runBacktest(practiceSolves, competitionsForEvent, event);
+  logger.info("Backtest finished.", {
+    event,
+    evaluatedCount: result.summary.evaluatedCount,
+    durationMs: Math.round(performance.now() - startedAt),
+  });
+  return result;
 }
 
 function PredictionCard({ prediction, emptyMessage }) {
@@ -420,6 +438,16 @@ const CompetitionTab = ({
     [practiceSolves, competitionsForEvent, cubeDimension]
   );
 
+  const backtest = useMemo(
+    () => computeBacktest(practiceSolves, competitionsForEvent, cubeDimension),
+    [practiceSolves, competitionsForEvent, cubeDimension]
+  );
+
+  const explanation = useMemo(
+    () => explainPrediction(prediction, backtest.summary),
+    [prediction, backtest]
+  );
+
   const emptyMessage = predictionEmptyMessage(competitionsForEvent.length, prediction);
 
   const handleAdd = (values) => {
@@ -451,6 +479,12 @@ const CompetitionTab = ({
 
       <WhySection prediction={prediction} show={emptyMessage === null} />
 
+      <div aria-live="polite">
+        <PredictionBreakdown explanation={explanation} show={emptyMessage === null} />
+      </div>
+
+      <PredictionFactors factors={explanation.factors} show={emptyMessage === null} />
+
       <div>
         <div className="section-title">Historical Calibration</div>
         <CalibrationTable comparisons={prediction.comparisons} competitionsById={competitionsById} />
@@ -469,9 +503,8 @@ const CompetitionTab = ({
       </div>
 
       <PredictionQuality
-        cubeDimension={cubeDimension}
-        practiceSolves={practiceSolves}
-        competitionsForEvent={competitionsForEvent}
+        backtest={backtest}
+        competitionCount={competitionsForEvent.length}
         competitionsById={competitionsById}
       />
 

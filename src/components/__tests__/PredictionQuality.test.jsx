@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import PredictionQuality from "../PredictionQuality.jsx";
 import { ThemeProvider } from "../ThemeContext.jsx";
+import { runBacktest } from "../../analytics";
 
 // Chart.js's responsive-resize binding needs real canvas layout, which jsdom
 // doesn't provide - the same reason no existing test renders StatsChart
@@ -17,7 +18,18 @@ vi.mock("chart.js/auto", () => ({
   },
 }));
 
-const renderQuality = (ui) => render(<ThemeProvider>{ui}</ThemeProvider>);
+// PredictionQuality now receives an already-computed `backtest` (CompetitionTab
+// computes it once and shares it with PredictionBreakdown/Factors), so these
+// tests compute it the same way via the real runBacktest, then render the
+// component in isolation exactly as CompetitionTab would pass it down.
+const renderWithData = (practiceSolves, competitionsForEvent, competitionsById) => {
+  const backtest = runBacktest(practiceSolves, competitionsForEvent, "3x3x3");
+  return render(
+    <ThemeProvider>
+      <PredictionQuality backtest={backtest} competitionCount={competitionsForEvent.length} competitionsById={competitionsById} />
+    </ThemeProvider>
+  );
+};
 
 const DAY = 24 * 60 * 60 * 1000;
 const daysAgo = (n) => Date.now() - n * DAY;
@@ -60,14 +72,7 @@ function twoCompetitionFixture() {
 
 describe("PredictionQuality", () => {
   it("explains that more competitions are needed with fewer than 2 entered", () => {
-    renderQuality(
-      <PredictionQuality
-        cubeDimension="3x3x3"
-        practiceSolves={[]}
-        competitionsForEvent={[competition("c1", 30, 11000)]}
-        competitionsById={new Map()}
-      />
-    );
+    renderWithData([], [competition("c1", 30, 11000)], new Map());
     expect(
       screen.getByText(/Backtesting needs at least 2 competitions for this event/)
     ).toBeInTheDocument();
@@ -76,42 +81,21 @@ describe("PredictionQuality", () => {
 
   it("explains that no evaluations were possible when competitions have no matching practice data", () => {
     const competitionsForEvent = [competition("c1", 400, 11000), competition("c2", 350, 10800)];
-    renderQuality(
-      <PredictionQuality
-        cubeDimension="3x3x3"
-        practiceSolves={[]} // no practice data at all
-        competitionsForEvent={competitionsForEvent}
-        competitionsById={new Map(competitionsForEvent.map((c) => [c.id, c]))}
-      />
-    );
+    renderWithData([], competitionsForEvent, new Map(competitionsForEvent.map((c) => [c.id, c])));
     expect(
       screen.getByText(/None of your competitions had enough matching practice data/)
     ).toBeInTheDocument();
   });
 
   it("does not fabricate a metric in either empty state", () => {
-    renderQuality(
-      <PredictionQuality
-        cubeDimension="3x3x3"
-        practiceSolves={[]}
-        competitionsForEvent={[]}
-        competitionsById={new Map()}
-      />
-    );
+    renderWithData([], [], new Map());
     expect(screen.queryByText("RMSE")).not.toBeInTheDocument();
     expect(screen.queryByText(/Predictions Evaluated/)).not.toBeInTheDocument();
   });
 
   it("shows summary cards once at least one competition is evaluated", () => {
     const { practiceSolves, competitionsForEvent, competitionsById } = twoCompetitionFixture();
-    renderQuality(
-      <PredictionQuality
-        cubeDimension="3x3x3"
-        practiceSolves={practiceSolves}
-        competitionsForEvent={competitionsForEvent}
-        competitionsById={competitionsById}
-      />
-    );
+    renderWithData(practiceSolves, competitionsForEvent, competitionsById);
     expect(screen.getByText("Average Error")).toBeInTheDocument();
     expect(screen.getByText("Median Error")).toBeInTheDocument();
     expect(screen.getByText("RMSE")).toBeInTheDocument();
@@ -124,14 +108,7 @@ describe("PredictionQuality", () => {
 
   it("shows the prediction history table with the evaluated competition's name and confidence", () => {
     const { practiceSolves, competitionsForEvent, competitionsById } = twoCompetitionFixture();
-    renderQuality(
-      <PredictionQuality
-        cubeDimension="3x3x3"
-        practiceSolves={practiceSolves}
-        competitionsForEvent={competitionsForEvent}
-        competitionsById={competitionsById}
-      />
-    );
+    renderWithData(practiceSolves, competitionsForEvent, competitionsById);
     expect(screen.getByText("Prediction History")).toBeInTheDocument();
     expect(screen.getByText("Newer Comp")).toBeInTheDocument();
     // "Older Comp" was never itself scored (nothing prior to it).
@@ -141,14 +118,7 @@ describe("PredictionQuality", () => {
 
   it("marks the prediction history table headers for screen readers", () => {
     const { practiceSolves, competitionsForEvent, competitionsById } = twoCompetitionFixture();
-    renderQuality(
-      <PredictionQuality
-        cubeDimension="3x3x3"
-        practiceSolves={practiceSolves}
-        competitionsForEvent={competitionsForEvent}
-        competitionsById={competitionsById}
-      />
-    );
+    renderWithData(practiceSolves, competitionsForEvent, competitionsById);
     const headers = screen.getAllByRole("columnheader");
     expect(headers.length).toBeGreaterThan(0);
     headers.forEach((header) => expect(header).toHaveAttribute("scope", "col"));
@@ -156,14 +126,7 @@ describe("PredictionQuality", () => {
 
   it("wraps the summary in a live region so screen readers hear updates", () => {
     const { practiceSolves, competitionsForEvent, competitionsById } = twoCompetitionFixture();
-    const { container } = renderQuality(
-      <PredictionQuality
-        cubeDimension="3x3x3"
-        practiceSolves={practiceSolves}
-        competitionsForEvent={competitionsForEvent}
-        competitionsById={competitionsById}
-      />
-    );
+    const { container } = renderWithData(practiceSolves, competitionsForEvent, competitionsById);
     const liveRegion = container.querySelector('[aria-live="polite"]');
     expect(liveRegion).not.toBeNull();
     expect(liveRegion).toHaveTextContent("Average Error");
@@ -181,14 +144,7 @@ describe("PredictionQuality", () => {
       competition("c3", 30, 10700, { competitionName: "Third" }),
     ];
     const competitionsById = new Map(competitionsForEvent.map((c) => [c.id, c]));
-    renderQuality(
-      <PredictionQuality
-        cubeDimension="3x3x3"
-        practiceSolves={practiceSolves}
-        competitionsForEvent={competitionsForEvent}
-        competitionsById={competitionsById}
-      />
-    );
+    renderWithData(practiceSolves, competitionsForEvent, competitionsById);
     const rows = screen.getAllByRole("row").slice(1); // drop the header row
     // "Third" (newest, evaluated using c1+c2 as history) should lead.
     expect(within(rows[0]).getByText("Third")).toBeInTheDocument();
@@ -197,14 +153,7 @@ describe("PredictionQuality", () => {
 
   it("shows the prediction error chart once there is evaluated data", () => {
     const { practiceSolves, competitionsForEvent, competitionsById } = twoCompetitionFixture();
-    renderQuality(
-      <PredictionQuality
-        cubeDimension="3x3x3"
-        practiceSolves={practiceSolves}
-        competitionsForEvent={competitionsForEvent}
-        competitionsById={competitionsById}
-      />
-    );
+    renderWithData(practiceSolves, competitionsForEvent, competitionsById);
     expect(screen.getByText("Prediction Error Over Time")).toBeInTheDocument();
   });
 });

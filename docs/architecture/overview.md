@@ -117,11 +117,61 @@ analytics (`mean`, `rollingAverageOfN`, `computeSessionStats`) rather than
 re-deriving them, and computes nothing that isn't already derivable from
 solves and competition results.
 
-**This module is backend-only.** It has no Dashboard tab, no charts, and no
-WCA integration yet — those are explicitly out of scope for the milestone
-that introduced it. What exists today is the pure prediction engine plus
-`CompetitionResult` persistence (below); a future milestone would wire it
-into the UI.
+This is surfaced in the Dashboard's Competition tab (`CompetitionTab.jsx`)
+as the Prediction card and Why? section. There is still no WCA API
+integration — every `CompetitionResult` is manually entered.
+
+### Prediction backtesting (`backtesting.ts`)
+
+`runBacktest` answers "how accurate have our predictions actually been?" by
+replaying history: for every competition, it calls `predictCompetitionResult`
+again with `now` pinned to that competition's own date and
+`pastResultsForEvent` restricted to competitions strictly earlier than it —
+the exact same function, just run as of an earlier point in time. A
+competition is only "eligible" for scoring when that replayed call actually
+produces a numeric prediction (there's at least one earlier competition,
+and matching practice data existed at the time); this mirrors
+`predictCompetitionResult`'s own "never fabricate a prediction" rule rather
+than inventing a separate one. No prediction math is duplicated — this
+module is purely an evaluation harness around the one canonical prediction
+function.
+
+Metrics (average/median absolute error, RMSE, bias) are plain arithmetic
+over the resulting per-competition errors — see the formulas documented
+directly in `backtesting.ts`. This is surfaced as the Competition tab's
+Prediction Quality section, including a "Prediction Error Over Time" chart
+built with the same Chart.js/lazy-load pattern as the Trend tab's
+`StatsChart`.
+
+### Prediction explainability (`predictionExplanation.ts`)
+
+`explainPrediction` turns an already-computed `PredictionResult` and
+`BacktestSummary` into a structured explanation — it recomputes nothing,
+every field is either a direct passthrough (practice average, adjustment
+factor, confidence level/interval, competitions used, DNF rate) or a plain
+arithmetic reading of one (e.g. `historicalAverageErrorPct` is
+`BacktestSummary.averageAbsoluteErrorPct`, reused rather than re-derived).
+
+The one genuinely new computation is "Prediction Factors": five relative
+contribution percentages (Practice performance, Historical adjustment,
+Consistency, DNF history, Competition history) that sum to 100%. The
+underlying prediction formula (`predicted = practiceAverage * (1 +
+adjustmentFactor)`) only has two real terms, so this is **not** a
+mathematically exact decomposition of that arithmetic — there's no way to
+split a two-term product into five independent shares. It's a documented,
+fixed-weight heuristic instead: each factor gets a plain score from fields
+already on `PredictionResult` (adjustment factor magnitude, coefficient of
+variation of recent practice, DNF rate, a saturating function of
+competitions used, and a constant baseline for practice performance since
+every prediction is unconditionally anchored to it), and the five scores
+are normalized to sum to 100%. The exact formula for every score, and why
+each was chosen, is documented inline in `predictionExplanation.ts` — there
+is deliberately no ML, fitting, or hidden weighting here.
+
+This is surfaced as the Competition tab's Prediction Breakdown (a detailed
+summary-row card, one level more detailed than the Why? section above) and
+Prediction Factors (a bar-chart breakdown reusing the same track/fill
+markup as the Dashboard's Distribution tab — no new visual language).
 
 ## Persistence and offline behavior
 

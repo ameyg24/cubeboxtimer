@@ -297,4 +297,135 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     const historyTable = screen.getByRole("table", { name: "Prediction history" });
     expect(within(historyTable).getByText("Second Comp")).toBeInTheDocument();
   });
+
+  it("Prediction Breakdown and Factors render for a real prediction, wired to the real hook", async () => {
+    const user = userEvent.setup();
+    const practiceSolves = [
+      solve(100, 10000), solve(96, 10000),
+      solve(70, 10000), solve(66, 10000),
+      solve(5, 10000), solve(2, 10000),
+    ];
+    render(<Harness practiceSolves={practiceSolves} />);
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "First Comp",
+      date: new Date(daysAgo(90)).toISOString().slice(0, 10),
+      average: "10.50",
+    });
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "Second Comp",
+      date: new Date(daysAgo(60)).toISOString().slice(0, 10),
+      average: "10.60",
+    });
+
+    expect(screen.getByText("Prediction Breakdown")).toBeInTheDocument();
+    expect(screen.getByText("Prediction Factors")).toBeInTheDocument();
+    expect(screen.getByText("Practice performance")).toBeInTheDocument();
+    expect(screen.getByText("Competition history")).toBeInTheDocument();
+  });
+
+  it("Prediction Breakdown updates after editing a competition's average", async () => {
+    const user = userEvent.setup();
+    const practiceSolves = [
+      solve(100, 10000), solve(96, 10000),
+      solve(70, 10000), solve(66, 10000),
+      solve(5, 10000), solve(2, 10000),
+    ];
+    render(<Harness practiceSolves={practiceSolves} />);
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "First Comp",
+      date: new Date(daysAgo(90)).toISOString().slice(0, 10),
+      average: "10.50",
+    });
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "Second Comp",
+      date: new Date(daysAgo(60)).toISOString().slice(0, 10),
+      average: "10.60",
+    });
+
+    const breakdownCard = screen.getByText("Prediction Breakdown").closest(".section-card");
+    const before = within(breakdownCard).getByText(/Adjustment factor/).closest(".summary-row").textContent;
+
+    await user.click(screen.getByRole("button", { name: "Edit Second Comp" }));
+    const editDialog = screen.getByRole("dialog");
+    const avgField = within(editDialog).getByLabelText("Official Average (seconds)");
+    await user.clear(avgField);
+    await user.type(avgField, "13.00");
+    await user.click(within(editDialog).getByRole("button", { name: "Save" }));
+
+    const after = within(breakdownCard).getByText(/Adjustment factor/).closest(".summary-row").textContent;
+    expect(after).not.toBe(before);
+  });
+
+  it("Prediction Breakdown updates after new solves are added", async () => {
+    const user = userEvent.setup();
+    const initialSolves = [
+      solve(100, 10000), solve(96, 10000),
+      solve(70, 10000), solve(66, 10000),
+      solve(5, 10000), solve(2, 10000),
+    ];
+    const { rerender } = render(<Harness practiceSolves={initialSolves} />);
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "First Comp",
+      date: new Date(daysAgo(90)).toISOString().slice(0, 10),
+      average: "10.50",
+    });
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "Second Comp",
+      date: new Date(daysAgo(60)).toISOString().slice(0, 10),
+      average: "10.60",
+    });
+
+    const breakdownCard = screen.getByText("Prediction Breakdown").closest(".section-card");
+    const before = within(breakdownCard).getByText(/Practice average/).closest(".summary-row").textContent;
+
+    // Simulate new, notably slower solves being recorded elsewhere in the app.
+    const updatedSolves = [...initialSolves, solve(1, 15000), solve(0, 15000)];
+    rerender(<Harness practiceSolves={updatedSolves} />);
+
+    const after = within(breakdownCard).getByText(/Practice average/).closest(".summary-row").textContent;
+    expect(after).not.toBe(before);
+  });
+
+  it("Prediction Breakdown and Factors survive a reload", async () => {
+    const user = userEvent.setup();
+    const practiceSolves = [
+      solve(100, 10000), solve(96, 10000),
+      solve(70, 10000), solve(66, 10000),
+      solve(5, 10000), solve(2, 10000),
+    ];
+    const { unmount } = render(<Harness practiceSolves={practiceSolves} />);
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "First Comp",
+      date: new Date(daysAgo(90)).toISOString().slice(0, 10),
+      average: "10.50",
+    });
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "Second Comp",
+      date: new Date(daysAgo(60)).toISOString().slice(0, 10),
+      average: "10.60",
+    });
+
+    const breakdownCard = screen.getByText("Prediction Breakdown").closest(".section-card");
+    const before = within(breakdownCard).getByText(/Adjustment factor/).closest(".summary-row").textContent;
+    unmount();
+
+    render(<Harness practiceSolves={practiceSolves} />);
+    expect(screen.getByText("Prediction Breakdown")).toBeInTheDocument();
+    expect(screen.getByText("Prediction Factors")).toBeInTheDocument();
+    const reloadedCard = screen.getByText("Prediction Breakdown").closest(".section-card");
+    const after = within(reloadedCard).getByText(/Adjustment factor/).closest(".summary-row").textContent;
+    expect(after).toBe(before);
+  });
 });
