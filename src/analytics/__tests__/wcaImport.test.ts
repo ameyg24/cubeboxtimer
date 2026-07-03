@@ -183,6 +183,15 @@ describe("buildImportCandidates", () => {
     expect(skipped[0].reason).toBe("dnf-or-dns-average");
   });
 
+  it("skips a result with no official average at all with a distinct reason from DNF/DNS", () => {
+    // 0 means no average was computed (e.g. a Bo1/Bo3 round format that
+    // only records a best) - a different situation from DNF/DNS, where an
+    // average WAS computed but is invalid.
+    const { candidates, skipped } = buildImportCandidates([rawResult({ average: 0 })], meta);
+    expect(candidates).toEqual([]);
+    expect(skipped).toEqual([{ competitionId: "NewZealandChamps2009", eventId: "333", reason: "no-average" }]);
+  });
+
   it("imports with bestMs: null when the best single itself was a DNF but the average was not", () => {
     // Realistic combination: an ao5 where the average is still computable
     // (only 1 of 5 attempts DNF'd) but this particular API record still
@@ -305,10 +314,10 @@ describe("decideImportAction", () => {
     expect(decision.type).toBe("create");
   });
 
-  it("skips as a duplicate when the same wcaCompetitionId + event was already imported with identical values", () => {
+  it("skips as already-imported when the same wcaCompetitionId + event was already imported with identical values", () => {
     const existing = [competition({ source: "wca-import", wcaCompetitionId: "NewZealandChamps2009" })];
     const decision = decideImportAction(importCandidate(), existing);
-    expect(decision.type).toBe("skip-duplicate");
+    expect(decision.type).toBe("skip-already-imported");
   });
 
   it("updates the existing record when the same wcaCompetitionId + event was imported before but values changed", () => {
@@ -324,6 +333,16 @@ describe("decideImportAction", () => {
     const existing = [competition({ source: "manual" })];
     const decision = decideImportAction(importCandidate(), existing);
     expect(decision.type).toBe("skip-duplicate");
+  });
+
+  it("distinguishes skip-already-imported (re-importing the same WCA result) from skip-duplicate (matching a different record)", () => {
+    const reimport = decideImportAction(importCandidate(), [
+      competition({ source: "wca-import", wcaCompetitionId: "NewZealandChamps2009" }),
+    ]);
+    const crossDuplicate = decideImportAction(importCandidate(), [competition({ source: "manual" })]);
+    expect(reimport.type).toBe("skip-already-imported");
+    expect(crossDuplicate.type).toBe("skip-duplicate");
+    expect(reimport.type).not.toBe(crossDuplicate.type);
   });
 
   it("manual-first then import: surfaces a conflict instead of silently overwriting a manual record with different times", () => {

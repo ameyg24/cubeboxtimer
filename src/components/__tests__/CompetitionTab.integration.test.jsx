@@ -470,7 +470,7 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     await user.type(screen.getByRole("textbox", { name: "WCA ID" }), "2009ZEMD01");
     await user.click(screen.getByRole("button", { name: "Import" }));
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/skipped 1/));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/Skipped 1 duplicate/));
     // Still exactly one record - the import recognized the manual entry as
     // the same result rather than creating a second one.
     const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));

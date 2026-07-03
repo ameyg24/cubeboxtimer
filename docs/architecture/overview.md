@@ -207,15 +207,23 @@ API before writing any code:
   known limitation of relying on unauthenticated best-effort public access
   rather than a documented, rate-limit-free API.
 - WCA times are centiseconds, with `-1` = DNF, `-2` = DNS, `0` = an unused
-  attempt slot. A result whose *official average* is DNF/DNS is skipped
-  entirely rather than imported with a fabricated time — `CompetitionResult`
-  has no separate DNF concept, and inventing one would mean teaching the
-  rest of the Competition tab's UI to render it.
+  attempt slot. A result whose *official average* is missing or DNF/DNS is
+  skipped entirely rather than imported with a fabricated time —
+  `CompetitionResult` has no separate DNF concept, and inventing one would
+  mean teaching the rest of the Competition tab's UI to render it. `-1`/`-2`
+  (`dnf-or-dns-average`) and `0`/other (`no-average`) are tracked as
+  distinct `SkipReason`s, not merged, because they mean different things to
+  a user reviewing why a result didn't import: one says "you DNF'd/DNS'd
+  that round," the other says "that round never had an average to import in
+  the first place" (e.g. a Bo1/Bo3 format that only records a best).
 - A `(competition, event)` pair can have multiple rounds. The one WCA
   itself treats as "the" result is reliably the highest `round_id` in that
   group (verified against real multi-round data: first rounds always have
   a lower `round_id` than that competition's final round for the same
-  event) — no need to hardcode WCA's round-type taxonomy.
+  event) — no need to hardcode WCA's round-type taxonomy. This is stated
+  explicitly in the UI itself (the "Import from WCA" card), not just here,
+  so a user isn't left guessing why an earlier round's result isn't the one
+  that came in.
 - Only WCA's four NxNxN speedsolving events CubeBox already supports
   (`222`/`333`/`444`/`555`) are mapped; every other WCA event (blindfolded,
   one-handed, FMC, ...) has no CubeBox equivalent and its results are
@@ -241,16 +249,21 @@ stable identifier future imports match against).
 normalized-word-overlap name check:
 
 1. Same `wcaCompetitionId` + event as a previous import: identical values
-   are skipped as an already-present duplicate; different values (a late
-   WCA results correction) deterministically update that same record —
-   safe specifically because it's the same `wcaCompetitionId`, not a
-   different competition being folded into an existing one.
+   are skipped as `skip-already-imported`; different values (a late WCA
+   results correction) deterministically update that same record — safe
+   specifically because it's the same `wcaCompetitionId`, not a different
+   competition being folded into an existing one.
 2. Otherwise, compared against every existing record (manual or imported)
    for the same event and calendar day: identical times mean it's already
-   present (skipped); a similar competition name with *different* times is
-   a conflict, surfaced to the user rather than silently overwritten.
-   Event+date matching an unrelated competition name is treated as two
-   genuinely different results that happen to share a date.
+   present, tracked as `skip-duplicate`; a similar competition name with
+   *different* times is a conflict, surfaced to the user rather than
+   silently overwritten. Event+date matching an unrelated competition name
+   is treated as two genuinely different results that happen to share a
+   date. `skip-already-imported` and `skip-duplicate` are deliberately
+   distinct `ImportDecision` variants, not one merged "duplicate" bucket —
+   "you already imported this exact result" and "this matches something
+   else you already had" are different findings, and the import summary
+   explains both rather than a single opaque "skipped N."
 3. The same primitive runs in the other direction: the manual "Add
    competition" form (`CompetitionTab.jsx`) checks a new entry against
    every existing record, including past imports. An exact duplicate is
@@ -264,6 +277,22 @@ normalized-word-overlap name check:
 
 A manual record's own values are never rewritten by an import without the
 user explicitly resubmitting through the conflict-confirmation flow above.
+
+**Empty states and event scope.** Every section of the Competition tab
+(prediction, historical calibration, results list, Prediction Quality) is
+scoped to the currently selected cube event (`competitions.filter(c =>
+c.event === cubeDimension)`) — the same selector that drives the timer and
+scrambles. A note at the top of the tab states which event is in view and,
+only when it would otherwise be non-obvious (`competitions.length >
+competitionsForEvent.length`), that other events have results too — so a
+user who just imported results across several events doesn't mistake "not
+shown for 2x2x2 right now" for "wasn't imported." The prediction and
+historical-calibration empty states go further than a bare "not enough
+data": both name the actual requirement (2+ past competitions with
+practice solves in the `DEFAULT_PRACTICE_WINDOW_DAYS`-day window before
+each competition date) and show the current counts (competitions logged
+for this event vs. how many have matching practice data) rather than
+leaving the user to guess what's missing or how close they are.
 
 ## Persistence and offline behavior
 

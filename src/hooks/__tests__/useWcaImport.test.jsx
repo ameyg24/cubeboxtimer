@@ -96,7 +96,7 @@ describe("useWcaImport", () => {
     expect(fetchWcaPersonResults).toHaveBeenCalledWith("2009ZEMD01");
   });
 
-  it("skips a result as a duplicate when it was already imported with identical values", async () => {
+  it("counts a re-import with identical values as already-imported, not a generic duplicate", async () => {
     fetchWcaPersonResults.mockResolvedValue([rawResult()]);
     fetchWcaCompetitionMeta.mockResolvedValue({
       name: competitionMeta.name,
@@ -122,7 +122,8 @@ describe("useWcaImport", () => {
 
     await waitFor(() => expect(result.current.status).toBe("success"));
     expect(addCompetitionResult).not.toHaveBeenCalled();
-    expect(result.current.summary.skippedDuplicateCount).toBe(1);
+    expect(result.current.summary.alreadyImportedCount).toBe(1);
+    expect(result.current.summary.duplicateCount).toBe(0);
   });
 
   it("updates the existing imported record when the same competition + event was re-imported with new values", async () => {
@@ -215,14 +216,19 @@ describe("useWcaImport", () => {
 
     await waitFor(() => expect(result.current.status).toBe("success"));
     expect(addCompetitionResult).not.toHaveBeenCalled();
-    expect(result.current.summary.skippedDuplicateCount).toBe(1);
+    // This is a cross-record duplicate (matches a manual record), not a
+    // re-import of a previous WCA import - tracked separately so the
+    // summary can explain the difference to the user.
+    expect(result.current.summary.duplicateCount).toBe(1);
+    expect(result.current.summary.alreadyImportedCount).toBe(0);
     expect(result.current.summary.conflictCount).toBe(0);
   });
 
-  it("reports counts for skipped unsupported events and DNF results", async () => {
+  it("reports separate counts for unsupported events, DNF/DNS results, and missing averages", async () => {
     fetchWcaPersonResults.mockResolvedValue([
-      rawResult({ event_id: "333bf", best: 15768, average: -1 }),
-      rawResult({ event_id: "333", average: -1 }),
+      rawResult({ competition_id: "CompA", event_id: "333bf", best: 15768, average: -1 }),
+      rawResult({ competition_id: "CompB", event_id: "333", average: -1 }),
+      rawResult({ competition_id: "CompC", event_id: "333", average: 0 }),
     ]);
     const { result } = setup();
 
@@ -232,7 +238,22 @@ describe("useWcaImport", () => {
 
     await waitFor(() => expect(result.current.status).toBe("success"));
     expect(result.current.summary.unsupportedEventCount).toBe(1);
-    expect(result.current.summary.dnfCount).toBe(1);
+    expect(result.current.summary.dnfOrDnsCount).toBe(1);
+    expect(result.current.summary.noAverageCount).toBe(1);
+    expect(result.current.summary.createdCount).toBe(0);
+  });
+
+  it("reports a metadata-failure count when a competition's details couldn't be fetched", async () => {
+    fetchWcaPersonResults.mockResolvedValue([rawResult({ competition_id: "UnknownComp" })]);
+    fetchWcaCompetitionMeta.mockRejectedValue(new Error("WCA API error (500) while fetching competition."));
+    const { result } = setup();
+
+    await act(async () => {
+      await result.current.runImport("2009ZEMD01");
+    });
+
+    await waitFor(() => expect(result.current.status).toBe("success"));
+    expect(result.current.summary.metadataFailureCount).toBe(1);
     expect(result.current.summary.createdCount).toBe(0);
   });
 

@@ -113,6 +113,43 @@ describe("CompetitionTab", () => {
     expect(screen.getByText(/Your competition averages have historically been/)).toBeInTheDocument();
   });
 
+  it("prediction empty state explains what's needed and shows competition/practice-match counts when there's history but no matching practice data", () => {
+    renderTab(
+      <CompetitionTab
+        cubeDimension="3x3x3"
+        practiceSolves={[]}
+        competitions={[competition("c1", 90, 10500), competition("c2", 60, 10600)]}
+        addCompetitionResult={noop}
+        updateCompetitionResult={noop}
+        deleteCompetitionResult={noop}
+      />
+    );
+    const card = screen
+      .getByText(/Prediction needs at least 2 past competitions with matching practice solves/)
+      .closest(".section-card");
+    expect(within(card).getByText("Competitions for this event: 2")).toBeInTheDocument();
+    expect(within(card).getByText("Competitions with matching practice data: 0")).toBeInTheDocument();
+    expect(within(card).getByText(/Practice window: 14 days/)).toBeInTheDocument();
+  });
+
+  it("historical calibration empty state explains what's needed and shows competition/comparable counts", () => {
+    renderTab(
+      <CompetitionTab
+        cubeDimension="3x3x3"
+        practiceSolves={[]}
+        competitions={[competition("c1", 90, 10500), competition("c2", 60, 10600)]}
+        addCompetitionResult={noop}
+        updateCompetitionResult={noop}
+        deleteCompetitionResult={noop}
+      />
+    );
+    const card = screen
+      .getByText(/Historical calibration needs competitions that have practice solves/)
+      .closest(".section-card");
+    expect(within(card).getByText("Competitions for this event: 2")).toBeInTheDocument();
+    expect(within(card).getByText("Comparable competitions found: 0")).toBeInTheDocument();
+  });
+
   it("only shows competitions entered for the currently selected event", () => {
     renderTab(
       <CompetitionTab
@@ -125,6 +162,36 @@ describe("CompetitionTab", () => {
       />
     );
     expect(screen.getByText("No competition history yet.")).toBeInTheDocument();
+  });
+
+  it("states which event's results are shown, and flags that other events have results too", () => {
+    renderTab(
+      <CompetitionTab
+        cubeDimension="2x2x2"
+        practiceSolves={[]}
+        competitions={[competition("c1", 30, 11000, { event: "3x3x3" })]}
+        addCompetitionResult={noop}
+        updateCompetitionResult={noop}
+        deleteCompetitionResult={noop}
+      />
+    );
+    expect(screen.getByText(/Showing 2x2x2 competition results\./)).toBeInTheDocument();
+    expect(screen.getByText(/switch the cube size selector above/)).toBeInTheDocument();
+  });
+
+  it("doesn't mention other events when every competition already matches the active event", () => {
+    renderTab(
+      <CompetitionTab
+        cubeDimension="3x3x3"
+        practiceSolves={[]}
+        competitions={[competition("c1", 30, 11000, { event: "3x3x3" })]}
+        addCompetitionResult={noop}
+        updateCompetitionResult={noop}
+        deleteCompetitionResult={noop}
+      />
+    );
+    expect(screen.getByText(/Showing 3x3x3 competition results\./)).toBeInTheDocument();
+    expect(screen.queryByText(/switch the cube size selector above/)).not.toBeInTheDocument();
   });
 
   it("shows historical calibration rows newest first", () => {

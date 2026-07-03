@@ -125,7 +125,7 @@ describe("WcaImport", () => {
     await user.type(screen.getByRole("textbox", { name: "WCA ID" }), "2009ZEMD01");
     await user.click(screen.getByRole("button", { name: "Import" }));
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/1 conflict/));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/Conflicts: 1/));
     expect(screen.getByRole("status")).toHaveTextContent("New Zealand Championships 2009");
   });
 
@@ -142,7 +142,7 @@ describe("WcaImport", () => {
     );
   });
 
-  it("reports a skipped count when the only results are for unsupported events", async () => {
+  it("reports a per-category skip breakdown instead of one opaque count", async () => {
     fetchWcaPersonResults.mockResolvedValue([rawResult({ event_id: "333bf" })]);
     const user = userEvent.setup();
     renderImport();
@@ -150,6 +150,40 @@ describe("WcaImport", () => {
     await user.type(screen.getByRole("textbox", { name: "WCA ID" }), "2009ZEMD01");
     await user.click(screen.getByRole("button", { name: "Import" }));
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/skipped 1/));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/Skipped 1 unsupported event/));
+  });
+
+  it("shows a full import breakdown covering every non-zero category", async () => {
+    fetchWcaPersonResults.mockResolvedValue([
+      rawResult({ competition_id: "CompA", event_id: "333" }),
+      rawResult({ competition_id: "CompB", event_id: "333bf" }),
+      rawResult({ competition_id: "CompC", event_id: "333", average: -1 }),
+      rawResult({ competition_id: "CompD", event_id: "333", average: 0 }),
+    ]);
+    fetchWcaCompetitionMeta.mockResolvedValue({
+      name: "New Zealand Championships 2009",
+      date: "2009-07-18T00:00:00.000Z",
+    });
+    const user = userEvent.setup();
+    renderImport();
+
+    await user.type(screen.getByRole("textbox", { name: "WCA ID" }), "2009ZEMD01");
+    await user.click(screen.getByRole("button", { name: "Import" }));
+
+    const status = await waitFor(() => screen.getByRole("status"));
+    await waitFor(() => expect(status).toHaveTextContent(/Imported 1 new result/));
+    expect(status).toHaveTextContent(/Skipped 1 unsupported event/);
+    expect(status).toHaveTextContent(/Skipped 2 missing\/invalid averages/);
+    // Zero categories - updated, duplicates, conflicts - don't clutter the summary.
+    expect(status).not.toHaveTextContent(/Updated/);
+    expect(status).not.toHaveTextContent(/duplicate/);
+    expect(status).not.toHaveTextContent(/Conflicts/);
+  });
+
+  it("shows the final/deepest-round import policy near the import form", () => {
+    renderImport();
+    expect(
+      screen.getByText(/final\/deepest WCA round result/)
+    ).toBeInTheDocument();
   });
 });

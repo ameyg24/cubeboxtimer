@@ -87,7 +87,8 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
 
         const created = [];
         const updated = [];
-        const skippedDuplicates = [];
+        const alreadyImported = [];
+        const duplicates = [];
         const conflicts = [];
 
         for (const candidate of candidates) {
@@ -113,21 +114,28 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
               wcaCompetitionId: candidate.wcaCompetitionId,
             });
             updated.push(candidate);
+          } else if (decision.type === "skip-already-imported") {
+            alreadyImported.push({ candidate, reason: decision.reason });
           } else if (decision.type === "skip-duplicate") {
-            skippedDuplicates.push({ candidate, reason: decision.reason });
+            duplicates.push({ candidate, reason: decision.reason });
           } else if (decision.type === "conflict") {
             conflicts.push({ candidate, reason: decision.reason });
           }
         }
 
+        // Every category a result can land in is tracked separately (rather
+        // than one opaque "skipped" count) so the UI can explain exactly
+        // why each result was or wasn't imported - see WcaImport.jsx.
         const result = {
           wcaId,
           createdCount: created.length,
           updatedCount: updated.length,
-          skippedDuplicateCount: skippedDuplicates.length,
+          alreadyImportedCount: alreadyImported.length,
+          duplicateCount: duplicates.length,
           conflictCount: conflicts.length,
           unsupportedEventCount: skipped.filter((s) => s.reason === "unsupported-event").length,
-          dnfCount: skipped.filter((s) => s.reason === "dnf-or-dns-average").length,
+          noAverageCount: skipped.filter((s) => s.reason === "no-average").length,
+          dnfOrDnsCount: skipped.filter((s) => s.reason === "dnf-or-dns-average").length,
           metadataFailureCount: skipped.filter((s) => s.reason === "missing-competition-metadata").length,
           conflicts,
         };
@@ -137,10 +145,12 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
           wcaId,
           createdCount: result.createdCount,
           updatedCount: result.updatedCount,
-          skippedDuplicateCount: result.skippedDuplicateCount,
+          alreadyImportedCount: result.alreadyImportedCount,
+          duplicateCount: result.duplicateCount,
           conflictCount: result.conflictCount,
           unsupportedEventCount: result.unsupportedEventCount,
-          dnfCount: result.dnfCount,
+          noAverageCount: result.noAverageCount,
+          dnfOrDnsCount: result.dnfOrDnsCount,
           metadataFailureCount: result.metadataFailureCount,
           durationMs: Math.round(performance.now() - startedAt),
         });

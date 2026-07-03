@@ -8,18 +8,66 @@ import { useWcaImport } from "../hooks/useWcaImport.js";
 
 const fmtSeconds = (ms) => (ms / 1000).toFixed(2);
 
+// Builds the itemized breakdown lines for a finished import - every
+// category a result can land in gets its own line, shown only when it's
+// non-zero, so a real result never collapses into an unexplained "skipped
+// N" (see wcaImport.ts's SkipReason / ImportDecision for where each count
+// comes from).
+function buildSummaryLines(summary) {
+  const {
+    createdCount,
+    updatedCount,
+    alreadyImportedCount,
+    duplicateCount,
+    conflictCount,
+    unsupportedEventCount,
+    noAverageCount,
+    dnfOrDnsCount,
+    metadataFailureCount,
+  } = summary;
+
+  const totalDuplicates = alreadyImportedCount + duplicateCount;
+  const totalInvalidAverages = noAverageCount + dnfOrDnsCount;
+
+  const lines = [`Imported ${createdCount} new result${createdCount === 1 ? "" : "s"}`];
+  if (updatedCount > 0) {
+    lines.push(`Updated ${updatedCount} existing imported result${updatedCount === 1 ? "" : "s"}`);
+  }
+  if (totalDuplicates > 0) {
+    lines.push(`Skipped ${totalDuplicates} duplicate${totalDuplicates === 1 ? "" : "s"}`);
+  }
+  if (unsupportedEventCount > 0) {
+    lines.push(`Skipped ${unsupportedEventCount} unsupported event${unsupportedEventCount === 1 ? "" : "s"}`);
+  }
+  if (totalInvalidAverages > 0) {
+    lines.push(`Skipped ${totalInvalidAverages} missing/invalid average${totalInvalidAverages === 1 ? "" : "s"}`);
+  }
+  if (metadataFailureCount > 0) {
+    lines.push(
+      `Skipped ${metadataFailureCount} result${metadataFailureCount === 1 ? "" : "s"} — competition details unavailable`
+    );
+  }
+  if (conflictCount > 0) {
+    lines.push(`Conflicts: ${conflictCount}`);
+  }
+  return lines;
+}
+
 function ImportSummary({ summary }) {
   const {
     createdCount,
     updatedCount,
-    skippedDuplicateCount,
+    alreadyImportedCount,
+    duplicateCount,
     conflictCount,
     unsupportedEventCount,
-    dnfCount,
+    noAverageCount,
+    dnfOrDnsCount,
     metadataFailureCount,
     conflicts,
   } = summary;
-  const totalSkipped = skippedDuplicateCount + unsupportedEventCount + dnfCount + metadataFailureCount;
+  const totalSkipped =
+    alreadyImportedCount + duplicateCount + unsupportedEventCount + noAverageCount + dnfOrDnsCount + metadataFailureCount;
 
   if (createdCount === 0 && updatedCount === 0 && totalSkipped === 0 && conflictCount === 0) {
     return (
@@ -31,27 +79,11 @@ function ImportSummary({ summary }) {
 
   return (
     <div role="status" style={{ fontSize: "0.85rem", color: "var(--text)", display: "flex", flexDirection: "column", gap: 6 }}>
-      <div>
-        Imported <strong>{createdCount}</strong> new result{createdCount === 1 ? "" : "s"}
-        {updatedCount > 0 && (
-          <>
-            {" · updated "}
-            <strong>{updatedCount}</strong>
-          </>
-        )}
-        {totalSkipped > 0 && (
-          <>
-            {" · skipped "}
-            <strong>{totalSkipped}</strong>
-          </>
-        )}
-        {conflictCount > 0 && (
-          <>
-            {" · "}
-            <strong>{conflictCount}</strong> conflict{conflictCount === 1 ? "" : "s"} need review
-          </>
-        )}
-      </div>
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2 }}>
+        {buildSummaryLines(summary).map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
       {conflictCount > 0 && (
         <ul style={{ margin: 0, paddingLeft: 18, color: "var(--warning)" }}>
           {conflicts.map(({ candidate, reason }) => (
@@ -83,6 +115,9 @@ const WcaImport = ({ competitions, addCompetitionResult, updateCompetitionResult
   return (
     <div className="section-card">
       <div className="section-title">Import from WCA</div>
+      <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: 10 }}>
+        For each competition and event, CubeBox imports the final/deepest WCA round result.
+      </div>
       <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
         <div className="form-field" style={{ flex: "1 1 200px" }}>
           <label className="form-label" htmlFor={inputId}>WCA ID</label>

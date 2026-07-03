@@ -5,7 +5,13 @@
 // through useCompetitionResults (src/hooks), passed down as props exactly
 // like SolveList receives addSolve/updateSolve/deleteSolve from App.jsx.
 import { useId, useMemo, useState } from "react";
-import { checkForDuplicateOrConflict, explainPrediction, predictCompetitionResult, runBacktest } from "../analytics";
+import {
+  checkForDuplicateOrConflict,
+  DEFAULT_PRACTICE_WINDOW_DAYS,
+  explainPrediction,
+  predictCompetitionResult,
+  runBacktest,
+} from "../analytics";
 import { CUBE_DIMENSIONS } from "../hooks/useSolveSessions.js";
 import { Modal } from "./Modal.jsx";
 import PredictionQuality from "./PredictionQuality.jsx";
@@ -35,12 +41,15 @@ const fmtDate = (iso) =>
 
 // Decides what the Prediction card (and the Why? section, which explains the
 // same number) should show instead of a number - never invents a prediction
-// the underlying data doesn't support.
-function predictionEmptyMessage(competitionCount, prediction) {
-  if (competitionCount === 0) return "No competition history yet.";
-  if (competitionCount === 1) return "More competition history is needed before a reliable prediction can be made.";
+// the underlying data doesn't support. Returns null when a real prediction
+// is available, otherwise a tagged empty-state so the caller can render an
+// actionable message instead of one generic string for every reason a
+// prediction might not exist yet.
+function classifyPredictionEmptyState(competitionCount, prediction) {
+  if (competitionCount === 0) return { type: "no-history" };
+  if (competitionCount === 1) return { type: "need-more-history" };
   if (prediction.confidenceLevel === "insufficient" || prediction.predictedAverageMs === null) {
-    return "Not enough matching practice data yet to make a reliable prediction.";
+    return { type: "insufficient-practice-match" };
   }
   return null;
 }
@@ -62,11 +71,32 @@ function computeBacktest(practiceSolves, competitionsForEvent, event) {
   return result;
 }
 
-function PredictionCard({ prediction, emptyMessage }) {
-  if (emptyMessage) {
+function PredictionCard({ prediction, emptyState, competitionCount }) {
+  if (emptyState) {
+    if (emptyState.type === "no-history") {
+      return <div className="section-card" style={EMPTY_STYLE}>No competition history yet.</div>;
+    }
+    if (emptyState.type === "need-more-history") {
+      return (
+        <div className="section-card" style={EMPTY_STYLE}>
+          More competition history is needed before a reliable prediction can be made.
+        </div>
+      );
+    }
+    // insufficient-practice-match: there's competition history, but not
+    // enough of it has a matching practice window - show why, and how far
+    // off the user is, rather than a bare "not enough data."
     return (
       <div className="section-card" style={EMPTY_STYLE}>
-        {emptyMessage}
+        <div>
+          Prediction needs at least 2 past competitions with matching practice solves in the{" "}
+          {DEFAULT_PRACTICE_WINDOW_DAYS} days before each competition.
+        </div>
+        <div style={{ marginTop: 12, fontSize: "0.8rem", display: "flex", flexDirection: "column", gap: 2 }}>
+          <div>Competitions for this event: {competitionCount}</div>
+          <div>Competitions with matching practice data: {prediction.comparisons.length}</div>
+          <div>Practice window: {DEFAULT_PRACTICE_WINDOW_DAYS} days before each competition</div>
+        </div>
       </div>
     );
   }
@@ -122,7 +152,7 @@ function WhySection({ prediction, show }) {
   );
 }
 
-function CalibrationTable({ comparisons, competitionsById }) {
+function CalibrationTable({ comparisons, competitionsById, totalCompetitionsForEvent }) {
   const rows = useMemo(
     () =>
       comparisons
@@ -144,7 +174,14 @@ function CalibrationTable({ comparisons, competitionsById }) {
   if (rows.length === 0) {
     return (
       <div className="section-card" style={EMPTY_STYLE}>
-        No comparable competition data yet.
+        <div>
+          Historical calibration needs competitions that have practice solves in the {DEFAULT_PRACTICE_WINDOW_DAYS}{" "}
+          days before the competition date.
+        </div>
+        <div style={{ marginTop: 12, fontSize: "0.8rem", display: "flex", flexDirection: "column", gap: 2 }}>
+          <div>Competitions for this event: {totalCompetitionsForEvent}</div>
+          <div>Comparable competitions found: {comparisons.length}</div>
+        </div>
       </div>
     );
   }
@@ -177,6 +214,24 @@ function CalibrationTable({ comparisons, competitionsById }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// Every section in this tab (prediction, calibration, results list) is
+// scoped to the currently selected cube event via competitionsForEvent -
+// this note makes that scope explicit, so a user who imported results
+// across multiple events doesn't mistake "not shown here" for "not
+// imported." The cube event itself is changed via the same "Cube size"
+// selector in the header that drives the timer and scrambles.
+function EventScopeNote({ cubeDimension, totalCount, eventCount }) {
+  const otherEventsNote =
+    totalCount > eventCount
+      ? ` You have ${totalCount} competition result${totalCount === 1 ? "" : "s"} total across all events — switch the cube size selector above to view another event.`
+      : "";
+  return (
+    <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+      {`Showing ${cubeDimension} competition results.${otherEventsNote}`}
     </div>
   );
 }
@@ -495,7 +550,7 @@ const CompetitionTab = ({
     [prediction, backtest]
   );
 
-  const emptyMessage = predictionEmptyMessage(competitionsForEvent.length, prediction);
+  const emptyState = classifyPredictionEmptyState(competitionsForEvent.length, prediction);
 
   const handleAdd = (values) => {
     const startedAt = performance.now();
@@ -524,21 +579,31 @@ const CompetitionTab = ({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      <EventScopeNote
+        cubeDimension={cubeDimension}
+        totalCount={competitions.length}
+        eventCount={competitionsForEvent.length}
+      />
+
       <div aria-live="polite">
-        <PredictionCard prediction={prediction} emptyMessage={emptyMessage} />
+        <PredictionCard prediction={prediction} emptyState={emptyState} competitionCount={competitionsForEvent.length} />
       </div>
 
-      <WhySection prediction={prediction} show={emptyMessage === null} />
+      <WhySection prediction={prediction} show={emptyState === null} />
 
       <div aria-live="polite">
-        <PredictionBreakdown explanation={explanation} show={emptyMessage === null} />
+        <PredictionBreakdown explanation={explanation} show={emptyState === null} />
       </div>
 
-      <PredictionFactors factors={explanation.factors} show={emptyMessage === null} />
+      <PredictionFactors factors={explanation.factors} show={emptyState === null} />
 
       <div>
         <div className="section-title">Historical Calibration</div>
-        <CalibrationTable comparisons={prediction.comparisons} competitionsById={competitionsById} />
+        <CalibrationTable
+          comparisons={prediction.comparisons}
+          competitionsById={competitionsById}
+          totalCompetitionsForEvent={competitionsForEvent.length}
+        />
       </div>
 
       <WcaImport

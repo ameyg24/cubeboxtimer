@@ -99,7 +99,11 @@ export interface WcaCompetitionMeta {
   date: string;
 }
 
-export type SkipReason = "unsupported-event" | "dnf-or-dns-average" | "missing-competition-metadata";
+export type SkipReason =
+  | "unsupported-event"
+  | "no-average"
+  | "dnf-or-dns-average"
+  | "missing-competition-metadata";
 
 export interface SkippedWcaResult {
   competitionId: string;
@@ -117,12 +121,24 @@ export interface WcaImportCandidate {
   bestMs: number | null;
 }
 
+// -1 (DNF) and -2 (DNS) mean an average WAS computed but is invalid. Any
+// other non-positive value - most commonly 0 - means no average was
+// computed at all (e.g. a Bo1/Bo3 round format that only records a best).
+// These are surfaced as distinct skip reasons because they mean different
+// things to a user reviewing why a result didn't import: one says "you
+// DNF'd/DNS'd that round," the other says "that round never had an
+// average to import in the first place."
+function isDnfOrDnsAverage(value: number): boolean {
+  return value === -1 || value === -2;
+}
+
 /**
  * Converts final-round WCA results into CompetitionResult-shaped import
  * candidates. Skips (rather than fabricates a value for) any result whose
- * event has no CubeBox equivalent, whose official average was a DNF/DNS,
- * or whose competition metadata couldn't be fetched — every skip is
- * reported with a reason so the caller can show the user what happened.
+ * event has no CubeBox equivalent, whose official average is missing or
+ * DNF/DNS, or whose competition metadata couldn't be fetched — every skip
+ * is reported with a specific reason so the caller can show the user what
+ * happened instead of a single opaque "skipped" count.
  */
 export function buildImportCandidates(
   rawResults: WcaRawResult[],
@@ -141,7 +157,8 @@ export function buildImportCandidates(
 
     const averageMs = wcaCentisecondsToMs(result.average);
     if (averageMs === null) {
-      skipped.push({ competitionId: result.competition_id, eventId: result.event_id, reason: "dnf-or-dns-average" });
+      const reason: SkipReason = isDnfOrDnsAverage(result.average) ? "dnf-or-dns-average" : "no-average";
+      skipped.push({ competitionId: result.competition_id, eventId: result.event_id, reason });
       continue;
     }
 
@@ -275,6 +292,7 @@ export function checkForDuplicateOrConflict(
 export type ImportDecision =
   | { type: "create" }
   | { type: "update"; existingId: string; reason: string }
+  | { type: "skip-already-imported"; reason: string }
   | { type: "skip-duplicate"; reason: string }
   | { type: "conflict"; existingId: string; reason: string };
 
@@ -283,14 +301,19 @@ export type ImportDecision =
  * competition history. Checked in order:
  *
  *   1. Same wcaCompetitionId + event as a previous import -> this is a
- *      re-import of the same result. Identical values: skip as a
- *      duplicate. Different values (e.g. a late DQ or results correction
- *      on WCA's side): deterministically update that same record - this is
- *      safe specifically because it's the same wcaCompetitionId, not a
- *      different competition being folded into an existing one.
+ *      re-import of the same result. Identical values: "skip-already-imported"
+ *      (the user already has this exact result). Different values (e.g. a
+ *      late DQ or results correction on WCA's side): deterministically
+ *      update that same record - this is safe specifically because it's the
+ *      same wcaCompetitionId, not a different competition being folded into
+ *      an existing one.
  *   2/3. Otherwise, run the shared duplicate/conflict check against every
- *      existing record (manual or imported). A manual record is never
- *      silently overwritten by either path.
+ *      existing record (manual or imported). A match here is a genuinely
+ *      different record ("skip-duplicate") rather than a re-import of the
+ *      same one, which is why it's reported separately from case 1 - the
+ *      user should be able to tell "you already imported this" apart from
+ *      "this matches something else you already had." A manual record is
+ *      never silently overwritten by either path.
  */
 export function decideImportAction(
   candidate: WcaImportCandidate,
@@ -307,7 +330,7 @@ export function decideImportAction(
   if (existingImport) {
     const sameValues = existingImport.averageMs === candidate.averageMs && existingImport.bestMs === candidate.bestMs;
     return sameValues
-      ? { type: "skip-duplicate", reason: "Already imported with identical values." }
+      ? { type: "skip-already-imported", reason: "Already imported with identical values." }
       : {
           type: "update",
           existingId: existingImport.id,
