@@ -42,6 +42,11 @@ function normalizeCompetitionDoc(competitionDoc, fallbackId) {
     // against, so re-importing never creates a second record for the same
     // WCA competition + event.
     wcaCompetitionId: source.wcaCompetitionId || null,
+    // The WCA person ID this record was imported from - findLinkedWcaId
+    // (analytics/wcaImport.ts) reads this to lock future imports to the
+    // same WCA ID, so two different competitors' results can never end up
+    // mixed into one history.
+    wcaId: source.wcaId || null,
   };
 }
 

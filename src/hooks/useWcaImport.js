@@ -10,6 +10,7 @@ import { useCallback, useState } from "react";
 import {
   buildImportCandidates,
   decideImportAction,
+  findLinkedWcaId,
   isValidWcaId,
   mapWcaEventToCubeDimension,
   normalizeWcaId,
@@ -35,6 +36,21 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
       if (!isValidWcaId(wcaId)) {
         setStatus("error");
         setErrorMessage('Enter a valid WCA ID, e.g. "2009ZEMD01".');
+        return;
+      }
+
+      // Imports are locked to a single WCA ID once any exist, so two
+      // different competitors' results can never end up mixed into one
+      // history - see analytics/wcaImport.ts's findLinkedWcaId. The WcaImport
+      // UI already locks the WCA ID field once this is set, making this
+      // mismatch unreachable through normal use; this check is what actually
+      // enforces it.
+      const linkedWcaId = findLinkedWcaId(competitions);
+      if (linkedWcaId && linkedWcaId !== wcaId) {
+        setStatus("error");
+        setErrorMessage(
+          `Imports are linked to WCA ID "${linkedWcaId}". Delete all imported results first to import a different WCA ID.`
+        );
         return;
       }
 
@@ -108,9 +124,14 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
               bestMs: candidate.bestMs,
               source: "wca-import",
               wcaCompetitionId: candidate.wcaCompetitionId,
+              wcaId,
             });
             created.push(candidate);
           } else if (decision.type === "update") {
+            // Overwrites every WCA-sourced field with this run's values,
+            // including averageMs/bestMs - a re-import is always treated as
+            // more authoritative than whatever was previously imported (e.g.
+            // a results correction or late DQ on WCA's side), never merged.
             updateCompetitionResult(decision.existingId, {
               competitionName: candidate.competitionName,
               date: candidate.date,
@@ -118,6 +139,7 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
               bestMs: candidate.bestMs,
               source: "wca-import",
               wcaCompetitionId: candidate.wcaCompetitionId,
+              wcaId,
             });
             updated.push(candidate);
           } else if (decision.type === "skip-already-imported") {

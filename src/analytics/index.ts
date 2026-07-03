@@ -70,6 +70,7 @@ export {
   buildImportCandidates,
   checkForDuplicateOrConflict,
   decideImportAction,
+  findLinkedWcaId,
   isValidWcaId,
   mapWcaEventToCubeDimension,
   namesAreSimilar,

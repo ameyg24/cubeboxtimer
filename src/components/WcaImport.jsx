@@ -2,8 +2,8 @@
 // Results in the Competition tab. All fetch/convert/dedupe orchestration
 // lives in useWcaImport (src/hooks) and the pure analytics/wcaImport.ts
 // module — this file only renders the form and the resulting status/summary.
-import { useId, useState } from "react";
-import { WCA_ID_EXAMPLE } from "../analytics";
+import { useId, useMemo, useState } from "react";
+import { WCA_ID_EXAMPLE, findLinkedWcaId } from "../analytics";
 import { useWcaImport } from "../hooks/useWcaImport.js";
 
 const fmtSeconds = (ms) => (ms / 1000).toFixed(2);
@@ -97,7 +97,51 @@ function ImportSummary({ summary }) {
   );
 }
 
-const WcaImport = ({ competitions, addCompetitionResult, updateCompetitionResult }) => {
+// Bulk-remove every previously imported result (across all events, not just
+// the currently selected one) - the only way to free up the WCA ID lock
+// below for a different competitor. Mirrors CompetitionFormModal's
+// click-twice conflict confirmation rather than adding a new modal-based
+// confirm pattern to the app: a first click arms it and shows what's about
+// to happen, a second click actually deletes.
+function DeleteImportedResults({ importedResults, linkedWcaId, deleteCompetitionResult }) {
+  const [confirming, setConfirming] = useState(false);
+
+  if (importedResults.length === 0) return null;
+
+  const handleClick = () => {
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    importedResults.forEach((c) => deleteCompetitionResult(c.id));
+    setConfirming(false);
+  };
+
+  return (
+    <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+      <button
+        type="button"
+        className="dash-btn"
+        style={{ color: "var(--danger)" }}
+        onClick={handleClick}
+      >
+        {confirming ? "Click again to permanently delete" : "Delete all imported results"}
+      </button>
+      {confirming ? (
+        <span className="form-error" role="alert" style={{ marginLeft: 8 }}>
+          This removes all {importedResults.length} imported result{importedResults.length === 1 ? "" : "s"} across
+          every event and unlinks WCA ID {linkedWcaId}.
+        </span>
+      ) : (
+        <span style={{ marginLeft: 8, fontSize: "0.8rem", color: "var(--text-muted)" }}>
+          {importedResults.length} imported result{importedResults.length === 1 ? "" : "s"} across all events.
+        </span>
+      )}
+    </div>
+  );
+}
+
+const WcaImport = ({ competitions, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult }) => {
   const [wcaId, setWcaId] = useState("");
   const { status, summary, errorMessage, runImport } = useWcaImport({
     competitions,
@@ -107,16 +151,29 @@ const WcaImport = ({ competitions, addCompetitionResult, updateCompetitionResult
   const inputId = useId();
   const errorId = useId();
 
+  // Once any result has been imported, every subsequent import is locked to
+  // that same WCA ID (see analytics/wcaImport.ts's findLinkedWcaId) - mixing
+  // a second competitor's results into the same history would silently
+  // corrupt the prediction model. The ID field becomes read-only instead of
+  // free text so there's no way to even attempt a mismatched import; the
+  // hook-level check in useWcaImport.js is the actual enforcement.
+  const linkedWcaId = useMemo(() => findLinkedWcaId(competitions), [competitions]);
+  const importedResults = useMemo(
+    () => (competitions || []).filter((c) => c.source === "wca-import"),
+    [competitions]
+  );
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    runImport(wcaId);
+    runImport(linkedWcaId || wcaId);
   };
 
   return (
     <div className="section-card">
-      <div className="section-title">Import from WCA</div>
+      <div className="section-title">Import from your WCA profile</div>
       <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: 10 }}>
         For each competition and event, CubeBox imports the final/deepest WCA round result.
+        {linkedWcaId && " Imports are linked to the WCA ID below - delete all imported results to link a different one."}
       </div>
       <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
         <div className="form-field" style={{ flex: "1 1 200px" }}>
@@ -126,8 +183,9 @@ const WcaImport = ({ competitions, addCompetitionResult, updateCompetitionResult
             className="ctrl"
             type="text"
             placeholder={WCA_ID_EXAMPLE}
-            value={wcaId}
+            value={linkedWcaId || wcaId}
             onChange={(e) => setWcaId(e.target.value)}
+            readOnly={Boolean(linkedWcaId)}
             aria-invalid={status === "error"}
             aria-describedby={status === "error" ? errorId : undefined}
           />
@@ -142,6 +200,11 @@ const WcaImport = ({ competitions, addCompetitionResult, updateCompetitionResult
         )}
         {status === "success" && summary && <ImportSummary summary={summary} />}
       </div>
+      <DeleteImportedResults
+        importedResults={importedResults}
+        linkedWcaId={linkedWcaId}
+        deleteCompetitionResult={deleteCompetitionResult}
+      />
     </div>
   );
 };

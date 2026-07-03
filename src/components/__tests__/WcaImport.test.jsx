@@ -34,9 +34,23 @@ const renderImport = (props = {}) =>
       competitions={[]}
       addCompetitionResult={vi.fn()}
       updateCompetitionResult={vi.fn()}
+      deleteCompetitionResult={vi.fn()}
       {...props}
     />
   );
+
+const importedResult = (overrides = {}) => ({
+  id: "imported-1",
+  competitionName: "New Zealand Championships 2009",
+  date: "2009-07-18T00:00:00.000Z",
+  event: "3x3x3",
+  averageMs: 13740,
+  bestMs: 10050,
+  source: "wca-import",
+  wcaCompetitionId: "NewZealandChamps2009",
+  wcaId: "2009ZEMD01",
+  ...overrides,
+});
 
 describe("WcaImport", () => {
   it("renders a labelled WCA ID field and an Import button", () => {
@@ -185,5 +199,48 @@ describe("WcaImport", () => {
     expect(
       screen.getByText(/final\/deepest WCA round result/)
     ).toBeInTheDocument();
+  });
+
+  it("does not show a bulk-delete control or the WCA ID lock when nothing has been imported yet", () => {
+    renderImport();
+    expect(screen.getByRole("textbox", { name: "WCA ID" })).not.toHaveAttribute("readonly");
+    expect(screen.queryByRole("button", { name: /Delete all imported results/ })).not.toBeInTheDocument();
+  });
+
+  it("locks the WCA ID field to the already-imported ID and runs the import with it directly", async () => {
+    fetchWcaPersonResults.mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderImport({ competitions: [importedResult()] });
+
+    const input = screen.getByRole("textbox", { name: "WCA ID" });
+    expect(input).toHaveValue("2009ZEMD01");
+    expect(input).toHaveAttribute("readonly");
+
+    await user.click(screen.getByRole("button", { name: "Import" }));
+    await waitFor(() => expect(fetchWcaPersonResults).toHaveBeenCalledWith("2009ZEMD01"));
+  });
+
+  it("shows a bulk-delete control with the imported count once results have been imported", () => {
+    renderImport({ competitions: [importedResult({ id: "a" }), importedResult({ id: "b" })] });
+    expect(screen.getByText(/2 imported results across all events/)).toBeInTheDocument();
+  });
+
+  it("requires a second click to actually delete every imported result, unlinking the WCA ID", async () => {
+    const deleteCompetitionResult = vi.fn();
+    const user = userEvent.setup();
+    renderImport({
+      competitions: [importedResult({ id: "a" }), importedResult({ id: "b" })],
+      deleteCompetitionResult,
+    });
+
+    const deleteButton = screen.getByRole("button", { name: "Delete all imported results" });
+    await user.click(deleteButton);
+    expect(deleteCompetitionResult).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(/removes all 2 imported results/);
+
+    await user.click(screen.getByRole("button", { name: "Click again to permanently delete" }));
+    expect(deleteCompetitionResult).toHaveBeenCalledWith("a");
+    expect(deleteCompetitionResult).toHaveBeenCalledWith("b");
+    expect(deleteCompetitionResult).toHaveBeenCalledTimes(2);
   });
 });

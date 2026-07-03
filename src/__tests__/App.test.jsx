@@ -45,7 +45,7 @@ describe("App with zero solves", () => {
 
     await user.click(screen.getByRole("tab", { name: "Competition" }));
 
-    expect(screen.getByText("Import from WCA")).toBeInTheDocument();
+    expect(screen.getByText("Import from your WCA profile")).toBeInTheDocument();
     expect(screen.getByLabelText("WCA ID")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add competition" })).toBeInTheDocument();
   });

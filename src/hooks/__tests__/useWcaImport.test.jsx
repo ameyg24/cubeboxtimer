@@ -281,6 +281,64 @@ describe("useWcaImport", () => {
     expect(result.current.errorMessage).toContain("Timed out");
   });
 
+  it("rejects an import for a different WCA ID once one is already linked", async () => {
+    const existing = [
+      {
+        id: "c1",
+        competitionName: "New Zealand Championships 2009",
+        date: new Date(competitionMeta.start_date).toISOString(),
+        event: "3x3x3",
+        averageMs: 13740,
+        bestMs: 10050,
+        source: "wca-import",
+        wcaCompetitionId: "NewZealandChamps2009",
+        wcaId: "2009ZEMD01",
+      },
+    ];
+    const { result } = setup({ competitions: existing });
+
+    await act(async () => {
+      await result.current.runImport("9999XXXX99");
+    });
+
+    expect(result.current.status).toBe("error");
+    expect(result.current.errorMessage).toContain("2009ZEMD01");
+    expect(fetchWcaPersonResults).not.toHaveBeenCalled();
+  });
+
+  it("allows re-importing the same WCA ID once it's already linked", async () => {
+    fetchWcaPersonResults.mockResolvedValue([rawResult({ average: 1400 })]);
+    fetchWcaCompetitionMeta.mockResolvedValue({
+      name: competitionMeta.name,
+      date: new Date(competitionMeta.start_date).toISOString(),
+    });
+    const existing = [
+      {
+        id: "c1",
+        competitionName: "New Zealand Championships 2009",
+        date: new Date(competitionMeta.start_date).toISOString(),
+        event: "3x3x3",
+        averageMs: 13740,
+        bestMs: 10050,
+        source: "wca-import",
+        wcaCompetitionId: "NewZealandChamps2009",
+        wcaId: "2009ZEMD01",
+      },
+    ];
+    const { result, updateCompetitionResult } = setup({ competitions: existing });
+
+    await act(async () => {
+      await result.current.runImport("2009ZEMD01");
+    });
+
+    await waitFor(() => expect(result.current.status).toBe("success"));
+    expect(fetchWcaPersonResults).toHaveBeenCalledWith("2009ZEMD01");
+    expect(updateCompetitionResult).toHaveBeenCalledWith(
+      "c1",
+      expect.objectContaining({ averageMs: 14000, wcaId: "2009ZEMD01" })
+    );
+  });
+
   it("resets status and summary back to idle", async () => {
     fetchWcaPersonResults.mockResolvedValue([]);
     const { result } = setup();

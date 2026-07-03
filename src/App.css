@@ -78,20 +78,29 @@
   text-align: center;
 }
 
-.timer-start {
+.timer-start,
+.timer-stop {
   padding: 10px 32px;
   font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: #fff;
-  background: var(--accent);
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: filter 0.15s;
 }
 
-.timer-start:hover {
+.timer-start {
+  background: var(--accent);
+}
+
+.timer-stop {
+  background: var(--danger);
+}
+
+.timer-start:hover,
+.timer-stop:hover {
   filter: brightness(1.06);
 }
 

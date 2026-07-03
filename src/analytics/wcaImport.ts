@@ -199,6 +199,19 @@ export interface PersistedCompetitionResultLike {
   bestMs: number | null;
   source: string;
   wcaCompetitionId?: string | null;
+  wcaId?: string | null;
+}
+
+// CubeBox links imports to a single WCA ID rather than letting each import
+// run bring in a different person's results into the same history - mixing
+// two competitors' results would silently corrupt both the practice-vs-
+// competition prediction and the historical calibration table. The linked ID
+// is whatever wca-import record happens to carry one, not a separate stored
+// preference - deleting every imported result (see the bulk-delete UI in
+// WcaImport.jsx) is what frees the slot to link a different WCA ID.
+export function findLinkedWcaId(existingCompetitions: PersistedCompetitionResultLike[]): string | null {
+  const found = (existingCompetitions || []).find((c) => c.source === "wca-import" && c.wcaId);
+  return found ? (found.wcaId as string) : null;
 }
 
 function sameCalendarDay(a: string | null | undefined, b: string | null | undefined): boolean {

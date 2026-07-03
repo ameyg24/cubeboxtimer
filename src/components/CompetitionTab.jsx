@@ -623,6 +623,7 @@ const CompetitionTab = ({
         competitions={competitions}
         addCompetitionResult={addCompetitionResult}
         updateCompetitionResult={updateCompetitionResult}
+        deleteCompetitionResult={deleteCompetitionResult}
       />
 
       <div>

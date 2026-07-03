@@ -3,6 +3,7 @@ import {
   buildImportCandidates,
   checkForDuplicateOrConflict,
   decideImportAction,
+  findLinkedWcaId,
   isValidWcaId,
   mapWcaEventToCubeDimension,
   namesAreSimilar,
@@ -365,5 +366,30 @@ describe("decideImportAction", () => {
     const existing = [competition({ event: "2x2x2" })];
     const decision = decideImportAction(importCandidate({ event: "3x3x3" }), existing);
     expect(decision.type).toBe("create");
+  });
+});
+
+describe("findLinkedWcaId", () => {
+  it("returns null when there are no imported results yet", () => {
+    expect(findLinkedWcaId([])).toBeNull();
+    expect(findLinkedWcaId([competition({ source: "manual" })])).toBeNull();
+  });
+
+  it("returns the WCA ID of an existing imported result", () => {
+    const existing = [competition({ source: "wca-import", wcaId: "2009ZEMD01" })];
+    expect(findLinkedWcaId(existing)).toBe("2009ZEMD01");
+  });
+
+  it("ignores manual records even when mixed with imported ones", () => {
+    const existing = [
+      competition({ id: "m1", source: "manual" }),
+      competition({ id: "w1", source: "wca-import", wcaId: "2009ZEMD01" }),
+    ];
+    expect(findLinkedWcaId(existing)).toBe("2009ZEMD01");
+  });
+
+  it("handles an imported record missing wcaId defensively (pre-migration data)", () => {
+    const existing = [competition({ source: "wca-import", wcaId: undefined })];
+    expect(findLinkedWcaId(existing)).toBeNull();
   });
 });

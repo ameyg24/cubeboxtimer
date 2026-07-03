@@ -97,6 +97,7 @@ const Timer = ({
       {/* Only show Start/Stop button if hideStartButton and showMainButtons are NOT true */}
       {(!hideStartButton && !showMainButtons) && (
         <button
+          className={running ? "timer-stop" : "timer-start"}
           onClick={running ? stopTimer : startTimer}
           style={{ marginTop: "1.5rem" }}
           aria-label={running ? "Stop timer" : "Start timer"}
