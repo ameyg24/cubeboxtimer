@@ -8,6 +8,7 @@ import { useId, useMemo, useState } from "react";
 import { predictCompetitionResult } from "../analytics";
 import { CUBE_DIMENSIONS } from "../hooks/useSolveSessions.js";
 import { Modal } from "./Modal.jsx";
+import PredictionQuality from "./PredictionQuality.jsx";
 import { logger } from "../logger.js";
 
 const CONFIDENCE_LABELS = { insufficient: "Insufficient", low: "Low", medium: "Medium", high: "High" };
@@ -466,6 +467,13 @@ const CompetitionTab = ({
           onDelete={handleDelete}
         />
       </div>
+
+      <PredictionQuality
+        cubeDimension={cubeDimension}
+        practiceSolves={practiceSolves}
+        competitionsForEvent={competitionsForEvent}
+        competitionsById={competitionsById}
+      />
 
       {formMode === "add" && (
         <CompetitionFormModal

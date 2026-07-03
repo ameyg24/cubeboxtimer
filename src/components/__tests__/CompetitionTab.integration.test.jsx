@@ -6,11 +6,25 @@
 // isolation with mocked callbacks; these tests instead exercise persistence -
 // add/edit/delete surviving a reload, and the prediction updating as the
 // underlying data changes.
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useCompetitionResults } from "../../hooks/useCompetitionResults.js";
 import CompetitionTab from "../CompetitionTab.jsx";
+import { ThemeProvider } from "../ThemeContext.jsx";
+
+// Chart.js's responsive-resize binding needs real canvas layout, which jsdom
+// doesn't provide - the same reason no existing test renders StatsChart
+// directly. Stub it out so mounting PredictionErrorChart doesn't crash.
+vi.mock("chart.js/auto", () => ({
+  default: class MockChart {
+    constructor() {
+      this.data = { labels: [], datasets: [{ data: [] }, { data: [] }] };
+    }
+    update() {}
+    destroy() {}
+  },
+}));
 
 const STORAGE_KEY = "cubeboxtimer_competitions";
 const DAY = 24 * 60 * 60 * 1000;
@@ -24,18 +38,23 @@ const solve = (daysBack, millis) => ({
   localCreatedAt: daysAgo(daysBack),
 });
 
+// Wrapped in ThemeProvider because the Prediction Quality section's chart
+// (lazy-loaded) calls useTheme() — matching how App.jsx always wraps the
+// real app in ThemeProvider.
 function Harness({ practiceSolves = [], cubeDimension = "3x3x3" }) {
   const { competitions, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
     useCompetitionResults({ user: null });
   return (
-    <CompetitionTab
-      cubeDimension={cubeDimension}
-      practiceSolves={practiceSolves}
-      competitions={competitions}
-      addCompetitionResult={addCompetitionResult}
-      updateCompetitionResult={updateCompetitionResult}
-      deleteCompetitionResult={deleteCompetitionResult}
-    />
+    <ThemeProvider>
+      <CompetitionTab
+        cubeDimension={cubeDimension}
+        practiceSolves={practiceSolves}
+        competitions={competitions}
+        addCompetitionResult={addCompetitionResult}
+        updateCompetitionResult={updateCompetitionResult}
+        deleteCompetitionResult={deleteCompetitionResult}
+      />
+    </ThemeProvider>
   );
 }
 
@@ -199,5 +218,83 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     expect(screen.getByText("No competition history yet.")).toBeInTheDocument();
     const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
     expect(persisted[0].event).toBe("2x2x2");
+  });
+
+  it("Prediction Quality explains it needs more history with only one competition entered", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "Tokyo Open",
+      date: "2026-03-01",
+      average: "13.20",
+    });
+
+    expect(
+      screen.getByText(/Backtesting needs at least 2 competitions for this event/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Predictions Evaluated")).not.toBeInTheDocument();
+  });
+
+  it("Prediction Quality evaluates a competition once a real prediction can be backtested against it", async () => {
+    const user = userEvent.setup();
+    const practiceSolves = [
+      solve(100, 10000), solve(96, 10000),
+      solve(70, 10000), solve(66, 10000),
+      solve(5, 10000), solve(2, 10000),
+    ];
+    render(<Harness practiceSolves={practiceSolves} />);
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "First Comp",
+      date: new Date(daysAgo(90)).toISOString().slice(0, 10),
+      average: "10.50",
+    });
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "Second Comp",
+      date: new Date(daysAgo(60)).toISOString().slice(0, 10),
+      average: "10.60",
+    });
+
+    expect(screen.getByText("Predictions Evaluated")).toBeInTheDocument();
+    expect(screen.getByText("Prediction History")).toBeInTheDocument();
+    // Only "Second Comp" has an earlier competition ("First Comp") to backtest from.
+    const historyTable = screen.getByRole("table", { name: "Prediction history" });
+    const historyRows = within(historyTable).getAllByRole("row").slice(1);
+    expect(historyRows).toHaveLength(1);
+    expect(within(historyRows[0]).getByText("Second Comp")).toBeInTheDocument();
+  });
+
+  it("Prediction Quality results survive a reload", async () => {
+    const user = userEvent.setup();
+    const practiceSolves = [
+      solve(100, 10000), solve(96, 10000),
+      solve(70, 10000), solve(66, 10000),
+      solve(5, 10000), solve(2, 10000),
+    ];
+    const { unmount } = render(<Harness practiceSolves={practiceSolves} />);
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "First Comp",
+      date: new Date(daysAgo(90)).toISOString().slice(0, 10),
+      average: "10.50",
+    });
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "Second Comp",
+      date: new Date(daysAgo(60)).toISOString().slice(0, 10),
+      average: "10.60",
+    });
+    expect(screen.getByText("Predictions Evaluated")).toBeInTheDocument();
+    unmount();
+
+    render(<Harness practiceSolves={practiceSolves} />);
+    expect(screen.getByText("Predictions Evaluated")).toBeInTheDocument();
+    const historyTable = screen.getByRole("table", { name: "Prediction history" });
+    expect(within(historyTable).getByText("Second Comp")).toBeInTheDocument();
   });
 });

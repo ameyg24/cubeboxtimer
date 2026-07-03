@@ -3,11 +3,31 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CompetitionTab from "../CompetitionTab.jsx";
+import { ThemeProvider } from "../ThemeContext.jsx";
 
 // These tests drive CompetitionTab directly with in-memory props (no
 // persistence layer) to isolate rendering, form validation, and
 // accessibility. See CompetitionTab.integration.test.jsx for the same
 // component wired to the real useCompetitionResults hook.
+//
+// Wrapped in ThemeProvider because the Prediction Quality section's chart
+// (lazy-loaded) calls useTheme() — matching how App.jsx always wraps the
+// real app in ThemeProvider.
+const renderTab = (ui) => render(<ThemeProvider>{ui}</ThemeProvider>);
+
+// Chart.js's responsive-resize binding needs real canvas layout, which jsdom
+// doesn't provide - the same reason no existing test renders StatsChart
+// directly. Stub it out so mounting PredictionErrorChart doesn't crash;
+// these tests assert on surrounding DOM, not chart rendering fidelity.
+vi.mock("chart.js/auto", () => ({
+  default: class MockChart {
+    constructor() {
+      this.data = { labels: [], datasets: [{ data: [] }, { data: [] }] };
+    }
+    update() {}
+    destroy() {}
+  },
+}));
 
 const DAY = 24 * 60 * 60 * 1000;
 const daysAgo = (n) => Date.now() - n * DAY;
@@ -44,7 +64,7 @@ const twoCompetitionFixture = () => ({
 
 describe("CompetitionTab", () => {
   it("shows the no-history empty state with zero competitions", () => {
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -58,7 +78,7 @@ describe("CompetitionTab", () => {
   });
 
   it("shows the more-history-needed message with exactly one competition", () => {
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[solve(5, 10000), solve(2, 10000)]}
@@ -75,7 +95,7 @@ describe("CompetitionTab", () => {
 
   it("renders a real prediction and Why explanation with two or more competitions", () => {
     const { practiceSolves, competitions } = twoCompetitionFixture();
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={practiceSolves}
@@ -94,7 +114,7 @@ describe("CompetitionTab", () => {
   });
 
   it("only shows competitions entered for the currently selected event", () => {
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="2x2x2"
         practiceSolves={[]}
@@ -113,7 +133,7 @@ describe("CompetitionTab", () => {
       competition("older", 90, 10500, { competitionName: "Older Comp" }),
       competition("newer", 60, 10600, { competitionName: "Newer Comp" }),
     ];
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={practiceSolves}
@@ -129,7 +149,7 @@ describe("CompetitionTab", () => {
   });
 
   it("lists competition results with edit and delete controls", () => {
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -147,7 +167,7 @@ describe("CompetitionTab", () => {
   it("deletes a competition when its delete button is clicked", async () => {
     const user = userEvent.setup();
     const deleteCompetitionResult = vi.fn();
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -163,7 +183,7 @@ describe("CompetitionTab", () => {
 
   it("opens an accessible add form and validates required fields", async () => {
     const user = userEvent.setup();
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -189,7 +209,7 @@ describe("CompetitionTab", () => {
   it("rejects an impossible best-single value that's slower than the average", async () => {
     const user = userEvent.setup();
     const addCompetitionResult = vi.fn();
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -218,7 +238,7 @@ describe("CompetitionTab", () => {
   it("rejects a non-positive average as an impossible value", async () => {
     const user = userEvent.setup();
     const addCompetitionResult = vi.fn();
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -243,7 +263,7 @@ describe("CompetitionTab", () => {
   it("submits a valid add form with correctly converted values", async () => {
     const user = userEvent.setup();
     const addCompetitionResult = vi.fn();
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -275,7 +295,7 @@ describe("CompetitionTab", () => {
 
   it("opens the edit form pre-filled with the competition's existing values", async () => {
     const user = userEvent.setup();
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -297,7 +317,7 @@ describe("CompetitionTab", () => {
   it("submits an edit with the updated values", async () => {
     const user = userEvent.setup();
     const updateCompetitionResult = vi.fn();
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -321,7 +341,7 @@ describe("CompetitionTab", () => {
   it("closes the form on Escape without calling the submit handler", async () => {
     const user = userEvent.setup();
     const addCompetitionResult = vi.fn();
-    render(
+    renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -341,7 +361,7 @@ describe("CompetitionTab", () => {
 
   it("marks calibration table headers for screen readers and wraps the prediction in a live region", () => {
     const { practiceSolves, competitions } = twoCompetitionFixture();
-    const { container } = render(
+    const { container } = renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={practiceSolves}

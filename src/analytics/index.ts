@@ -61,3 +61,5 @@ export type {
   PredictionResult,
   TimedPracticeSolve,
 } from "./competitionPrediction";
+export { runBacktest } from "./backtesting";
+export type { BacktestCase, BacktestResult, BacktestSummary } from "./backtesting";
