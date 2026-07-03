@@ -16,6 +16,7 @@ import {
   selectFinalRoundResults,
 } from "../analytics";
 import {
+  createRateLimitState,
   fetchWcaCompetitionMeta,
   fetchWcaPersonResults,
   mapWithConcurrency,
@@ -65,12 +66,17 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
         // live during testing). fetchWcaCompetitionMeta already retries a
         // single request's own 429s; this caps how many are in flight
         // together so most requests never hit that limit in the first place.
+        // Shared across every concurrent worker below so a 429 discovered by
+        // one of them backs off all of them together - see wcaApi.js's
+        // createRateLimitState for why per-request-independent retries
+        // weren't enough on their own.
+        const rateLimitState = createRateLimitState();
         const metaEntries = await mapWithConcurrency(
           relevantCompetitionIds,
           WCA_METADATA_FETCH_CONCURRENCY,
           async (competitionId) => {
             try {
-              const meta = await fetchWcaCompetitionMeta(competitionId);
+              const meta = await fetchWcaCompetitionMeta(competitionId, rateLimitState);
               return [competitionId, meta];
             } catch (error) {
               logger.warn("Failed to fetch WCA competition metadata; its results will be skipped.", {

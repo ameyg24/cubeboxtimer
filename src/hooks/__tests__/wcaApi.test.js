@@ -6,7 +6,7 @@
 // concurrently. Both were added after importing a prolific real WCA
 // competitor's ID (150+ competitions) reproduced live 429s from the API.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fetchWcaCompetitionMeta, mapWithConcurrency } from "../wcaApi.js";
+import { createRateLimitState, fetchWcaCompetitionMeta, mapWithConcurrency } from "../wcaApi.js";
 
 function jsonResponse(body, { status = 200, headers = {} } = {}) {
   return {
@@ -73,8 +73,8 @@ describe("fetchWcaCompetitionMeta retry-on-429", () => {
     const assertion = expect(promise).rejects.toThrow(/429/);
     await vi.runAllTimersAsync();
     await assertion;
-    // 1 initial attempt + 3 retries = 4 calls total.
-    expect(globalThis.fetch).toHaveBeenCalledTimes(4);
+    // 1 initial attempt + 6 retries = 7 calls total.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(7);
   });
 
   it("does not retry a non-429 error status", async () => {
@@ -82,6 +82,36 @@ describe("fetchWcaCompetitionMeta retry-on-429", () => {
 
     await expect(fetchWcaCompetitionMeta("NewZealandChamps2009")).rejects.toThrow(/500/);
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  // Reproduces the real failure: a WCA ID with enough competitions bursts
+  // past the rate limit mid-import, and concurrent workers with independent
+  // retries re-fire into the *same* still-active window instead of backing
+  // off together, burning through retries and silently dropping results. A
+  // shared rate-limit state fixes this - a request that hasn't even started
+  // yet waits out a window another concurrent request already triggered,
+  // instead of finding out the hard way with its own 429.
+  it("shares a rate-limit backoff window across concurrent calls instead of each independently re-triggering it", async () => {
+    globalThis.fetch
+      .mockResolvedValueOnce(jsonResponse(null, { status: 429, headers: { "Retry-After": "5" } }))
+      .mockResolvedValueOnce(jsonResponse({ name: "Comp A", start_date: "2020-01-01" }))
+      .mockResolvedValueOnce(jsonResponse({ name: "Comp B", start_date: "2020-01-02" }));
+
+    const rateLimitState = createRateLimitState();
+    const promiseA = fetchWcaCompetitionMeta("CompA", rateLimitState);
+    // Let A's first attempt land (and set the shared backoff) before B starts.
+    await vi.advanceTimersByTimeAsync(0);
+    const promiseB = fetchWcaCompetitionMeta("CompB", rateLimitState);
+
+    await vi.advanceTimersByTimeAsync(5000);
+    const [resultA, resultB] = await Promise.all([promiseA, promiseB]);
+
+    expect(resultA.name).toBe("Comp A");
+    expect(resultB.name).toBe("Comp B");
+    // B waited out A's shared backoff window instead of making its own
+    // request into it and getting 429'd - exactly 3 fetch calls total: A's
+    // 429, A's retry, and B's single (delayed) attempt.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
   });
 });
 
