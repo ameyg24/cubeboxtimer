@@ -436,7 +436,7 @@ function App() {
               <p className="empty-sub">Your times and statistics will show up here once you finish your first solve.</p>
             </div>
           )}
-          {!timerRunning && (firestoreLoading || allSolves.length > 0) && (
+          {!timerRunning && (
             <div
               className="content-row"
               style={{
