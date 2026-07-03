@@ -5,11 +5,12 @@
 // through useCompetitionResults (src/hooks), passed down as props exactly
 // like SolveList receives addSolve/updateSolve/deleteSolve from App.jsx.
 import { useId, useMemo, useState } from "react";
-import { explainPrediction, predictCompetitionResult, runBacktest } from "../analytics";
+import { checkForDuplicateOrConflict, explainPrediction, predictCompetitionResult, runBacktest } from "../analytics";
 import { CUBE_DIMENSIONS } from "../hooks/useSolveSessions.js";
 import { Modal } from "./Modal.jsx";
 import PredictionQuality from "./PredictionQuality.jsx";
 import { PredictionBreakdown, PredictionFactors } from "./PredictionExplanation.jsx";
+import WcaImport from "./WcaImport.jsx";
 import { logger } from "../logger.js";
 
 const CONFIDENCE_LABELS = { insufficient: "Insufficient", low: "Low", medium: "Medium", high: "High" };
@@ -282,9 +283,16 @@ function validate(form) {
   return errors;
 }
 
-function CompetitionFormModal({ titleId, title, initialForm, onClose, onSubmit }) {
+function CompetitionFormModal({ titleId, title, initialForm, competitions, editingId, onClose, onSubmit }) {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
+  // A conflict (similar competition name, same event/date, different times)
+  // is a warning, not a hard block - a second submit with the form
+  // unchanged confirms it. conflictWarning being non-null already carries
+  // "the user has seen this exact warning"; updateField clears it on any
+  // field change, so a stale confirmation can never slip through with
+  // different data than what was actually reviewed.
+  const [conflictWarning, setConflictWarning] = useState(null);
   const nameId = useId();
   const dateId = useId();
   const eventId = useId();
@@ -294,20 +302,44 @@ function CompetitionFormModal({ titleId, title, initialForm, onClose, onSubmit }
   const dateErrId = useId();
   const avgErrId = useId();
   const bestErrId = useId();
+  const conflictWarningId = useId();
+
+  const updateField = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    setConflictWarning(null);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const nextErrors = validate(form);
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      setConflictWarning(null);
+      return;
+    }
 
-    onSubmit({
+    const candidate = {
       competitionName: form.competitionName.trim(),
       date: new Date(form.date).toISOString(),
       event: form.event,
       averageMs: Math.round(parseFloat(form.averageSeconds) * 1000),
       bestMs: form.bestSeconds.trim() === "" ? null : Math.round(parseFloat(form.bestSeconds) * 1000),
-    });
+    };
+
+    const duplicateCheck = checkForDuplicateOrConflict(candidate, competitions || [], editingId || null);
+    if (duplicateCheck.type === "duplicate") {
+      setErrors({ duplicate: duplicateCheck.reason });
+      setConflictWarning(null);
+      return;
+    }
+    if (duplicateCheck.type === "conflict" && conflictWarning === null) {
+      setErrors({});
+      setConflictWarning(duplicateCheck.reason);
+      return;
+    }
+
+    setErrors({});
+    onSubmit(candidate);
   };
 
   return (
@@ -323,7 +355,7 @@ function CompetitionFormModal({ titleId, title, initialForm, onClose, onSubmit }
             className="ctrl"
             type="text"
             value={form.competitionName}
-            onChange={(e) => setForm({ ...form, competitionName: e.target.value })}
+            onChange={(e) => updateField("competitionName", e.target.value)}
             aria-invalid={Boolean(errors.competitionName)}
             aria-describedby={errors.competitionName ? nameErrId : undefined}
           />
@@ -339,7 +371,7 @@ function CompetitionFormModal({ titleId, title, initialForm, onClose, onSubmit }
             className="ctrl"
             type="date"
             value={form.date}
-            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            onChange={(e) => updateField("date", e.target.value)}
             aria-invalid={Boolean(errors.date)}
             aria-describedby={errors.date ? dateErrId : undefined}
           />
@@ -352,7 +384,7 @@ function CompetitionFormModal({ titleId, title, initialForm, onClose, onSubmit }
             id={eventId}
             className="ctrl"
             value={form.event}
-            onChange={(e) => setForm({ ...form, event: e.target.value })}
+            onChange={(e) => updateField("event", e.target.value)}
           >
             {CUBE_DIMENSIONS.map((d) => (
               <option key={d} value={d}>{d}</option>
@@ -370,7 +402,7 @@ function CompetitionFormModal({ titleId, title, initialForm, onClose, onSubmit }
             min="0"
             inputMode="decimal"
             value={form.averageSeconds}
-            onChange={(e) => setForm({ ...form, averageSeconds: e.target.value })}
+            onChange={(e) => updateField("averageSeconds", e.target.value)}
             aria-invalid={Boolean(errors.averageSeconds)}
             aria-describedby={errors.averageSeconds ? avgErrId : undefined}
           />
@@ -389,7 +421,7 @@ function CompetitionFormModal({ titleId, title, initialForm, onClose, onSubmit }
             min="0"
             inputMode="decimal"
             value={form.bestSeconds}
-            onChange={(e) => setForm({ ...form, bestSeconds: e.target.value })}
+            onChange={(e) => updateField("bestSeconds", e.target.value)}
             aria-invalid={Boolean(errors.bestSeconds)}
             aria-describedby={errors.bestSeconds ? bestErrId : undefined}
           />
@@ -398,6 +430,15 @@ function CompetitionFormModal({ titleId, title, initialForm, onClose, onSubmit }
           )}
         </div>
 
+        {errors.duplicate && (
+          <span className="form-error" role="alert">{errors.duplicate}</span>
+        )}
+        {conflictWarning && (
+          <span className="form-error" id={conflictWarningId} role="alert" style={{ color: "var(--warning)" }}>
+            {conflictWarning} Submit again to add it anyway.
+          </span>
+        )}
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
           <button type="button" className="dash-btn" onClick={onClose}>Cancel</button>
           <button
@@ -405,7 +446,13 @@ function CompetitionFormModal({ titleId, title, initialForm, onClose, onSubmit }
             className="dash-btn"
             style={{ background: "var(--accent)", color: "#fff", borderColor: "var(--accent)" }}
           >
-            {title.startsWith("Edit") ? "Save" : "Add"}
+            {title.startsWith("Edit")
+              ? conflictWarning
+                ? "Save anyway"
+                : "Save"
+              : conflictWarning
+              ? "Add anyway"
+              : "Add"}
           </button>
         </div>
       </form>
@@ -461,7 +508,11 @@ const CompetitionTab = ({
   };
 
   const handleEditSubmit = (values) => {
-    updateCompetitionResult(formMode.id, { ...values, source: "manual" });
+    // Deliberately doesn't force source: "manual" here - editing a
+    // previously-imported record's date/time typo shouldn't strip its
+    // wca-import identity, or a future re-import of the same WCA result
+    // would create a duplicate instead of updating it in place.
+    updateCompetitionResult(formMode.id, values);
     logger.debug("Updated a competition result.", { competitionId: formMode.id });
     setFormMode(null);
   };
@@ -490,6 +541,12 @@ const CompetitionTab = ({
         <CalibrationTable comparisons={prediction.comparisons} competitionsById={competitionsById} />
       </div>
 
+      <WcaImport
+        competitions={competitions}
+        addCompetitionResult={addCompetitionResult}
+        updateCompetitionResult={updateCompetitionResult}
+      />
+
       <div>
         <div className="dash-actions" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-2)" }}>
           <div className="section-title" style={{ marginBottom: 0 }}>Competition Results</div>
@@ -514,6 +571,8 @@ const CompetitionTab = ({
           titleId="add-competition-title"
           title="Add Competition Result"
           initialForm={emptyForm(cubeDimension)}
+          competitions={competitions}
+          editingId={null}
           onClose={() => setFormMode(null)}
           onSubmit={handleAdd}
         />
@@ -524,6 +583,8 @@ const CompetitionTab = ({
           titleId="edit-competition-title"
           title="Edit Competition Result"
           initialForm={competitionToForm(formMode)}
+          competitions={competitions}
+          editingId={formMode.id}
           onClose={() => setFormMode(null)}
           onSubmit={handleEditSubmit}
         />

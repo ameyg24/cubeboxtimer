@@ -65,3 +65,27 @@ export { runBacktest } from "./backtesting";
 export type { BacktestCase, BacktestResult, BacktestSummary } from "./backtesting";
 export { explainPrediction } from "./predictionExplanation";
 export type { PredictionExplanation, PredictionFactors } from "./predictionExplanation";
+export {
+  WCA_ID_EXAMPLE,
+  buildImportCandidates,
+  checkForDuplicateOrConflict,
+  decideImportAction,
+  isValidWcaId,
+  mapWcaEventToCubeDimension,
+  namesAreSimilar,
+  normalizeWcaId,
+  selectFinalRoundResults,
+  wcaCentisecondsToMs,
+} from "./wcaImport";
+export type {
+  DuplicateCheckCandidate,
+  DuplicateCheckResult,
+  ImportDecision,
+  ImportedCompetitionEvent,
+  PersistedCompetitionResultLike,
+  SkipReason,
+  SkippedWcaResult,
+  WcaCompetitionMeta,
+  WcaImportCandidate,
+  WcaRawResult,
+} from "./wcaImport";

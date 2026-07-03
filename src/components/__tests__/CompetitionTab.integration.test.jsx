@@ -7,11 +7,12 @@
 // add/edit/delete surviving a reload, and the prediction updating as the
 // underlying data changes.
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useCompetitionResults } from "../../hooks/useCompetitionResults.js";
 import CompetitionTab from "../CompetitionTab.jsx";
 import { ThemeProvider } from "../ThemeContext.jsx";
+import { fetchWcaCompetitionMeta, fetchWcaPersonResults } from "../../hooks/wcaApi.js";
 
 // Chart.js's responsive-resize binding needs real canvas layout, which jsdom
 // doesn't provide - the same reason no existing test renders StatsChart
@@ -25,6 +26,18 @@ vi.mock("chart.js/auto", () => ({
     destroy() {}
   },
 }));
+
+// No real network calls in tests - WCA import tests below mock the fetch
+// layer only, leaving the real useWcaImport/analytics/wcaImport.ts logic
+// under test.
+vi.mock("../../hooks/wcaApi.js", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchWcaPersonResults: vi.fn(),
+    fetchWcaCompetitionMeta: vi.fn(),
+  };
+});
 
 const STORAGE_KEY = "cubeboxtimer_competitions";
 const DAY = 24 * 60 * 60 * 1000;
@@ -73,6 +86,7 @@ async function fillAndSubmit(user, dialog, { name, date, average, submitLabel = 
 
 beforeEach(() => {
   localStorage.clear();
+  vi.clearAllMocks();
 });
 
 describe("CompetitionTab wired to useCompetitionResults", () => {
@@ -427,5 +441,127 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     const reloadedCard = screen.getByText("Prediction Breakdown").closest(".section-card");
     const after = within(reloadedCard).getByText(/Adjustment factor/).closest(".summary-row").textContent;
     expect(after).toBe(before);
+  });
+
+  it("manual-first then import: an identical manual result is recognized as already present, not duplicated", async () => {
+    fetchWcaPersonResults.mockResolvedValue([
+      { competition_id: "NewZealandChamps2009", event_id: "333", round_id: 1, best: 1005, average: 1374 },
+    ]);
+    fetchWcaCompetitionMeta.mockResolvedValue({
+      name: "New Zealand Championships 2009",
+      date: "2009-07-18T00:00:00.000Z",
+    });
+
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    const addDialog = screen.getByRole("dialog");
+    await user.type(
+      within(addDialog).getByRole("textbox", { name: "Competition Name" }),
+      "New Zealand Championships 2009"
+    );
+    fireEvent.change(within(addDialog).getByLabelText("Date"), { target: { value: "2009-07-18" } });
+    await user.type(within(addDialog).getByLabelText("Official Average (seconds)"), "13.74");
+    await user.type(within(addDialog).getByLabelText("Official Best Single (seconds, optional)"), "10.05");
+    await user.click(within(addDialog).getByRole("button", { name: "Add" }));
+    expect(screen.getByText("New Zealand Championships 2009")).toBeInTheDocument();
+
+    await user.type(screen.getByRole("textbox", { name: "WCA ID" }), "2009ZEMD01");
+    await user.click(screen.getByRole("button", { name: "Import" }));
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/skipped 1/));
+    // Still exactly one record - the import recognized the manual entry as
+    // the same result rather than creating a second one.
+    const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0].source).toBe("manual");
+  });
+
+  it("import-first then manual: a manual entry matching an existing WCA import is blocked as a duplicate", async () => {
+    fetchWcaPersonResults.mockResolvedValue([
+      { competition_id: "NewZealandChamps2009", event_id: "333", round_id: 1, best: 1005, average: 1374 },
+    ]);
+    fetchWcaCompetitionMeta.mockResolvedValue({
+      name: "New Zealand Championships 2009",
+      date: "2009-07-18T00:00:00.000Z",
+    });
+
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.type(screen.getByRole("textbox", { name: "WCA ID" }), "2009ZEMD01");
+    await user.click(screen.getByRole("button", { name: "Import" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/Imported 1 new result/));
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(
+      within(dialog).getByRole("textbox", { name: "Competition Name" }),
+      "New Zealand Championships 2009"
+    );
+    fireEvent.change(within(dialog).getByLabelText("Date"), { target: { value: "2009-07-18" } });
+    await user.type(within(dialog).getByLabelText("Official Average (seconds)"), "13.74");
+    await user.type(within(dialog).getByLabelText("Official Best Single (seconds, optional)"), "10.05");
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(/already exists/);
+    const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0].source).toBe("wca-import");
+  });
+
+  it("shows a conflict warning (not a silent overwrite) when a manual entry shares event/date/name with an existing result but different times, and requires confirmation to proceed", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "Tokyo Open",
+      date: "2026-03-01",
+      average: "13.20",
+    });
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: "Competition Name" }), "Tokyo Open");
+    fireEvent.change(within(dialog).getByLabelText("Date"), { target: { value: "2026-03-01" } });
+    await user.type(within(dialog).getByLabelText("Official Average (seconds)"), "14.00");
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(/already has a result/);
+    let persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    expect(persisted).toHaveLength(1); // not yet created - warning only
+
+    await user.click(within(dialog).getByRole("button", { name: "Add anyway" }));
+    persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    expect(persisted).toHaveLength(2);
+  });
+
+  it("clears a pending conflict confirmation when the form is edited afterward", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    await fillAndSubmit(user, screen.getByRole("dialog"), {
+      name: "Tokyo Open",
+      date: "2026-03-01",
+      average: "13.20",
+    });
+
+    await user.click(screen.getByRole("button", { name: "Add competition" }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: "Competition Name" }), "Tokyo Open");
+    fireEvent.change(within(dialog).getByLabelText("Date"), { target: { value: "2026-03-01" } });
+    await user.type(within(dialog).getByLabelText("Official Average (seconds)"), "14.00");
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(/already has a result/);
+
+    const avgField = within(dialog).getByLabelText("Official Average (seconds)");
+    await user.clear(avgField);
+    await user.type(avgField, "15.00");
+
+    expect(within(dialog).getByRole("button", { name: "Add" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Add anyway" })).not.toBeInTheDocument();
   });
 });

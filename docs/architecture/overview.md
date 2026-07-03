@@ -173,6 +173,98 @@ summary-row card, one level more detailed than the Why? section above) and
 Prediction Factors (a bar-chart breakdown reusing the same track/fill
 markup as the Dashboard's Distribution tab — no new visual language).
 
+### WCA competition import (`wcaImport.ts`, `wcaApi.js`, `useWcaImport.js`)
+
+Lets a user pull their own past results from the WCA's public API instead
+of typing every competition in by hand. Read-only, unauthenticated, no WCA
+OAuth — `GET /api/v0/persons/{wcaId}/results` (every result the person has
+ever recorded) and `GET /api/v0/competitions/{id}` (name + date, since
+`/results` doesn't include either). Both were verified against the live
+API before writing any code:
+
+- **CORS is open** (`access-control-allow-origin: *` on every endpoint
+  used) — a direct browser `fetch()` works with no proxy or backend. This
+  was verified with `curl` and an explicit `Origin` header, since `curl`
+  itself isn't subject to CORS (a browser-enforced restriction, not a
+  server one) — a bare `curl` response can look CORS-less even when the
+  server would happily answer a real cross-origin browser request. This is
+  unauthenticated best-effort public access, not a documented SLA, which is
+  why every call is wrapped with a timeout and a clear error message
+  (`src/hooks/wcaApi.js`) rather than assumed to always succeed.
+- There's no bulk competition-lookup endpoint, so competition metadata is
+  fetched once per unique `competition_id` the person has relevant results
+  for. This is capped at `WCA_METADATA_FETCH_CONCURRENCY` (4) requests in
+  flight at once (`mapWithConcurrency`) rather than a single `Promise.all`,
+  and a 429 is retried with backoff (honoring `Retry-After` when present)
+  before that competition's results are given up on. Both were added after
+  importing a real WCA ID with 100+ competitions reproduced live 429s from
+  an unbounded `Promise.all` — concurrency limiting plus retry roughly
+  doubled the import's success rate for that profile, but for a competitor
+  with an unusually long history the WCA API can still out-throttle the
+  retry budget for a handful of competitions; those results are skipped
+  (`missing-competition-metadata`, counted and shown to the user) rather
+  than silently dropped or blocking the rest of the import. This is a
+  known limitation of relying on unauthenticated best-effort public access
+  rather than a documented, rate-limit-free API.
+- WCA times are centiseconds, with `-1` = DNF, `-2` = DNS, `0` = an unused
+  attempt slot. A result whose *official average* is DNF/DNS is skipped
+  entirely rather than imported with a fabricated time — `CompetitionResult`
+  has no separate DNF concept, and inventing one would mean teaching the
+  rest of the Competition tab's UI to render it.
+- A `(competition, event)` pair can have multiple rounds. The one WCA
+  itself treats as "the" result is reliably the highest `round_id` in that
+  group (verified against real multi-round data: first rounds always have
+  a lower `round_id` than that competition's final round for the same
+  event) — no need to hardcode WCA's round-type taxonomy.
+- Only WCA's four NxNxN speedsolving events CubeBox already supports
+  (`222`/`333`/`444`/`555`) are mapped; every other WCA event (blindfolded,
+  one-handed, FMC, ...) has no CubeBox equivalent and its results are
+  skipped, reported to the user as a count rather than silently dropped.
+
+All of this — ID validation, event mapping, time conversion, round
+selection, and the duplicate/conflict policy below — lives in
+`analytics/wcaImport.ts` as pure functions (same "no React, Firebase, or
+browser dependencies" bar as the rest of `src/analytics`, even though the
+subject matter is import rather than solve statistics). The actual
+`fetch()` calls live in `src/hooks/wcaApi.js` instead, mirroring how the
+impure Firestore REST helpers live in `firestoreRest.js` rather than in
+analytics. `useWcaImport.js` orchestrates fetch → convert → dedupe →
+persist and owns the import's loading/summary/error state; it calls the
+exact same `addCompetitionResult`/`updateCompetitionResult` manual entry
+uses, so imported results go through the same offline-first persistence
+path as everything else in this document — never a second storage system.
+Imported records carry `source: "wca-import"` and `wcaCompetitionId` (the
+stable identifier future imports match against).
+
+**Duplicate and conflict policy** (`checkForDuplicateOrConflict`,
+`decideImportAction`) — deterministic, no fuzzy matching beyond a simple
+normalized-word-overlap name check:
+
+1. Same `wcaCompetitionId` + event as a previous import: identical values
+   are skipped as an already-present duplicate; different values (a late
+   WCA results correction) deterministically update that same record —
+   safe specifically because it's the same `wcaCompetitionId`, not a
+   different competition being folded into an existing one.
+2. Otherwise, compared against every existing record (manual or imported)
+   for the same event and calendar day: identical times mean it's already
+   present (skipped); a similar competition name with *different* times is
+   a conflict, surfaced to the user rather than silently overwritten.
+   Event+date matching an unrelated competition name is treated as two
+   genuinely different results that happen to share a date.
+3. The same primitive runs in the other direction: the manual "Add
+   competition" form (`CompetitionTab.jsx`) checks a new entry against
+   every existing record, including past imports. An exact duplicate is
+   blocked outright; a conflict shows a warning and requires the user to
+   resubmit unchanged to confirm — any field edit clears the pending
+   warning, so a stale confirmation can never submit different data than
+   what was actually reviewed. Editing an already-imported record through
+   this same form no longer resets its `source` to `"manual"`, specifically
+   so re-importing the same WCA result later still recognizes and updates
+   it instead of creating a duplicate.
+
+A manual record's own values are never rewritten by an import without the
+user explicitly resubmitting through the conflict-confirmation flow above.
+
 ## Persistence and offline behavior
 
 `localStorage` keys are prefixed `cubeboxtimer_*`. These are storage keys, not

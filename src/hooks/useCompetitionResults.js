@@ -37,6 +37,11 @@ function normalizeCompetitionDoc(competitionDoc, fallbackId) {
     averageMs: typeof source.averageMs === "number" ? source.averageMs : null,
     source: source.source || "manual",
     notes: source.notes || undefined,
+    // Set only for source: "wca-import" records - the stable identifier
+    // analytics/wcaImport.ts's duplicate policy matches future imports
+    // against, so re-importing never creates a second record for the same
+    // WCA competition + event.
+    wcaCompetitionId: source.wcaCompetitionId || null,
   };
 }
 
