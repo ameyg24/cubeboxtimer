@@ -96,3 +96,10 @@ export type {
 } from "./wcaImport";
 export { predictFromCompetitionHistory } from "./peerComparison";
 export type { PeerCompetitionResult, PeerMetricPrediction, PeerPredictionResult } from "./peerComparison";
+export { filterOutDuplicates, parseCsTimerExport } from "./cstimerImport";
+export type {
+  CsTimerParsedSolve,
+  CsTimerParseResult,
+  CsTimerPenalty,
+  ExistingSolveForDuplicateCheck,
+} from "./cstimerImport";

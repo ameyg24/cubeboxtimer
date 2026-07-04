@@ -2,6 +2,7 @@
 import { useId, useMemo, useState } from "react";
 import { effectiveMillis, isValidSolve } from "../analytics";
 import { CUBE_DIMENSIONS, createSolveId } from "../hooks/useSolveSessions.js";
+import CsTimerImportModal from "./CsTimerImport.jsx";
 import { Modal } from "./Modal.jsx";
 
 const MAX_REASONABLE_SECONDS = 3600;
@@ -363,15 +364,27 @@ function AddSolveModal({ titleId, defaultEvent, onClose, onSubmit }) {
   );
 }
 
-const SolveList = ({ solves, updateSolve, deleteSolve, addSolve, cubeDimension }) => {
+const SolveList = ({ solves, updateSolve, deleteSolve, addSolve, cubeDimension, sessions }) => {
   const [focusedId, setFocusedId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCsTimerImport, setShowCsTimerImport] = useState(false);
   const addModalTitleId = useId();
+  const csTimerModalTitleId = useId();
 
   const handleAddSolve = (solveObj, dimension) => {
     addSolve?.(solveObj, dimension);
     setShowAddModal(false);
   };
+
+  // csTimer import needs existing solves for whatever event the user picks
+  // in that modal, which may not be the currently active cubeDimension -
+  // duplicate detection has to check the right event's history, not just
+  // the one showing on screen right now. Derived from `sessions` (every
+  // session's solves for every event) the same way useSolveSessions.js's
+  // own allSolves is, just parameterized by an arbitrary dimension instead
+  // of a fixed one.
+  const getExistingSolvesForDimension = (dimension) =>
+    (sessions || []).flatMap((s) => (Array.isArray(s.solves?.[dimension]) ? s.solves[dimension] : []));
 
   const bestMillis = useMemo(() => {
     if (!solves) return null;
@@ -412,13 +425,14 @@ const SolveList = ({ solves, updateSolve, deleteSolve, addSolve, cubeDimension }
         >
           <div>No solves yet</div>
           {addSolve && (
-            <button
-              className="dash-btn"
-              onClick={() => setShowAddModal(true)}
-              style={{ marginTop: 12 }}
-            >
-              + Add past solve
-            </button>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12, flexWrap: "wrap" }}>
+              <button className="dash-btn" onClick={() => setShowAddModal(true)}>
+                + Add past solve
+              </button>
+              <button className="dash-btn" onClick={() => setShowCsTimerImport(true)}>
+                Import csTimer solves
+              </button>
+            </div>
           )}
         </div>
         {showAddModal && (
@@ -427,6 +441,15 @@ const SolveList = ({ solves, updateSolve, deleteSolve, addSolve, cubeDimension }
             defaultEvent={CUBE_DIMENSIONS.includes(cubeDimension) ? cubeDimension : CUBE_DIMENSIONS[0]}
             onClose={() => setShowAddModal(false)}
             onSubmit={handleAddSolve}
+          />
+        )}
+        {showCsTimerImport && (
+          <CsTimerImportModal
+            titleId={csTimerModalTitleId}
+            defaultDimension={cubeDimension}
+            getExistingSolvesForDimension={getExistingSolvesForDimension}
+            addSolve={addSolve}
+            onClose={() => setShowCsTimerImport(false)}
           />
         )}
       </>
@@ -478,6 +501,19 @@ const SolveList = ({ solves, updateSolve, deleteSolve, addSolve, cubeDimension }
               }}
             >
               + Add past solve
+            </button>
+          )}
+          {addSolve && (
+            <button
+              title="Import solves exported from csTimer"
+              onClick={() => setShowCsTimerImport(true)}
+              style={{
+                background: "none", border: "1px solid var(--border)", borderRadius: 5,
+                padding: "2px 7px", fontSize: "0.75rem", cursor: "pointer",
+                color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 3,
+              }}
+            >
+              Import csTimer
             </button>
           )}
           {solves.length > 0 && deleteSolve && (
@@ -546,6 +582,15 @@ const SolveList = ({ solves, updateSolve, deleteSolve, addSolve, cubeDimension }
         defaultEvent={CUBE_DIMENSIONS.includes(cubeDimension) ? cubeDimension : CUBE_DIMENSIONS[0]}
         onClose={() => setShowAddModal(false)}
         onSubmit={handleAddSolve}
+      />
+    )}
+    {showCsTimerImport && (
+      <CsTimerImportModal
+        titleId={csTimerModalTitleId}
+        defaultDimension={cubeDimension}
+        getExistingSolvesForDimension={getExistingSolvesForDimension}
+        addSolve={addSolve}
+        onClose={() => setShowCsTimerImport(false)}
       />
     )}
     </>

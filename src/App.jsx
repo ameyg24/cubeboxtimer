@@ -505,6 +505,7 @@ function App() {
                   deleteSolve={deleteSolve}
                   addSolve={addSolve}
                   cubeDimension={cubeDimension}
+                  sessions={sessions}
                 />
               )}
               </div>
