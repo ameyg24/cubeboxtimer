@@ -5,31 +5,37 @@ import type { PeerCompetitionResult } from "../peerComparison";
 const DAY = 24 * 60 * 60 * 1000;
 const BASE = Date.UTC(2026, 0, 1);
 
-const result = (id: string, daysBeforeBase: number, averageMs: number): PeerCompetitionResult => ({
+const result = (
+  id: string,
+  daysBeforeBase: number,
+  averageMs: number,
+  bestMs: number | null = null
+): PeerCompetitionResult => ({
   id,
   competitionName: `Comp ${id}`,
   date: new Date(BASE - daysBeforeBase * DAY).toISOString(),
   averageMs,
+  bestMs,
 });
 
-describe("predictFromCompetitionHistory", () => {
+describe("predictFromCompetitionHistory - average", () => {
   it("returns insufficient confidence and no prediction for zero results", () => {
     const p = predictFromCompetitionHistory([], "3x3x3", "2009ZEMD01", "Feliks Zemdegs");
     expect(p.competitionsUsed).toBe(0);
-    expect(p.weightedAverageMs).toBeNull();
-    expect(p.trendMsPerCompetition).toBeNull();
-    expect(p.predictedAverageMs).toBeNull();
-    expect(p.confidenceRangeMs).toBeNull();
-    expect(p.confidenceLevel).toBe("insufficient");
+    expect(p.average.weightedMs).toBeNull();
+    expect(p.average.trendMsPerCompetition).toBeNull();
+    expect(p.average.predictedMs).toBeNull();
+    expect(p.average.confidenceRangeMs).toBeNull();
+    expect(p.average.confidenceLevel).toBe("insufficient");
   });
 
   it("computes a weighted average but no trend or prediction with exactly one result", () => {
     const history = [result("c1", 30, 10000)];
     const p = predictFromCompetitionHistory(history, "3x3x3", "2009ZEMD01", "Feliks Zemdegs");
-    expect(p.weightedAverageMs).toBe(10000);
-    expect(p.trendMsPerCompetition).toBeNull();
-    expect(p.predictedAverageMs).toBeNull();
-    expect(p.confidenceLevel).toBe("low");
+    expect(p.average.weightedMs).toBe(10000);
+    expect(p.average.trendMsPerCompetition).toBeNull();
+    expect(p.average.predictedMs).toBeNull();
+    expect(p.average.confidenceLevel).toBe("low");
   });
 
   it("weights recent results more heavily than older ones", () => {
@@ -39,24 +45,24 @@ describe("predictFromCompetitionHistory", () => {
     const history = [result("old", 60, 20000), result("recent", 10, 10000)];
     const p = predictFromCompetitionHistory(history, "3x3x3", "2009ZEMD01", null);
     const plainMean = 15000;
-    expect(p.weightedAverageMs).toBeLessThan(plainMean);
-    expect(p.weightedAverageMs).toBeCloseTo((20000 * 1 + 10000 * 2) / 3, 5);
+    expect(p.average.weightedMs).toBeLessThan(plainMean);
+    expect(p.average.weightedMs).toBeCloseTo((20000 * 1 + 10000 * 2) / 3, 5);
   });
 
   it("detects an improving trend (getting faster) as a negative slope", () => {
     const history = [result("c1", 60, 12000), result("c2", 40, 11000), result("c3", 20, 10000)];
     const p = predictFromCompetitionHistory(history, "3x3x3", "2009ZEMD01", null);
-    expect(p.trendMsPerCompetition).toBeCloseTo(-1000, 5);
+    expect(p.average.trendMsPerCompetition).toBeCloseTo(-1000, 5);
     // The predicted next result should be faster (lower ms) than the most
     // recent result, since the trend keeps improving.
-    expect(p.predictedAverageMs).toBeLessThan(10000);
+    expect(p.average.predictedMs).toBeLessThan(10000);
   });
 
   it("detects a declining trend (getting slower) as a positive slope", () => {
     const history = [result("c1", 60, 10000), result("c2", 40, 11000), result("c3", 20, 12000)];
     const p = predictFromCompetitionHistory(history, "3x3x3", "2009ZEMD01", null);
-    expect(p.trendMsPerCompetition).toBeCloseTo(1000, 5);
-    expect(p.predictedAverageMs).toBeGreaterThan(12000);
+    expect(p.average.trendMsPerCompetition).toBeCloseTo(1000, 5);
+    expect(p.average.predictedMs).toBeGreaterThan(12000);
   });
 
   it("gives high confidence for many consistent results, low for volatile ones", () => {
@@ -76,8 +82,8 @@ describe("predictFromCompetitionHistory", () => {
     ];
     const consistentPrediction = predictFromCompetitionHistory(consistent, "3x3x3", "id1", null);
     const volatilePrediction = predictFromCompetitionHistory(volatile, "3x3x3", "id2", null);
-    expect(consistentPrediction.confidenceLevel).toBe("high");
-    expect(volatilePrediction.confidenceLevel).toBe("low");
+    expect(consistentPrediction.average.confidenceLevel).toBe("high");
+    expect(volatilePrediction.average.confidenceLevel).toBe("low");
   });
 
   it("preserves the exact history it was given, in order", () => {
@@ -133,9 +139,9 @@ describe("predictFromCompetitionHistory", () => {
     expect(p.competitionsUsed).toBe(10);
     expect(p.history).toEqual(recentForm);
     // Anchored entirely around ~10000ms, nowhere near the beginner-era 24-30s times.
-    expect(p.weightedAverageMs).toBeGreaterThan(9000);
-    expect(p.weightedAverageMs).toBeLessThan(11000);
-    expect(p.confidenceLevel).toBe("high");
+    expect(p.average.weightedMs).toBeGreaterThan(9000);
+    expect(p.average.weightedMs).toBeLessThan(11000);
+    expect(p.average.confidenceLevel).toBe("high");
   });
 
   it("supports a custom window size", () => {
@@ -150,5 +156,61 @@ describe("predictFromCompetitionHistory", () => {
     expect(p.competitionsUsed).toBe(3);
     expect(p.totalCompetitionsAvailable).toBe(5);
     expect(p.history).toEqual(history.slice(-3));
+  });
+});
+
+describe("predictFromCompetitionHistory - best", () => {
+  it("returns insufficient confidence and no prediction when no result has a bestMs", () => {
+    const history = [result("c1", 30, 10000, null), result("c2", 10, 9800, null)];
+    const p = predictFromCompetitionHistory(history, "3x3x3", "2009ZEMD01", null);
+    expect(p.best.competitionsUsed).toBe(0);
+    expect(p.best.predictedMs).toBeNull();
+    expect(p.best.confidenceLevel).toBe("insufficient");
+  });
+
+  it("computes its own weighted average and trend independently from the average metric", () => {
+    // Averages trending slower, but best singles trending faster - the two
+    // metrics must not leak into each other.
+    const history = [
+      result("c1", 60, 10000, 9000),
+      result("c2", 40, 11000, 8500),
+      result("c3", 20, 12000, 8000),
+    ];
+    const p = predictFromCompetitionHistory(history, "3x3x3", "2009ZEMD01", null);
+    expect(p.average.trendMsPerCompetition).toBeCloseTo(1000, 5); // slower
+    expect(p.best.trendMsPerCompetition).toBeCloseTo(-500, 5); // faster
+    expect(p.best.predictedMs).toBeLessThan(8000);
+  });
+
+  it("only uses results that actually have a bestMs, skipping ones that don't", () => {
+    const history = [
+      result("c1", 60, 10000, 9000),
+      result("c2", 40, 11000, null), // no best recorded
+      result("c3", 20, 12000, 8500),
+    ];
+    const p = predictFromCompetitionHistory(history, "3x3x3", "2009ZEMD01", null);
+    expect(p.average.competitionsUsed).toBe(3);
+    expect(p.best.competitionsUsed).toBe(2);
+  });
+
+  it("gives high confidence for consistent best singles, low for volatile ones", () => {
+    const consistent = [
+      result("c1", 100, 12000, 10000),
+      result("c2", 80, 12000, 10100),
+      result("c3", 60, 12000, 9950),
+      result("c4", 40, 12000, 10050),
+      result("c5", 20, 12000, 9900),
+    ];
+    const volatile = [
+      result("c1", 100, 12000, 8000),
+      result("c2", 80, 12000, 15000),
+      result("c3", 60, 12000, 9000),
+      result("c4", 40, 12000, 14000),
+      result("c5", 20, 12000, 8500),
+    ];
+    const consistentPrediction = predictFromCompetitionHistory(consistent, "3x3x3", "id1", null);
+    const volatilePrediction = predictFromCompetitionHistory(volatile, "3x3x3", "id2", null);
+    expect(consistentPrediction.best.confidenceLevel).toBe("high");
+    expect(volatilePrediction.best.confidenceLevel).toBe("low");
   });
 });

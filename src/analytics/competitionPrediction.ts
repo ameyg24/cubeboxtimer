@@ -13,7 +13,7 @@
 // for what this module intentionally does not yet do.
 
 import type { Solve } from "./types";
-import { mean, rollingAverageOfN } from "./averages";
+import { best, mean, rollingAverageOfN } from "./averages";
 import { computeSessionStats } from "./sessionStats";
 
 export type ConfidenceLevel = "insufficient" | "low" | "medium" | "high";
@@ -35,6 +35,7 @@ export interface CompetitionResultInput {
   date: string;
   event: string;
   averageMs: number | null;
+  bestMs?: number | null;
 }
 
 export interface PracticeWindow {
@@ -249,4 +250,81 @@ export function predictCompetitionResult(
   const confidenceRangeMs: [number, number] = [predictedAverageMs - halfRangeMs, predictedAverageMs + halfRangeMs];
 
   return { ...shared, predictedAverageMs, confidenceRangeMs };
+}
+
+export interface BestPredictionResult {
+  event: string;
+  /** Fastest valid solve in the current practice window. */
+  practiceBestMs: number | null;
+  predictedBestMs: number | null;
+  confidenceRangeMs: [number, number] | null;
+  confidenceLevel: ConfidenceLevel;
+  adjustmentFactorPct: number | null;
+  competitionsUsed: number;
+  /** Per-competition practice-best-vs-official-best breakdown. */
+  comparisons: CompetitionComparison[];
+}
+
+/**
+ * The exact same model as predictCompetitionResult, applied to best singles
+ * instead of averages: for every past competition where both a practice
+ * window best and an official best are known, the gap between them becomes
+ * a personal "best-single adjustment factor", applied to the current
+ * practice window's best to produce a prediction. Reuses
+ * computeAdjustmentFactor/computeConfidence unchanged - they're generic over
+ * any practice-vs-official pair, average or best.
+ */
+export function predictCompetitionBest(
+  allSolvesForEvent: TimedPracticeSolve[],
+  pastResultsForEvent: CompetitionResultInput[],
+  event: string,
+  now: number,
+  windowDays: number = DEFAULT_PRACTICE_WINDOW_DAYS
+): BestPredictionResult {
+  const solves = Array.isArray(allSolvesForEvent) ? allSolvesForEvent : [];
+  const pastResults = Array.isArray(pastResultsForEvent) ? pastResultsForEvent : [];
+
+  const pairs: PracticeVsOfficial[] = [];
+  for (const result of pastResults) {
+    if (result.bestMs == null || !Number.isFinite(result.bestMs)) continue;
+    const competitionDateMs = Date.parse(result.date);
+    if (!Number.isFinite(competitionDateMs)) continue;
+
+    const window = computePracticeWindow(solves, event, competitionDateMs, windowDays);
+    const practiceResult = best(window.solves);
+    if (practiceResult.status !== "ok") continue;
+
+    pairs.push({
+      competitionId: result.id,
+      practiceAverageMs: practiceResult.valueMs,
+      officialAverageMs: result.bestMs,
+    });
+  }
+
+  const { adjustmentFactorPct, comparisons, variance } = computeAdjustmentFactor(pairs);
+  const confidenceLevel = computeConfidence(comparisons.length, variance);
+
+  const currentWindow = computePracticeWindow(solves, event, now, windowDays);
+  const currentBestResult = best(currentWindow.solves);
+  const practiceBestMs = currentBestResult.status === "ok" ? currentBestResult.valueMs : null;
+
+  const shared = {
+    event,
+    practiceBestMs,
+    adjustmentFactorPct,
+    competitionsUsed: comparisons.length,
+    confidenceLevel,
+    comparisons,
+  };
+
+  if (adjustmentFactorPct === null || practiceBestMs === null) {
+    return { ...shared, predictedBestMs: null, confidenceRangeMs: null };
+  }
+
+  const predictedBestMs = practiceBestMs * (1 + adjustmentFactorPct);
+  const spreadFraction = variance !== null ? Math.sqrt(variance) : SINGLE_DATA_POINT_RANGE_FRACTION;
+  const halfRangeMs = predictedBestMs * spreadFraction;
+  const confidenceRangeMs: [number, number] = [predictedBestMs - halfRangeMs, predictedBestMs + halfRangeMs];
+
+  return { ...shared, predictedBestMs, confidenceRangeMs };
 }

@@ -3,6 +3,7 @@ import {
   computeAdjustmentFactor,
   computeConfidence,
   computePracticeWindow,
+  predictCompetitionBest,
   predictCompetitionResult,
 } from "../competitionPrediction";
 import type {
@@ -25,12 +26,14 @@ const solveAt = (daysBeforeBase: number, millis: number, penalty: Penalty = null
 const competition = (
   id: string,
   daysBeforeBase: number,
-  averageMs: number | null
+  averageMs: number | null,
+  bestMs: number | null = null
 ): CompetitionResultInput => ({
   id,
   date: new Date(BASE - daysBeforeBase * DAY).toISOString(),
   event: "3x3x3",
   averageMs,
+  bestMs,
 });
 
 describe("computePracticeWindow", () => {
@@ -374,6 +377,89 @@ describe("predictCompetitionResult", () => {
 
   it("labels the result with the event it was computed for", () => {
     const result = predictCompetitionResult([], [], "2x2x2", BASE);
+    expect(result.event).toBe("2x2x2");
+  });
+});
+
+describe("predictCompetitionBest", () => {
+  it("produces no prediction with zero past competitions (insufficient data)", () => {
+    const solves = [solveAt(5, 10000), solveAt(3, 9000)];
+    const result = predictCompetitionBest(solves, [], "3x3x3", BASE);
+    expect(result.confidenceLevel).toBe("insufficient");
+    expect(result.predictedBestMs).toBeNull();
+    expect(result.confidenceRangeMs).toBeNull();
+    expect(result.competitionsUsed).toBe(0);
+  });
+
+  it("predicts from a single past competition using best-single gaps, not averages", () => {
+    // Practice window before the competition (30 days back): best single 8000ms.
+    // Official best single at that competition: 8800ms (+10%).
+    const solves = [
+      solveAt(35, 10000),
+      solveAt(32, 8000), // fastest in that window
+      // current practice window (near BASE): fastest is 9000ms
+      solveAt(5, 11000),
+      solveAt(2, 9000),
+    ];
+    const pastResults = [competition("c1", 30, 20000 /* average, irrelevant here */, 8800)];
+    const result = predictCompetitionBest(solves, pastResults, "3x3x3", BASE);
+
+    expect(result.competitionsUsed).toBe(1);
+    expect(result.confidenceLevel).toBe("low");
+    expect(result.adjustmentFactorPct).toBeCloseTo(0.1, 10);
+    expect(result.practiceBestMs).toBeCloseTo(9000, 10);
+    expect(result.predictedBestMs).toBeCloseTo(9900, 10); // 9000 * 1.1
+  });
+
+  it("excludes a competition with no official best (e.g. only an average was recorded)", () => {
+    const solves = [solveAt(35, 10000), solveAt(32, 8000), solveAt(5, 9000)];
+    const pastResults = [competition("c1", 30, 11000, null)];
+    const result = predictCompetitionBest(solves, pastResults, "3x3x3", BASE);
+
+    expect(result.competitionsUsed).toBe(0);
+    expect(result.confidenceLevel).toBe("insufficient");
+  });
+
+  it("averages the best-single adjustment factor across multiple past competitions", () => {
+    const solves = [
+      solveAt(35, 10000),
+      solveAt(32, 10000), // window best before comp 1: 10000
+      solveAt(65, 20000),
+      solveAt(62, 20000), // window best before comp 2: 20000
+      solveAt(5, 10000),
+      solveAt(2, 10000), // current window best: 10000
+    ];
+    const pastResults = [
+      competition("c1", 30, 0, 11000), // +10%
+      competition("c2", 60, 0, 22000), // +10%
+    ];
+    const result = predictCompetitionBest(solves, pastResults, "3x3x3", BASE);
+
+    expect(result.competitionsUsed).toBe(2);
+    expect(result.adjustmentFactorPct).toBeCloseTo(0.1, 10);
+    expect(result.predictedBestMs).toBeCloseTo(11000, 10); // 10000 * 1.1
+  });
+
+  it("returns no numeric prediction when current practice data is missing", () => {
+    const solves = [solveAt(35, 10000), solveAt(32, 8000)];
+    const pastResults = [competition("c1", 30, 0, 8800)];
+    const result = predictCompetitionBest(solves, pastResults, "3x3x3", BASE);
+
+    expect(result.adjustmentFactorPct).toBeCloseTo(0.1, 10);
+    expect(result.practiceBestMs).toBeNull();
+    expect(result.predictedBestMs).toBeNull();
+    expect(result.confidenceRangeMs).toBeNull();
+  });
+
+  it("tolerates non-array solve and result input", () => {
+    // @ts-expect-error exercising defensive guard against bad runtime input
+    const result = predictCompetitionBest(null, null, "3x3x3", BASE);
+    expect(result.predictedBestMs).toBeNull();
+    expect(result.confidenceLevel).toBe("insufficient");
+  });
+
+  it("labels the result with the event it was computed for", () => {
+    const result = predictCompetitionBest([], [], "2x2x2", BASE);
     expect(result.event).toBe("2x2x2");
   });
 });

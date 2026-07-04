@@ -49,10 +49,12 @@ export {
   computeAdjustmentFactor,
   computeConfidence,
   computePracticeWindow,
+  predictCompetitionBest,
   predictCompetitionResult,
 } from "./competitionPrediction";
 export type {
   AdjustmentFactorResult,
+  BestPredictionResult,
   CompetitionComparison,
   CompetitionResultInput,
   ConfidenceLevel,
@@ -93,4 +95,4 @@ export type {
   WcaRawResult,
 } from "./wcaImport";
 export { predictFromCompetitionHistory } from "./peerComparison";
-export type { PeerCompetitionResult, PeerPredictionResult } from "./peerComparison";
+export type { PeerCompetitionResult, PeerMetricPrediction, PeerPredictionResult } from "./peerComparison";

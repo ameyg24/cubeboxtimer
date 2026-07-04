@@ -95,7 +95,13 @@ export function usePeerComparison() {
 
       const history = collapseRoundsToReference(rounds)
         .sort((a, b) => (Date.parse(a.date) || 0) - (Date.parse(b.date) || 0))
-        .map((c) => ({ id: c.wcaCompetitionId, competitionName: c.competitionName, date: c.date, averageMs: c.averageMs }));
+        .map((c) => ({
+          id: c.wcaCompetitionId,
+          competitionName: c.competitionName,
+          date: c.date,
+          averageMs: c.averageMs,
+          bestMs: c.bestMs,
+        }));
 
       const prediction = predictFromCompetitionHistory(history, event, wcaId, personName);
       setResult(prediction);
@@ -105,7 +111,8 @@ export function usePeerComparison() {
         wcaId,
         event,
         competitionsUsed: prediction.competitionsUsed,
-        confidenceLevel: prediction.confidenceLevel,
+        averageConfidenceLevel: prediction.average.confidenceLevel,
+        bestConfidenceLevel: prediction.best.confidenceLevel,
         durationMs: Math.round(performance.now() - startedAt),
       });
     } catch (error) {

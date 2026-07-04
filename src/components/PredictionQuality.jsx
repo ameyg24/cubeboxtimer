@@ -8,6 +8,7 @@
 // needed once this section renders, so PredictionErrorChart is lazy-loaded
 // exactly like StatsChart is for the Trend tab.
 import { lazy, Suspense, useMemo } from "react";
+import CollapsibleSection from "./CollapsibleSection.jsx";
 import { logger } from "../logger.js";
 
 const PredictionErrorChart = lazy(() => {
@@ -130,40 +131,40 @@ const PredictionQuality = ({ backtest, competitionCount, competitionsById }) => 
   const emptyMessage = backtestEmptyMessage(competitionCount, backtest);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-      <div className="section-title">Prediction Quality</div>
+    <CollapsibleSection title="Prediction Quality">
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+        <div aria-live="polite">
+          {emptyMessage ? (
+            <div className="section-card" style={EMPTY_STYLE}>{emptyMessage}</div>
+          ) : (
+            <SummaryCards summary={backtest.summary} />
+          )}
+        </div>
 
-      <div aria-live="polite">
-        {emptyMessage ? (
-          <div className="section-card" style={EMPTY_STYLE}>{emptyMessage}</div>
-        ) : (
-          <SummaryCards summary={backtest.summary} />
+        {!emptyMessage && (
+          <>
+            <div className="section-card">
+              <div className="section-title">Prediction Error Over Time</div>
+              <Suspense
+                fallback={
+                  <div
+                    className="chart-container"
+                    style={{ height: 220, background: "var(--surface-alt)", borderRadius: "var(--radius-md)", animation: "skeletonPulse 1.2s ease-in-out infinite" }}
+                  />
+                }
+              >
+                <PredictionErrorChart cases={backtest.cases} />
+              </Suspense>
+            </div>
+
+            <div>
+              <div className="section-title">Prediction History</div>
+              <PredictionHistoryTable cases={backtest.cases} competitionsById={competitionsById} />
+            </div>
+          </>
         )}
       </div>
-
-      {!emptyMessage && (
-        <>
-          <div className="section-card">
-            <div className="section-title">Prediction Error Over Time</div>
-            <Suspense
-              fallback={
-                <div
-                  className="chart-container"
-                  style={{ height: 220, background: "var(--surface-alt)", borderRadius: "var(--radius-md)", animation: "skeletonPulse 1.2s ease-in-out infinite" }}
-                />
-              }
-            >
-              <PredictionErrorChart cases={backtest.cases} />
-            </Suspense>
-          </div>
-
-          <div>
-            <div className="section-title">Prediction History</div>
-            <PredictionHistoryTable cases={backtest.cases} competitionsById={competitionsById} />
-          </div>
-        </>
-      )}
-    </div>
+    </CollapsibleSection>
   );
 };
 

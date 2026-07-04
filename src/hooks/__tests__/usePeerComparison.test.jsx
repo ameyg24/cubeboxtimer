@@ -63,7 +63,13 @@ describe("usePeerComparison", () => {
     expect(result.current.result.event).toBe("3x3x3");
     expect(result.current.result.competitionsUsed).toBe(1);
     expect(result.current.result.history).toEqual([
-      { id: "NewZealandChamps2009", competitionName: "New Zealand Championships 2009", date: competitionMeta.date, averageMs: 13740 },
+      {
+        id: "NewZealandChamps2009",
+        competitionName: "New Zealand Championships 2009",
+        date: competitionMeta.date,
+        averageMs: 13740,
+        bestMs: 10050,
+      },
     ]);
   });
 

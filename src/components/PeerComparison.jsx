@@ -2,7 +2,8 @@
 // tab. CubeBox only has practice data for the local user, so another
 // competitor's estimate comes from their official result history alone
 // (see usePeerComparison.js / analytics/peerComparison.ts) - never
-// persisted, always a fresh fetch on each Compare click.
+// persisted, always a fresh fetch on each Compare click. Both sides show
+// average and best single, computed independently of each other.
 import { useId, useState } from "react";
 import { WCA_ID_EXAMPLE } from "../analytics";
 import { usePeerComparison } from "../hooks/usePeerComparison.js";
@@ -52,56 +53,68 @@ function ComparisonProgress({ progress }) {
   );
 }
 
-function PredictionMiniCard({ title, predictedAverageMs, confidenceRangeMs, confidenceLevel, caption }) {
-  if (predictedAverageMs === null) {
+// One metric's row within a mini card - `metric` is always shaped as
+// {predictedMs, confidenceRangeMs, confidenceLevel}, whether it came from
+// this app's own average/best prediction (adapted at the call site) or a
+// peer's PeerMetricPrediction (already this shape).
+function MetricRow({ label, metric }) {
+  if (metric.predictedMs === null) {
     return (
-      <div className="summary-card">
-        <div className="summary-title">{title}</div>
-        <div style={{ color: "var(--text-faint)", fontSize: "0.85rem", padding: "0.75rem 0" }}>
-          Not enough competition history for a prediction.
-        </div>
+      <div style={{ marginTop: 10 }}>
+        <div className="summary-title" style={{ fontSize: "0.68rem" }}>{label}</div>
+        <div style={{ color: "var(--text-faint)", fontSize: "0.8rem" }}>Not enough history for a prediction.</div>
       </div>
     );
   }
 
-  const [lo, hi] = confidenceRangeMs;
+  const [lo, hi] = metric.confidenceRangeMs;
   const marginMs = (hi - lo) / 2;
 
   return (
-    <div className="summary-card">
-      <div className="summary-title">{title}</div>
+    <div style={{ marginTop: 10 }}>
+      <div className="summary-title" style={{ fontSize: "0.68rem" }}>{label}</div>
       <div>
-        <span className="prediction-value">{fmtSeconds(predictedAverageMs)}</span>
-        <span className="prediction-margin">±{fmtSeconds(marginMs)}</span>
+        <span className="prediction-value" style={{ fontSize: "1.5rem" }}>{fmtSeconds(metric.predictedMs)}</span>
+        <span className="prediction-margin" style={{ fontSize: "0.85rem" }}>±{fmtSeconds(marginMs)}</span>
       </div>
       <div className="prediction-confidence">
         <span>Confidence:</span>
-        <span className={`confidence-badge confidence-badge-${confidenceLevel}`}>
-          {CONFIDENCE_LABELS[confidenceLevel]}
+        <span className={`confidence-badge confidence-badge-${metric.confidenceLevel}`}>
+          {CONFIDENCE_LABELS[metric.confidenceLevel]}
         </span>
       </div>
-      {caption && <div className="prediction-basis">{caption}</div>}
     </div>
   );
 }
 
-// Describes the peer's own trend in plain language - "trending faster/
-// slower" reads more naturally than a raw signed ms/competition slope. Notes
-// the total available when the estimate only used a recent subset of it
-// (see analytics/peerComparison.ts's DEFAULT_RECENT_WINDOW), so it's clear
-// an old, much-slower era of their history wasn't included.
+function PredictionMiniCard({ title, average, best, caption }) {
+  return (
+    <div className="summary-card">
+      <div className="summary-title">{title}</div>
+      <MetricRow label="AVERAGE" metric={average} />
+      <MetricRow label="BEST SINGLE" metric={best} />
+      {caption && <div className="prediction-basis" style={{ marginTop: 10 }}>{caption}</div>}
+    </div>
+  );
+}
+
+// Describes the peer's own average trend in plain language - "trending
+// faster/slower" reads more naturally than a raw signed ms/competition
+// slope. Notes the total available when the estimate only used a recent
+// subset of it (see analytics/peerComparison.ts's DEFAULT_RECENT_WINDOW),
+// so it's clear an old, much-slower era of their history wasn't included.
 function peerCaption(peer) {
   const count =
     peer.totalCompetitionsAvailable > peer.competitionsUsed
       ? `${peer.competitionsUsed} of ${peer.totalCompetitionsAvailable} competitions`
       : `${peer.competitionsUsed} competition${peer.competitionsUsed === 1 ? "" : "s"}`;
   if (peer.competitionsUsed === 0) return "No competition history found for this event.";
-  if (peer.trendMsPerCompetition === null) return `Based on their last ${count}.`;
-  const direction = peer.trendMsPerCompetition < 0 ? "faster" : "slower";
-  return `Based on their last ${count} - trending ${fmtSeconds(Math.abs(peer.trendMsPerCompetition))}s ${direction} each competition.`;
+  if (peer.average.trendMsPerCompetition === null) return `Based on their last ${count}.`;
+  const direction = peer.average.trendMsPerCompetition < 0 ? "faster" : "slower";
+  return `Based on their last ${count} - trending ${fmtSeconds(Math.abs(peer.average.trendMsPerCompetition))}s ${direction} each competition.`;
 }
 
-const PeerComparison = ({ cubeDimension, yourPrediction }) => {
+const PeerComparison = ({ cubeDimension, yourPrediction, yourBestPrediction }) => {
   const [wcaId, setWcaId] = useState("");
   const { status, result, errorMessage, progress, compare } = usePeerComparison();
   const inputId = useId();
@@ -121,9 +134,9 @@ const PeerComparison = ({ cubeDimension, yourPrediction }) => {
     <div className="section-card">
       <div className="section-title">Compare With Another Cuber</div>
       <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: 10 }}>
-        Estimates their next {cubeDimension} competition average from their official result history alone - CubeBox
-        only has practice data for you, so their side factors in recent results and how much they've been improving
-        instead.
+        Estimates their next {cubeDimension} competition average and best single from their official result history
+        alone - CubeBox only has practice data for you, so their side factors in recent results and how much they've
+        been improving instead.
       </div>
       <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
         <div className="form-field" style={{ flex: "1 1 200px" }}>
@@ -153,16 +166,22 @@ const PeerComparison = ({ cubeDimension, yourPrediction }) => {
         <div className="summary-grid" style={{ marginTop: 14 }}>
           <PredictionMiniCard
             title="You"
-            predictedAverageMs={yourPrediction.predictedAverageMs}
-            confidenceRangeMs={yourPrediction.confidenceRangeMs}
-            confidenceLevel={yourPrediction.confidenceLevel}
+            average={{
+              predictedMs: yourPrediction.predictedAverageMs,
+              confidenceRangeMs: yourPrediction.confidenceRangeMs,
+              confidenceLevel: yourPrediction.confidenceLevel,
+            }}
+            best={{
+              predictedMs: yourBestPrediction.predictedBestMs,
+              confidenceRangeMs: yourBestPrediction.confidenceRangeMs,
+              confidenceLevel: yourBestPrediction.confidenceLevel,
+            }}
             caption={yourCaption}
           />
           <PredictionMiniCard
             title={result.personName || result.wcaId}
-            predictedAverageMs={result.predictedAverageMs}
-            confidenceRangeMs={result.confidenceRangeMs}
-            confidenceLevel={result.confidenceLevel}
+            average={result.average}
+            best={result.best}
             caption={peerCaption(result)}
           />
         </div>

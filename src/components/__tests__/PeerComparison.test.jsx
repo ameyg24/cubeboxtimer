@@ -33,10 +33,26 @@ const noPrediction = {
   competitionsUsed: 0,
 };
 
+const noBestPrediction = {
+  event: "3x3x3",
+  predictedBestMs: null,
+  confidenceRangeMs: null,
+  confidenceLevel: "insufficient",
+  competitionsUsed: 0,
+};
+
 const yourRealPrediction = {
   event: "3x3x3",
   predictedAverageMs: 10500,
   confidenceRangeMs: [9500, 11500],
+  confidenceLevel: "medium",
+  competitionsUsed: 3,
+};
+
+const yourRealBestPrediction = {
+  event: "3x3x3",
+  predictedBestMs: 8500,
+  confidenceRangeMs: [8000, 9000],
   confidenceLevel: "medium",
   competitionsUsed: 3,
 };
@@ -46,7 +62,14 @@ beforeEach(() => {
 });
 
 const renderComparison = (props = {}) =>
-  render(<PeerComparison cubeDimension="3x3x3" yourPrediction={noPrediction} {...props} />);
+  render(
+    <PeerComparison
+      cubeDimension="3x3x3"
+      yourPrediction={noPrediction}
+      yourBestPrediction={noBestPrediction}
+      {...props}
+    />
+  );
 
 describe("PeerComparison", () => {
   it("renders a labelled WCA ID field and a Compare button", () => {
@@ -66,25 +89,28 @@ describe("PeerComparison", () => {
     expect(fetchWcaPersonResults).not.toHaveBeenCalled();
   });
 
-  it("shows side-by-side prediction cards for you and the other cuber on success", async () => {
+  it("shows side-by-side average and best predictions for you and the other cuber on success", async () => {
     fetchWcaPersonResults.mockResolvedValue([
-      rawResult({ round_id: 1, average: 1400 }),
-      rawResult({ competition_id: "CompB", round_id: 2, average: 1350 }),
+      rawResult({ round_id: 1, average: 1400, best: 1200 }),
+      rawResult({ competition_id: "CompB", round_id: 2, average: 1350, best: 1150 }),
     ]);
     fetchWcaCompetitionMeta.mockResolvedValue({
       name: "New Zealand Championships 2009",
       date: "2009-07-18T00:00:00.000Z",
     });
     const user = userEvent.setup();
-    renderComparison({ yourPrediction: yourRealPrediction });
+    renderComparison({ yourPrediction: yourRealPrediction, yourBestPrediction: yourRealBestPrediction });
 
     await user.type(screen.getByRole("textbox", { name: "Their WCA ID" }), "2009ZEMD01");
     await user.click(screen.getByRole("button", { name: "Compare" }));
 
     await waitFor(() => expect(screen.getByText("Feliks Zemdegs")).toBeInTheDocument());
     expect(screen.getByText("You")).toBeInTheDocument();
-    // Your prediction (10500ms -> 10.50s) and a real number for the peer.
+    // Your average (10500ms -> 10.50s) and your best (8500ms -> 8.50s).
     expect(screen.getByText("10.50")).toBeInTheDocument();
+    expect(screen.getByText("8.50")).toBeInTheDocument();
+    expect(screen.getAllByText("AVERAGE").length).toBe(2);
+    expect(screen.getAllByText("BEST SINGLE").length).toBe(2);
     expect(screen.getByText(/Based on their last 2 competitions/)).toBeInTheDocument();
   });
 
@@ -95,12 +121,17 @@ describe("PeerComparison", () => {
       date: "2009-07-18T00:00:00.000Z",
     });
     const user = userEvent.setup();
-    renderComparison(); // default noPrediction for "you"
+    renderComparison(); // default noPrediction/noBestPrediction for "you"
 
     await user.type(screen.getByRole("textbox", { name: "Their WCA ID" }), "2009ZEMD01");
     await user.click(screen.getByRole("button", { name: "Compare" }));
 
-    await waitFor(() => expect(screen.getAllByText("Not enough competition history for a prediction.").length).toBe(2));
+    // Your average is "not enough history" (0 competitions), and the peer's
+    // best-single is also "not enough history" (single result, no trend) -
+    // two independent messages, one per metric per side, at minimum.
+    await waitFor(() =>
+      expect(screen.getAllByText("Not enough history for a prediction.").length).toBeGreaterThanOrEqual(2)
+    );
   });
 
   it("falls back to the WCA ID as the title when the person's name isn't available", async () => {

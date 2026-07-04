@@ -10,10 +10,12 @@ import {
   collapseRoundsToReference,
   DEFAULT_PRACTICE_WINDOW_DAYS,
   explainPrediction,
+  predictCompetitionBest,
   predictCompetitionResult,
   runBacktest,
 } from "../analytics";
 import { CUBE_DIMENSIONS } from "../hooks/useSolveSessions.js";
+import CollapsibleSection from "./CollapsibleSection.jsx";
 import { Modal } from "./Modal.jsx";
 import PeerComparison from "./PeerComparison.jsx";
 import PredictionQuality from "./PredictionQuality.jsx";
@@ -73,7 +75,7 @@ function computeBacktest(practiceSolves, competitionsForEvent, event) {
   return result;
 }
 
-function PredictionCard({ prediction, emptyState, competitionCount, cubeDimension }) {
+function PredictionCard({ prediction, bestPrediction, emptyState, competitionCount, cubeDimension }) {
   if (emptyState) {
     if (emptyState.type === "no-history") {
       return <div className="section-card" style={EMPTY_STYLE}>No competition history yet.</div>;
@@ -130,6 +132,28 @@ function PredictionCard({ prediction, emptyState, competitionCount, cubeDimensio
       <div className="prediction-basis">
         Based on your last {prediction.competitionsUsed} competition{prediction.competitionsUsed === 1 ? "" : "s"}.
       </div>
+
+      {bestPrediction.predictedBestMs !== null && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)", width: "100%" }}>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>
+            Predicted Best Single
+          </div>
+          <div>
+            <span className="prediction-value" style={{ fontSize: "1.4rem" }}>
+              {fmtSeconds(bestPrediction.predictedBestMs)}
+            </span>
+            <span className="prediction-margin" style={{ fontSize: "0.9rem" }}>
+              ±{fmtSeconds((bestPrediction.confidenceRangeMs[1] - bestPrediction.confidenceRangeMs[0]) / 2)}
+            </span>
+          </div>
+          <div className="prediction-confidence">
+            <span>Confidence:</span>
+            <span className={`confidence-badge confidence-badge-${bestPrediction.confidenceLevel}`}>
+              {CONFIDENCE_LABELS[bestPrediction.confidenceLevel]}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -653,6 +677,11 @@ const CompetitionTab = ({
     [practiceSolves, referencePointsForEvent, cubeDimension]
   );
 
+  const bestPrediction = useMemo(
+    () => predictCompetitionBest(practiceSolves, referencePointsForEvent, cubeDimension, Date.now()),
+    [practiceSolves, referencePointsForEvent, cubeDimension]
+  );
+
   const backtest = useMemo(
     () => computeBacktest(practiceSolves, referencePointsForEvent, cubeDimension),
     [practiceSolves, referencePointsForEvent, cubeDimension]
@@ -701,6 +730,7 @@ const CompetitionTab = ({
       <div aria-live="polite">
         <PredictionCard
           prediction={prediction}
+          bestPrediction={bestPrediction}
           emptyState={emptyState}
           competitionCount={referencePointsForEvent.length}
           cubeDimension={cubeDimension}
@@ -715,16 +745,15 @@ const CompetitionTab = ({
 
       <PredictionFactors factors={explanation.factors} show={emptyState === null} />
 
-      <PeerComparison cubeDimension={cubeDimension} yourPrediction={prediction} />
+      <PeerComparison cubeDimension={cubeDimension} yourPrediction={prediction} yourBestPrediction={bestPrediction} />
 
-      <div>
-        <div className="section-title">Historical Calibration</div>
+      <CollapsibleSection title="Historical Calibration">
         <CalibrationTable
           comparisons={prediction.comparisons}
           competitionsById={competitionsById}
           totalCompetitionsForEvent={referencePointsForEvent.length}
         />
-      </div>
+      </CollapsibleSection>
 
       <WcaImport
         competitions={competitions}
@@ -733,17 +762,16 @@ const CompetitionTab = ({
         deleteCompetitionResult={deleteCompetitionResult}
       />
 
-      <div>
-        <div className="dash-actions" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-2)" }}>
-          <div className="section-title" style={{ marginBottom: 0 }}>Competition Results</div>
-          <button className="dash-btn" onClick={() => setFormMode("add")}>Add competition</button>
-        </div>
+      <CollapsibleSection
+        title="Competition Results"
+        actions={<button className="dash-btn" onClick={() => setFormMode("add")}>Add competition</button>}
+      >
         <CompetitionResultsList
           competitions={competitionsForEvent}
           onEdit={(c) => setFormMode(c)}
           onDelete={handleDelete}
         />
-      </div>
+      </CollapsibleSection>
 
       <PredictionQuality
         backtest={backtest}
