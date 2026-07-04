@@ -6,9 +6,12 @@
 // like SolveList receives addSolve/updateSolve/deleteSolve from App.jsx.
 import { useId, useMemo, useState } from "react";
 import {
+  buildFeatureVector,
   checkForDuplicateOrConflict,
   collapseRoundsToReference,
+  compareModels,
   DEFAULT_PRACTICE_WINDOW_DAYS,
+  explainBestModel,
   explainPrediction,
   predictCompetitionBest,
   predictCompetitionResult,
@@ -16,7 +19,9 @@ import {
 } from "../analytics";
 import { CUBE_DIMENSIONS } from "../hooks/useSolveSessions.js";
 import CollapsibleSection from "./CollapsibleSection.jsx";
+import FeatureSnapshot from "./FeatureSnapshot.jsx";
 import { Modal } from "./Modal.jsx";
+import ModelComparison from "./ModelComparison.jsx";
 import PeerComparison from "./PeerComparison.jsx";
 import PredictionQuality from "./PredictionQuality.jsx";
 import { PredictionBreakdown, PredictionFactors } from "./PredictionExplanation.jsx";
@@ -692,6 +697,16 @@ const CompetitionTab = ({
     [prediction, backtest]
   );
 
+  const modelComparison = useMemo(
+    () => compareModels(practiceSolves, referencePointsForEvent, cubeDimension),
+    [practiceSolves, referencePointsForEvent, cubeDimension]
+  );
+
+  const currentFeatures = useMemo(
+    () => buildFeatureVector(practiceSolves, cubeDimension, Date.now(), referencePointsForEvent),
+    [practiceSolves, referencePointsForEvent, cubeDimension]
+  );
+
   const emptyState = classifyPredictionEmptyState(referencePointsForEvent.length, prediction);
 
   const handleAdd = (values) => {
@@ -739,6 +754,8 @@ const CompetitionTab = ({
 
       <WhySection prediction={prediction} show={emptyState === null} />
 
+      <FeatureSnapshot features={currentFeatures} />
+
       <div aria-live="polite">
         <PredictionBreakdown explanation={explanation} show={emptyState === null} />
       </div>
@@ -777,6 +794,12 @@ const CompetitionTab = ({
         backtest={backtest}
         competitionCount={referencePointsForEvent.length}
         competitionsById={competitionsById}
+      />
+
+      <ModelComparison
+        comparison={modelComparison}
+        cubeDimension={cubeDimension}
+        explanation={explainBestModel(modelComparison)}
       />
 
       {formMode === "add" && (

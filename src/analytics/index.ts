@@ -103,3 +103,14 @@ export type {
   CsTimerPenalty,
   ExistingSolveForDuplicateCheck,
 } from "./cstimerImport";
+export { buildFeatureVector } from "./predictionFeatures";
+export type { FeatureVector } from "./predictionFeatures";
+export { DEFAULT_KNN_NEIGHBORS, fitLinearRegression, predictNearestNeighbor } from "./predictionModels";
+export type { LinearRegressionFit, TrainingRow } from "./predictionModels";
+export {
+  MIN_COMPARABLE_FOR_COMPARISON,
+  MODEL_LABELS,
+  compareModels,
+  explainBestModel,
+} from "./modelComparison";
+export type { ModelCase, ModelComparisonResult, ModelId, ModelMetrics } from "./modelComparison";

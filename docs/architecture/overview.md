@@ -175,6 +175,76 @@ summary-row card, one level more detailed than the Why? section above) and
 Prediction Factors (a bar-chart breakdown reusing the same track/fill
 markup as the Dashboard's Distribution tab — no new visual language).
 
+### Model comparison (`predictionFeatures.ts`, `predictionModels.ts`, `modelComparison.ts`)
+
+A second, additional way to predict a competition result, evaluated
+side-by-side with the rule-based model above rather than replacing it.
+
+**Feature engineering** (`predictionFeatures.ts`) turns solve + competition
+history, as of one point in time, into a fixed `FeatureVector`: practice
+mean/ao5/ao12/ao50, solve count, stddev, DNF/+2 rate, practice best, days
+since the previous competition, the average gap between prior
+competitions, prior competition count, and the rule-based model's error on
+the most recent prior competition it could score (reusing `runBacktest`
+rather than re-deriving it). `buildFeatureVector` only ever looks at data
+strictly before its `referenceDateMs` argument — it filters and sorts
+`priorResults` itself rather than trusting the caller, so a leakage bug
+elsewhere can't silently corrupt a training row.
+
+**Models** (`predictionModels.ts`), both operating on that same feature
+vector:
+
+- **Linear regression** — ridge regression (closed-form, standardized
+  features) over practice mean, stddev, DNF rate, and prior competition
+  count. Plain OLS was not an option: training rows are competitions, and
+  most events have far fewer competitions than the four features, which
+  OLS can't solve at all. A fixed ridge penalty (`RIDGE_LAMBDA = 1` on
+  standardized, unit-variance columns) keeps the fit well-defined and
+  numerically stable regardless of how few rows exist.
+- **Nearest-neighbor** — weighted k-NN (`DEFAULT_KNN_NEIGHBORS = 3`) over
+  the same standardized feature space, so no single raw feature (a
+  practice mean in the thousands of ms vs. a 0–100 DNF rate) dominates the
+  distance. An exact match is returned outright rather than diluted by a
+  1/distance blend with farther neighbors.
+
+Both degrade to `null` — never a fabricated number — exactly like the
+rule-based model does with too little data.
+
+**Evaluation** (`modelComparison.ts`) replays history with the same
+walk-forward discipline as `backtesting.ts`: every prior competition
+becomes its own training row, with features built from only what was known
+as of *that* competition's date, one level deeper than
+`runBacktest`'s existing "strictly earlier competitions only" rule.
+`compareModels` runs the rule-based, linear regression, and
+nearest-neighbor models over the same competitions and reports MAE, median
+absolute error, RMSE, MAPE, and bias per model — each model's own evaluated
+count reflects only the competitions it actually had enough data to score,
+so a stricter model (e.g. linear regression needs 2+ usable training rows)
+can legitimately evaluate fewer cases than a looser one. The best model is
+the lowest MAE, tie-broken by evaluated count, then a fixed model-priority
+order for full determinism. `explainBestModel` returns one of three fixed
+sentences for which model won — a deterministic lookup, not generated
+prose.
+
+No external ML library: three models over at most a handful of
+competitions per event don't need one, and a plain, from-scratch
+implementation keeps every formula inspectable in the same way the
+rule-based model already is.
+
+This is surfaced as the Competition tab's Feature Snapshot (the live
+feature vector, compact) and Model Comparison (the metrics table, with the
+best model highlighted and its one-line explanation) — both sit alongside,
+not instead of, the existing Prediction card and Prediction Quality
+sections.
+
+**Limitation:** with only a handful of competitions per event (the common
+case), all three models are working with very little data, and their
+relative ranking can shift as more competitions are added. The rule-based
+model remains the default anywhere only one prediction is shown (the
+Prediction card, Why?, Prediction Breakdown/Factors) — Model Comparison is
+an additional, opt-in view of how the alternatives are doing, not a
+replacement for it.
+
 ### WCA competition import (`wcaImport.ts`, `wcaApi.js`, `useWcaImport.js`)
 
 Lets a user pull their own past results from the WCA's public API instead
