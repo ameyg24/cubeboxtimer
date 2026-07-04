@@ -26,14 +26,17 @@ beforeEach(() => {
 });
 
 describe("App with zero solves", () => {
-  it("still shows the timer-area empty state", () => {
+  it("still shows the timer-area empty state", async () => {
     render(<App />);
 
     // "No solves yet" appears twice once the Dashboard/SolveList tree is
     // always reachable: once as the timer-area illustration, once as
     // SolveList's own empty state (which carries its own "+ Add past
-    // solve" button) - both are expected to coexist.
-    expect(screen.getAllByText("No solves yet").length).toBeGreaterThanOrEqual(2);
+    // solve" button) - both are expected to coexist. AuthProvider gates
+    // children behind an async onAuthStateChanged callback, so this first
+    // appears after that resolves - findAllByText waits for it instead of
+    // asserting on the pre-auth-resolved render.
+    expect((await screen.findAllByText("No solves yet")).length).toBeGreaterThanOrEqual(2);
     expect(
       screen.getByText("Your times and statistics will show up here once you finish your first solve.")
     ).toBeInTheDocument();
@@ -43,7 +46,7 @@ describe("App with zero solves", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("tab", { name: "Competition" }));
+    await user.click(await screen.findByRole("tab", { name: "Competition" }));
 
     expect(screen.getByText("Import from your WCA profile")).toBeInTheDocument();
     expect(screen.getByLabelText("WCA ID")).toBeInTheDocument();
@@ -54,7 +57,7 @@ describe("App with zero solves", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const addButtons = screen.getAllByRole("button", { name: "+ Add past solve" });
+    const addButtons = await screen.findAllByRole("button", { name: "+ Add past solve" });
     expect(addButtons.length).toBeGreaterThan(0);
 
     await user.click(addButtons[0]);
