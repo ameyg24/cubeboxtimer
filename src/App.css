@@ -431,7 +431,11 @@ input.ctrl[aria-invalid="true"] {
   border-bottom: 1px solid var(--border);
 }
 
-.competition-row:last-child {
+.competition-group {
+  border-bottom: 1px solid var(--border);
+}
+
+.competition-group:last-child {
   border-bottom: none;
 }
 

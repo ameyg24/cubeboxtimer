@@ -7,6 +7,7 @@
 import { useId, useMemo, useState } from "react";
 import {
   checkForDuplicateOrConflict,
+  collapseRoundsToReference,
   DEFAULT_PRACTICE_WINDOW_DAYS,
   explainPrediction,
   predictCompetitionResult,
@@ -244,13 +245,111 @@ function EventScopeNote({ cubeDimension, totalCount, eventCount }) {
   );
 }
 
-function CompetitionResultsList({ competitions, onEdit, onDelete }) {
-  const sorted = useMemo(
-    () => [...competitions].sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)),
-    [competitions]
-  );
+function wcaCompetitionResultsUrl(wcaCompetitionId) {
+  return `https://www.worldcubeassociation.org/competitions/${encodeURIComponent(wcaCompetitionId)}/results/all`;
+}
 
-  if (sorted.length === 0) {
+// Links a WCA-imported competition's name to its official results page on
+// worldcubeassociation.org - manual entries have no wcaCompetitionId, so
+// they render as plain text instead of a broken/guessed link.
+function CompetitionNameLink({ competitionName, wcaCompetitionId }) {
+  if (!wcaCompetitionId) return <>{competitionName}</>;
+  return (
+    <a
+      href={wcaCompetitionResultsUrl(wcaCompetitionId)}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: "inherit" }}
+    >
+      {competitionName}
+    </a>
+  );
+}
+
+// Every round of the same WCA competition + event is its own
+// CompetitionResult row (see analytics/wcaImport.ts), so they're grouped
+// back together here purely for display - a competition with 3 rounds
+// shows as one card with 3 round rows underneath, instead of 3 identical-
+// looking top-level entries. Manual entries (no wcaCompetitionId) are
+// always their own singleton group.
+function groupCompetitionRows(competitions) {
+  const groups = new Map();
+  for (const c of competitions) {
+    const key = c.source === "wca-import" && c.wcaCompetitionId ? `wca:${c.wcaCompetitionId}:${c.event}` : `id:${c.id}`;
+    const group = groups.get(key);
+    if (group) {
+      group.rounds.push(c);
+    } else {
+      groups.set(key, {
+        key,
+        competitionName: c.competitionName,
+        date: c.date,
+        event: c.event,
+        wcaCompetitionId: c.wcaCompetitionId || null,
+        rounds: [c],
+      });
+    }
+  }
+  const list = Array.from(groups.values());
+  list.forEach((g) => g.rounds.sort((a, b) => (a.wcaRoundId ?? 0) - (b.wcaRoundId ?? 0)));
+  list.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0));
+  return list;
+}
+
+function CompetitionRoundRow({ competition: c, roundLabel, indent, isLast, onEdit, onDelete }) {
+  const suffix = roundLabel ? ` (${roundLabel})` : "";
+  return (
+    <div
+      className="competition-row"
+      style={{ paddingLeft: indent ? 28 : 16, borderBottom: isLast ? "none" : undefined }}
+    >
+      <div>
+        {roundLabel ? (
+          <div style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>{roundLabel}</div>
+        ) : (
+          <>
+            <div style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.9rem" }}>
+              <CompetitionNameLink competitionName={c.competitionName} wcaCompetitionId={c.wcaCompetitionId} />
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-faint)", fontFamily: "monospace" }}>
+              {fmtDate(c.date)} · {c.event}
+            </div>
+          </>
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontFamily: "monospace", fontWeight: 600, color: "var(--text)" }}>
+            {fmtSeconds(c.averageMs)}
+          </div>
+          {c.bestMs !== null && (
+            <div style={{ fontFamily: "monospace", fontSize: "0.72rem", color: "var(--text-faint)" }}>
+              best {fmtSeconds(c.bestMs)}
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button className="dash-btn" aria-label={`Edit ${c.competitionName}${suffix}`} onClick={() => onEdit(c)}>
+            Edit
+          </button>
+          <button
+            className="dash-btn"
+            aria-label={`Delete ${c.competitionName}${suffix}`}
+            style={{ color: "var(--danger)" }}
+            onClick={() => onDelete(c.id)}
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompetitionResultsList({ competitions, onEdit, onDelete }) {
+  const groups = useMemo(() => groupCompetitionRows(competitions), [competitions]);
+
+  if (groups.length === 0) {
     return (
       <div className="section-card" style={EMPTY_STYLE}>
         No competition results entered yet.
@@ -261,40 +360,33 @@ function CompetitionResultsList({ competitions, onEdit, onDelete }) {
   return (
     <div className="section-card" style={{ padding: 0, overflow: "hidden" }}>
       <div role="list" aria-label="Competition results">
-        {sorted.map((c) => (
-          <div key={c.id} role="listitem" className="competition-row">
-            <div>
-              <div style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.9rem" }}>{c.competitionName}</div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-faint)", fontFamily: "monospace" }}>
-                {fmtDate(c.date)} · {c.event}
-                {c.roundLabel ? ` · ${c.roundLabel}` : ""}
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "monospace", fontWeight: 600, color: "var(--text)" }}>
-                  {fmtSeconds(c.averageMs)}
-                </div>
-                {c.bestMs !== null && (
-                  <div style={{ fontFamily: "monospace", fontSize: "0.72rem", color: "var(--text-faint)" }}>
-                    best {fmtSeconds(c.bestMs)}
+        {groups.map((group) => (
+          <div key={group.key} role="listitem" className="competition-group">
+            {group.rounds.length === 1 ? (
+              <CompetitionRoundRow competition={group.rounds[0]} isLast onEdit={onEdit} onDelete={onDelete} />
+            ) : (
+              <>
+                <div style={{ padding: "10px 16px 4px", background: "var(--surface-alt)" }}>
+                  <div style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.9rem" }}>
+                    <CompetitionNameLink competitionName={group.competitionName} wcaCompetitionId={group.wcaCompetitionId} />
                   </div>
-                )}
-              </div>
-              <div style={{ display: "flex", gap: 4 }}>
-                <button className="dash-btn" aria-label={`Edit ${c.competitionName}`} onClick={() => onEdit(c)}>
-                  Edit
-                </button>
-                <button
-                  className="dash-btn"
-                  aria-label={`Delete ${c.competitionName}`}
-                  style={{ color: "var(--danger)" }}
-                  onClick={() => onDelete(c.id)}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-faint)", fontFamily: "monospace" }}>
+                    {fmtDate(group.date)} · {group.event}
+                  </div>
+                </div>
+                {group.rounds.map((c, idx) => (
+                  <CompetitionRoundRow
+                    key={c.id}
+                    competition={c}
+                    roundLabel={c.roundLabel}
+                    indent
+                    isLast={idx === group.rounds.length - 1}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                  />
+                ))}
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -539,19 +631,30 @@ const CompetitionTab = ({
     [competitions, cubeDimension]
   );
 
-  const competitionsById = useMemo(
-    () => new Map(competitionsForEvent.map((c) => [c.id, c])),
+  // A competition's multiple imported rounds are each their own row (so
+  // each round stays individually visible/editable in the results list
+  // below), but the prediction model, Historical Calibration, and Prediction
+  // Factors all compare against "how you did at this competition" - so they
+  // run on one reference point per competition (average of its rounds)
+  // instead of counting every round separately. See collapseRoundsToReference.
+  const referencePointsForEvent = useMemo(
+    () => collapseRoundsToReference(competitionsForEvent),
     [competitionsForEvent]
   );
 
+  const competitionsById = useMemo(
+    () => new Map(referencePointsForEvent.map((c) => [c.id, c])),
+    [referencePointsForEvent]
+  );
+
   const prediction = useMemo(
-    () => predictCompetitionResult(practiceSolves, competitionsForEvent, cubeDimension, Date.now()),
-    [practiceSolves, competitionsForEvent, cubeDimension]
+    () => predictCompetitionResult(practiceSolves, referencePointsForEvent, cubeDimension, Date.now()),
+    [practiceSolves, referencePointsForEvent, cubeDimension]
   );
 
   const backtest = useMemo(
-    () => computeBacktest(practiceSolves, competitionsForEvent, cubeDimension),
-    [practiceSolves, competitionsForEvent, cubeDimension]
+    () => computeBacktest(practiceSolves, referencePointsForEvent, cubeDimension),
+    [practiceSolves, referencePointsForEvent, cubeDimension]
   );
 
   const explanation = useMemo(
@@ -559,7 +662,7 @@ const CompetitionTab = ({
     [prediction, backtest]
   );
 
-  const emptyState = classifyPredictionEmptyState(competitionsForEvent.length, prediction);
+  const emptyState = classifyPredictionEmptyState(referencePointsForEvent.length, prediction);
 
   const handleAdd = (values) => {
     const startedAt = performance.now();
@@ -598,7 +701,7 @@ const CompetitionTab = ({
         <PredictionCard
           prediction={prediction}
           emptyState={emptyState}
-          competitionCount={competitionsForEvent.length}
+          competitionCount={referencePointsForEvent.length}
           cubeDimension={cubeDimension}
         />
       </div>
@@ -616,7 +719,7 @@ const CompetitionTab = ({
         <CalibrationTable
           comparisons={prediction.comparisons}
           competitionsById={competitionsById}
-          totalCompetitionsForEvent={competitionsForEvent.length}
+          totalCompetitionsForEvent={referencePointsForEvent.length}
         />
       </div>
 
@@ -641,7 +744,7 @@ const CompetitionTab = ({
 
       <PredictionQuality
         backtest={backtest}
-        competitionCount={competitionsForEvent.length}
+        competitionCount={referencePointsForEvent.length}
         competitionsById={competitionsById}
       />
 

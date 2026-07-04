@@ -250,6 +250,116 @@ describe("CompetitionTab", () => {
     expect(deleteCompetitionResult).toHaveBeenCalledWith("c1");
   });
 
+  it("groups a competition's multiple imported rounds under one header instead of one row per round", () => {
+    const rounds = [
+      competition("r1", 30, 7560, {
+        competitionName: "Illini Cubers Spring 2026",
+        source: "wca-import",
+        wcaCompetitionId: "IlliniCubersSpring2026",
+        wcaRoundId: 1,
+        roundLabel: "First round",
+      }),
+      competition("r2", 30, 7380, {
+        competitionName: "Illini Cubers Spring 2026",
+        source: "wca-import",
+        wcaCompetitionId: "IlliniCubersSpring2026",
+        wcaRoundId: 2,
+        roundLabel: "Second round",
+      }),
+      competition("r3", 30, 6940, {
+        competitionName: "Illini Cubers Spring 2026",
+        source: "wca-import",
+        wcaCompetitionId: "IlliniCubersSpring2026",
+        wcaRoundId: 3,
+        roundLabel: "Final",
+      }),
+    ];
+    renderTab(
+      <CompetitionTab
+        cubeDimension="3x3x3"
+        practiceSolves={[]}
+        competitions={rounds}
+        addCompetitionResult={noop}
+        updateCompetitionResult={noop}
+        deleteCompetitionResult={noop}
+      />
+    );
+
+    // The competition name appears once (as the group header), not once per round.
+    expect(screen.getAllByText("Illini Cubers Spring 2026")).toHaveLength(1);
+    expect(screen.getByText("First round")).toBeInTheDocument();
+    expect(screen.getByText("Second round")).toBeInTheDocument();
+    expect(screen.getByText("Final")).toBeInTheDocument();
+    // Each round's own edit/delete controls stay individually addressable.
+    expect(screen.getByRole("button", { name: "Edit Illini Cubers Spring 2026 (First round)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Illini Cubers Spring 2026 (Final)" })).toBeInTheDocument();
+  });
+
+  it("links an imported competition's name to its WCA results page, but leaves manual entries as plain text", () => {
+    renderTab(
+      <CompetitionTab
+        cubeDimension="3x3x3"
+        practiceSolves={[]}
+        competitions={[
+          competition("w1", 30, 7560, {
+            competitionName: "UIUC Spring 2026",
+            source: "wca-import",
+            wcaCompetitionId: "UIUCSpring2026",
+          }),
+          competition("m1", 20, 8000, { competitionName: "My Local Meetup" }),
+        ]}
+        addCompetitionResult={noop}
+        updateCompetitionResult={noop}
+        deleteCompetitionResult={noop}
+      />
+    );
+
+    const importedLink = screen.getByRole("link", { name: "UIUC Spring 2026" });
+    expect(importedLink).toHaveAttribute(
+      "href",
+      "https://www.worldcubeassociation.org/competitions/UIUCSpring2026/results/all"
+    );
+    expect(screen.getByText("My Local Meetup")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "My Local Meetup" })).not.toBeInTheDocument();
+  });
+
+  it("treats a competition's rounds as one reference point for the prediction count, not one per round", () => {
+    // Second/only-other competition is a normal manual entry with recent
+    // practice, so this exercises the >= 2 (real prediction) path with a
+    // multi-round WCA import counted as exactly 1 competition, not 3.
+    const rounds = [
+      competition("r1", 90, 7560, {
+        source: "wca-import",
+        wcaCompetitionId: "CompA",
+        wcaRoundId: 1,
+        roundLabel: "First round",
+      }),
+      competition("r2", 90, 7380, {
+        source: "wca-import",
+        wcaCompetitionId: "CompA",
+        wcaRoundId: 2,
+        roundLabel: "Final",
+      }),
+      competition("c2", 60, 10600),
+    ];
+    renderTab(
+      <CompetitionTab
+        cubeDimension="3x3x3"
+        practiceSolves={[
+          solve(96, 10000), solve(92, 10000),
+          solve(66, 10000), solve(62, 10000),
+          solve(5, 10000), solve(2, 10000),
+        ]}
+        competitions={rounds}
+        addCompetitionResult={noop}
+        updateCompetitionResult={noop}
+        deleteCompetitionResult={noop}
+      />
+    );
+
+    expect(screen.getByText(/Based on your last 2 competitions/)).toBeInTheDocument();
+  });
+
   it("opens an accessible add form and validates required fields", async () => {
     const user = userEvent.setup();
     renderTab(

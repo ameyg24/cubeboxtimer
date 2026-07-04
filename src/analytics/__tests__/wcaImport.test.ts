@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildImportCandidates,
   checkForDuplicateOrConflict,
+  collapseRoundsToReference,
   decideImportAction,
   findLinkedWcaId,
   isValidWcaId,
@@ -482,5 +483,76 @@ describe("findLinkedWcaId", () => {
   it("handles an imported record missing wcaId defensively (pre-migration data)", () => {
     const existing = [competition({ source: "wca-import", wcaId: undefined })];
     expect(findLinkedWcaId(existing)).toBeNull();
+  });
+});
+
+describe("collapseRoundsToReference", () => {
+  it("leaves a single-round competition (or a manual entry) untouched", () => {
+    const solo = competition({ source: "manual" });
+    expect(collapseRoundsToReference([solo])).toEqual([solo]);
+  });
+
+  it("averages every round's average and takes the fastest single as bestMs", () => {
+    const rounds = [
+      competition({
+        id: "r1",
+        source: "wca-import",
+        wcaCompetitionId: "MachesneyParkSpring2026",
+        wcaRoundId: 1,
+        roundLabel: "First round",
+        averageMs: 7930,
+        bestMs: 5840,
+      }),
+      competition({
+        id: "r2",
+        source: "wca-import",
+        wcaCompetitionId: "MachesneyParkSpring2026",
+        wcaRoundId: 2,
+        roundLabel: "Second round",
+        averageMs: 7440,
+        bestMs: 5920,
+      }),
+      competition({
+        id: "r3",
+        source: "wca-import",
+        wcaCompetitionId: "MachesneyParkSpring2026",
+        wcaRoundId: 3,
+        roundLabel: "Semi Final",
+        averageMs: 7780,
+        bestMs: 6280,
+      }),
+      competition({
+        id: "r4",
+        source: "wca-import",
+        wcaCompetitionId: "MachesneyParkSpring2026",
+        wcaRoundId: 4,
+        roundLabel: "Final",
+        averageMs: 7870,
+        bestMs: 6400,
+      }),
+    ];
+
+    const collapsed = collapseRoundsToReference(rounds);
+    expect(collapsed).toHaveLength(1);
+    expect(collapsed[0].id).toBe("r4"); // identity comes from the Final round
+    expect(collapsed[0].averageMs).toBe(Math.round((7930 + 7440 + 7780 + 7870) / 4));
+    expect(collapsed[0].bestMs).toBe(5840); // fastest single across every round
+  });
+
+  it("keeps different competitions and different events fully separate", () => {
+    const rounds = [
+      competition({ id: "a1", source: "wca-import", wcaCompetitionId: "CompA", event: "3x3x3", wcaRoundId: 1 }),
+      competition({ id: "a2", source: "wca-import", wcaCompetitionId: "CompA", event: "3x3x3", wcaRoundId: 2 }),
+      competition({ id: "b1", source: "wca-import", wcaCompetitionId: "CompA", event: "2x2x2", wcaRoundId: 1 }),
+      competition({ id: "c1", source: "wca-import", wcaCompetitionId: "CompB", event: "3x3x3", wcaRoundId: 1 }),
+    ];
+    expect(collapseRoundsToReference(rounds)).toHaveLength(3);
+  });
+
+  it("never merges manual entries with each other or with imports, even if they share a date/name", () => {
+    const manualA = competition({ id: "m1", source: "manual" });
+    const manualB = competition({ id: "m2", source: "manual" });
+    const imported = competition({ id: "w1", source: "wca-import", wcaCompetitionId: "CompA" });
+    expect(collapseRoundsToReference([manualA, manualB, imported])).toHaveLength(3);
   });
 });

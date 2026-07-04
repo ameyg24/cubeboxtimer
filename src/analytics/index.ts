@@ -69,6 +69,7 @@ export {
   WCA_ID_EXAMPLE,
   buildImportCandidates,
   checkForDuplicateOrConflict,
+  collapseRoundsToReference,
   decideImportAction,
   findLinkedWcaId,
   isValidWcaId,

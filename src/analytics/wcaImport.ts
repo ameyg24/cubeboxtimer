@@ -241,7 +241,57 @@ export interface PersistedCompetitionResultLike {
   source: string;
   wcaCompetitionId?: string | null;
   wcaRoundId?: number | null;
+  roundLabel?: string | null;
   wcaId?: string | null;
+}
+
+// A competition with multiple imported rounds is stored as multiple
+// CompetitionResult rows (see labelRoundsByCompetitionEvent) so every
+// round's own result stays visible and editable individually. But the
+// practice-vs-competition prediction model compares against "how you did at
+// this competition", not "how you did in this particular round" - counting
+// every round as its own data point would overweight competitions with more
+// rounds relative to single-round ones. This collapses each WCA competition
+// + event's rounds into one reference point (average of every round's
+// average, fastest single across all of them) for that purpose only -
+// display/edit/delete still operate on the individual per-round rows.
+export function collapseRoundsToReference(
+  competitions: PersistedCompetitionResultLike[]
+): PersistedCompetitionResultLike[] {
+  const list = Array.isArray(competitions) ? competitions : [];
+  const groups = new Map<string, PersistedCompetitionResultLike[]>();
+  for (const c of list) {
+    const key =
+      c.source === "wca-import" && c.wcaCompetitionId
+        ? `wca:${c.wcaCompetitionId}:${c.event}`
+        : `id:${c.id}`;
+    const group = groups.get(key);
+    if (group) {
+      group.push(c);
+    } else {
+      groups.set(key, [c]);
+    }
+  }
+
+  const merged: PersistedCompetitionResultLike[] = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      merged.push(group[0]);
+      continue;
+    }
+    // The Final round's own id/date/name is the stable identity for the
+    // merged reference point (falls back to the first round if none is
+    // labeled Final, which shouldn't happen for real WCA data).
+    const primary = group.find((c) => c.roundLabel === "Final") || group[0];
+    const averages = group.map((c) => c.averageMs).filter((v): v is number => v !== null);
+    const bests = group.map((c) => c.bestMs).filter((v): v is number => v !== null);
+    merged.push({
+      ...primary,
+      averageMs: averages.length > 0 ? Math.round(averages.reduce((a, b) => a + b, 0) / averages.length) : null,
+      bestMs: bests.length > 0 ? Math.min(...bests) : null,
+    });
+  }
+  return merged;
 }
 
 // CubeBox links imports to a single WCA ID rather than letting each import
