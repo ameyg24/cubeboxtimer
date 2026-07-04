@@ -85,6 +85,50 @@ describe("useWcaImport", () => {
     expect(result.current.summary.updatedCount).toBe(0);
   });
 
+  it("imports every round of a multi-round competition as its own result", async () => {
+    fetchWcaPersonResults.mockResolvedValue([
+      rawResult({ round_id: 1, average: 1255 }),
+      rawResult({ round_id: 2, average: 1300 }),
+      rawResult({ round_id: 3, average: 1374 }),
+    ]);
+    fetchWcaCompetitionMeta.mockResolvedValue({
+      name: competitionMeta.name,
+      date: new Date(competitionMeta.start_date).toISOString(),
+    });
+    const { result, addCompetitionResult } = setup();
+
+    await act(async () => {
+      await result.current.runImport("2009ZEMD01");
+    });
+
+    await waitFor(() => expect(result.current.status).toBe("success"));
+    expect(addCompetitionResult).toHaveBeenCalledTimes(3);
+    expect(result.current.summary.createdCount).toBe(3);
+    const roundLabels = addCompetitionResult.mock.calls.map(([arg]) => arg.roundLabel).sort();
+    expect(roundLabels).toEqual(["Final", "First round", "Second round"]);
+  });
+
+  it("tracks metadata-fetch progress and clears it once the import finishes", async () => {
+    fetchWcaPersonResults.mockResolvedValue([
+      rawResult({ competition_id: "CompA" }),
+      rawResult({ competition_id: "CompB" }),
+    ]);
+    fetchWcaCompetitionMeta.mockResolvedValue({
+      name: competitionMeta.name,
+      date: new Date(competitionMeta.start_date).toISOString(),
+    });
+    const { result } = setup();
+
+    expect(result.current.progress).toBeNull();
+
+    await act(async () => {
+      await result.current.runImport("2009ZEMD01");
+    });
+
+    await waitFor(() => expect(result.current.status).toBe("success"));
+    expect(result.current.progress).toBeNull();
+  });
+
   it("normalizes a lowercase/whitespace-padded WCA ID before fetching", async () => {
     fetchWcaPersonResults.mockResolvedValue([]);
     const { result } = setup();
@@ -112,6 +156,7 @@ describe("useWcaImport", () => {
         bestMs: 10050,
         source: "wca-import",
         wcaCompetitionId: "NewZealandChamps2009",
+        wcaRoundId: 1,
       },
     ];
     const { result, addCompetitionResult } = setup({ competitions: existing });
@@ -142,6 +187,7 @@ describe("useWcaImport", () => {
         bestMs: 10050,
         source: "wca-import",
         wcaCompetitionId: "NewZealandChamps2009",
+        wcaRoundId: 1,
       },
     ];
     const { result, updateCompetitionResult, addCompetitionResult } = setup({ competitions: existing });
@@ -322,6 +368,7 @@ describe("useWcaImport", () => {
         bestMs: 10050,
         source: "wca-import",
         wcaCompetitionId: "NewZealandChamps2009",
+        wcaRoundId: 1,
         wcaId: "2009ZEMD01",
       },
     ];

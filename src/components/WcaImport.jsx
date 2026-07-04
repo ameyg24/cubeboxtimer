@@ -87,12 +87,55 @@ function ImportSummary({ summary }) {
       {conflictCount > 0 && (
         <ul style={{ margin: 0, paddingLeft: 18, color: "var(--warning)" }}>
           {conflicts.map(({ candidate, reason }) => (
-            <li key={`${candidate.wcaCompetitionId}-${candidate.event}`}>
-              {candidate.competitionName} ({candidate.event}, {fmtSeconds(candidate.averageMs)}) — {reason}
+            <li key={`${candidate.wcaCompetitionId}-${candidate.event}-${candidate.wcaRoundId}`}>
+              {candidate.competitionName} ({candidate.event}, {candidate.roundLabel}, {fmtSeconds(candidate.averageMs)}) — {reason}
             </li>
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+// Shown in place of the summary while an import is running - real progress
+// once competition metadata requests start, since that phase alone can take
+// a couple of minutes on accounts with many competitions (WCA rate-limits
+// the metadata lookup, see wcaApi.js's createRateLimitState).
+function ImportProgress({ progress }) {
+  if (!progress) {
+    return (
+      <div role="status" style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+        Fetching your WCA results…
+      </div>
+    );
+  }
+
+  const { completed, total } = progress;
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 100;
+
+  return (
+    <div role="status" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+        Checking competition details… {completed} of {total}
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Import progress"
+        aria-valuenow={completed}
+        aria-valuemin={0}
+        aria-valuemax={total}
+        style={{ height: 6, borderRadius: 999, background: "var(--surface-alt)", overflow: "hidden" }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${pct}%`,
+            background: "var(--accent)",
+            borderRadius: 999,
+            transition: "width 0.2s ease",
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -143,7 +186,7 @@ function DeleteImportedResults({ importedResults, linkedWcaId, deleteCompetition
 
 const WcaImport = ({ competitions, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult }) => {
   const [wcaId, setWcaId] = useState("");
-  const { status, summary, errorMessage, runImport } = useWcaImport({
+  const { status, summary, errorMessage, progress, runImport } = useWcaImport({
     competitions,
     addCompetitionResult,
     updateCompetitionResult,
@@ -172,7 +215,7 @@ const WcaImport = ({ competitions, addCompetitionResult, updateCompetitionResult
     <div className="section-card">
       <div className="section-title">Import from your WCA profile</div>
       <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: 10 }}>
-        For each competition and event, CubeBox imports the final/deepest WCA round result.
+        For each competition and event, CubeBox imports every round you competed in.
         {linkedWcaId && " Imports are linked to the WCA ID below - delete all imported results to link a different one."}
       </div>
       <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
@@ -195,6 +238,7 @@ const WcaImport = ({ competitions, addCompetitionResult, updateCompetitionResult
         </button>
       </form>
       <div aria-live="polite" style={{ marginTop: 10 }}>
+        {status === "loading" && <ImportProgress progress={progress} />}
         {status === "error" && (
           <span className="form-error" id={errorId} role="alert">{errorMessage}</span>
         )}

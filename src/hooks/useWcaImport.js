@@ -14,7 +14,6 @@ import {
   isValidWcaId,
   mapWcaEventToCubeDimension,
   normalizeWcaId,
-  selectFinalRoundResults,
 } from "../analytics";
 import {
   createRateLimitState,
@@ -29,6 +28,10 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
   const [status, setStatus] = useState("idle"); // idle | loading | success | error
   const [summary, setSummary] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
+  // { completed, total } while checking competition metadata, else null -
+  // lets the UI show real progress instead of a bare "Importing…" for what
+  // can be a couple minutes on accounts with many competitions.
+  const [progress, setProgress] = useState(null);
 
   const runImport = useCallback(
     async (rawWcaId) => {
@@ -57,12 +60,12 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
       setStatus("loading");
       setErrorMessage("");
       setSummary(null);
+      setProgress(null);
       const startedAt = performance.now();
       logger.info("WCA import started.", { wcaId });
 
       try {
         const rawResults = await fetchWcaPersonResults(wcaId);
-        const finalRoundResults = selectFinalRoundResults(rawResults);
 
         // Only fetch metadata for competitions with at least one
         // potentially-importable (supported event) result - no point
@@ -70,7 +73,7 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
         // blindfolded or FMC.
         const relevantCompetitionIds = [
           ...new Set(
-            finalRoundResults
+            rawResults
               .filter((r) => mapWcaEventToCubeDimension(r.event_id) !== null)
               .map((r) => r.competition_id)
           ),
@@ -87,6 +90,8 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
         // createRateLimitState for why per-request-independent retries
         // weren't enough on their own.
         const rateLimitState = createRateLimitState();
+        setProgress({ completed: 0, total: relevantCompetitionIds.length });
+        let completedCount = 0;
         const metaEntries = await mapWithConcurrency(
           relevantCompetitionIds,
           WCA_METADATA_FETCH_CONCURRENCY,
@@ -100,12 +105,15 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
                 error,
               });
               return [competitionId, null];
+            } finally {
+              completedCount += 1;
+              setProgress({ completed: completedCount, total: relevantCompetitionIds.length });
             }
           }
         );
         const competitionMetaById = new Map(metaEntries.filter(([, meta]) => meta !== null));
 
-        const { candidates, skipped } = buildImportCandidates(finalRoundResults, competitionMetaById);
+        const { candidates, skipped } = buildImportCandidates(rawResults, competitionMetaById);
 
         const created = [];
         const updated = [];
@@ -124,6 +132,8 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
               bestMs: candidate.bestMs,
               source: "wca-import",
               wcaCompetitionId: candidate.wcaCompetitionId,
+              wcaRoundId: candidate.wcaRoundId,
+              roundLabel: candidate.roundLabel,
               wcaId,
             });
             created.push(candidate);
@@ -139,6 +149,8 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
               bestMs: candidate.bestMs,
               source: "wca-import",
               wcaCompetitionId: candidate.wcaCompetitionId,
+              wcaRoundId: candidate.wcaRoundId,
+              roundLabel: candidate.roundLabel,
               wcaId,
             });
             updated.push(candidate);
@@ -169,6 +181,7 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
         };
         setSummary(result);
         setStatus("success");
+        setProgress(null);
         logger.info("WCA import finished.", {
           wcaId,
           createdCount: result.createdCount,
@@ -185,6 +198,7 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
       } catch (error) {
         setStatus("error");
         setErrorMessage(error?.message || "Import failed. Please try again.");
+        setProgress(null);
         logger.error("WCA import failed.", {
           wcaId,
           error,
@@ -199,7 +213,8 @@ export function useWcaImport({ competitions, addCompetitionResult, updateCompeti
     setStatus("idle");
     setSummary(null);
     setErrorMessage("");
+    setProgress(null);
   }, []);
 
-  return { status, summary, errorMessage, runImport, reset };
+  return { status, summary, errorMessage, progress, runImport, reset };
 }

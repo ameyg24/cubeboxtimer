@@ -5,10 +5,10 @@ import {
   decideImportAction,
   findLinkedWcaId,
   isValidWcaId,
+  labelRoundsByCompetitionEvent,
   mapWcaEventToCubeDimension,
   namesAreSimilar,
   normalizeWcaId,
-  selectFinalRoundResults,
   wcaCentisecondsToMs,
 } from "../wcaImport";
 import type { PersistedCompetitionResultLike, WcaImportCandidate, WcaRawResult } from "../wcaImport";
@@ -108,16 +108,45 @@ const rawResult = (overrides: Partial<WcaRawResult>): WcaRawResult => ({
   ...overrides,
 });
 
-describe("selectFinalRoundResults", () => {
-  it("picks the highest round_id per (competition, event) group", () => {
+describe("labelRoundsByCompetitionEvent", () => {
+  it("labels a single round as Final", () => {
+    const results = [rawResult({ round_id: 1 })];
+    const labeled = labelRoundsByCompetitionEvent(results);
+    expect(labeled).toHaveLength(1);
+    expect(labeled[0].roundLabel).toBe("Final");
+  });
+
+  it("labels a 2-round competition as First round, Final", () => {
+    const results = [rawResult({ round_id: 1 }), rawResult({ round_id: 2 })];
+    const labeled = labelRoundsByCompetitionEvent(results).sort((a, b) => a.result.round_id - b.result.round_id);
+    expect(labeled.map((l) => l.roundLabel)).toEqual(["First round", "Final"]);
+  });
+
+  it("labels a 3-round competition as First round, Second round, Final (matches Illini Cubers Spring 2026's real 3-round result)", () => {
+    const results = [rawResult({ round_id: 3 }), rawResult({ round_id: 1 }), rawResult({ round_id: 2 })];
+    const labeled = labelRoundsByCompetitionEvent(results).sort((a, b) => a.result.round_id - b.result.round_id);
+    expect(labeled.map((l) => l.roundLabel)).toEqual(["First round", "Second round", "Final"]);
+  });
+
+  it("labels a 4-round competition as First round, Second round, Semi Final, Final (matches Machesney Park Spring 2026's real 4-round result)", () => {
     const results = [
-      rawResult({ round_id: 525579, best: 1071, average: 1255 }),
-      rawResult({ round_id: 525580, best: 1005, average: 1374 }),
+      rawResult({ round_id: 1 }),
+      rawResult({ round_id: 2 }),
+      rawResult({ round_id: 3 }),
+      rawResult({ round_id: 4 }),
     ];
-    const final = selectFinalRoundResults(results);
-    expect(final).toHaveLength(1);
-    expect(final[0].round_id).toBe(525580);
-    expect(final[0].average).toBe(1374);
+    const labeled = labelRoundsByCompetitionEvent(results).sort((a, b) => a.result.round_id - b.result.round_id);
+    expect(labeled.map((l) => l.roundLabel)).toEqual(["First round", "Second round", "Semi Final", "Final"]);
+  });
+
+  it("orders rounds by round_id ascending regardless of input order", () => {
+    const results = [
+      rawResult({ round_id: 525580, average: 1374 }),
+      rawResult({ round_id: 525579, average: 1255 }),
+    ];
+    const labeled = labelRoundsByCompetitionEvent(results);
+    const final = labeled.find((l) => l.roundLabel === "Final");
+    expect(final?.result.round_id).toBe(525580);
   });
 
   it("keeps separate groups independent across different competitions and events", () => {
@@ -126,17 +155,19 @@ describe("selectFinalRoundResults", () => {
       rawResult({ competition_id: "CompA", event_id: "222", round_id: 2 }),
       rawResult({ competition_id: "CompB", event_id: "333", round_id: 3 }),
     ];
-    const final = selectFinalRoundResults(results);
-    expect(final).toHaveLength(3);
+    const labeled = labelRoundsByCompetitionEvent(results);
+    expect(labeled).toHaveLength(3);
+    // Each is the only round in its own group, so each is its own Final.
+    expect(labeled.every((l) => l.roundLabel === "Final")).toBe(true);
   });
 
   it("returns an empty array for empty input", () => {
-    expect(selectFinalRoundResults([])).toEqual([]);
+    expect(labelRoundsByCompetitionEvent([])).toEqual([]);
   });
 
   it("tolerates non-array input defensively", () => {
     // @ts-expect-error exercising defensive guard against bad runtime input
-    expect(selectFinalRoundResults(null)).toEqual([]);
+    expect(labelRoundsByCompetitionEvent(null)).toEqual([]);
   });
 });
 
@@ -145,12 +176,14 @@ describe("buildImportCandidates", () => {
     ["NewZealandChamps2009", { name: "New Zealand Championships 2009", date: "2009-07-18T00:00:00.000Z" }],
   ]);
 
-  it("converts a valid final-round result into an import candidate", () => {
+  it("converts a valid single-round result into an import candidate", () => {
     const { candidates, skipped } = buildImportCandidates([rawResult({})], meta);
     expect(skipped).toEqual([]);
     expect(candidates).toEqual([
       {
         wcaCompetitionId: "NewZealandChamps2009",
+        wcaRoundId: 525580,
+        roundLabel: "Final",
         event: "3x3x3",
         competitionName: "New Zealand Championships 2009",
         date: "2009-07-18T00:00:00.000Z",
@@ -213,14 +246,29 @@ describe("buildImportCandidates", () => {
     ]);
   });
 
-  it("only imports the final round when multiple rounds exist for the same competition and event", () => {
+  it("imports every round as its own candidate when multiple rounds exist for the same competition and event", () => {
     const results = [
       rawResult({ round_id: 1, average: 1255 }),
       rawResult({ round_id: 2, average: 1374 }),
     ];
     const { candidates } = buildImportCandidates(results, meta);
+    expect(candidates).toHaveLength(2);
+    const byRound = new Map(candidates.map((c) => [c.wcaRoundId, c]));
+    expect(byRound.get(1)).toMatchObject({ roundLabel: "First round", averageMs: 12550 });
+    expect(byRound.get(2)).toMatchObject({ roundLabel: "Final", averageMs: 13740 });
+  });
+
+  it("skips each round independently, so one round's DNF doesn't drop its sibling rounds", () => {
+    const results = [
+      rawResult({ round_id: 1, average: -1 }), // DNF'd the first round
+      rawResult({ round_id: 2, average: 1374 }),
+    ];
+    const { candidates, skipped } = buildImportCandidates(results, meta);
     expect(candidates).toHaveLength(1);
-    expect(candidates[0].averageMs).toBe(13740); // from round_id: 2, the final round
+    expect(candidates[0].roundLabel).toBe("Final");
+    expect(skipped).toEqual([
+      { competitionId: "NewZealandChamps2009", eventId: "333", reason: "dnf-or-dns-average" },
+    ]);
   });
 });
 
@@ -255,6 +303,8 @@ const competition = (overrides: Partial<PersistedCompetitionResultLike>): Persis
 
 const importCandidate = (overrides: Partial<WcaImportCandidate> = {}): WcaImportCandidate => ({
   wcaCompetitionId: "NewZealandChamps2009",
+  wcaRoundId: 1,
+  roundLabel: "Final",
   event: "3x3x3",
   competitionName: "New Zealand Championships 2009",
   date: "2009-07-18T00:00:00.000Z",
@@ -315,19 +365,60 @@ describe("decideImportAction", () => {
     expect(decision.type).toBe("create");
   });
 
-  it("skips as already-imported when the same wcaCompetitionId + event was already imported with identical values", () => {
-    const existing = [competition({ source: "wca-import", wcaCompetitionId: "NewZealandChamps2009" })];
+  it("skips as already-imported when the same wcaCompetitionId + event + round was already imported with identical values", () => {
+    const existing = [
+      competition({ source: "wca-import", wcaCompetitionId: "NewZealandChamps2009", wcaRoundId: 1 }),
+    ];
     const decision = decideImportAction(importCandidate(), existing);
     expect(decision.type).toBe("skip-already-imported");
   });
 
-  it("updates the existing record when the same wcaCompetitionId + event was imported before but values changed", () => {
+  it("updates the existing record when the same wcaCompetitionId + event + round was imported before but values changed", () => {
     const existing = [
-      competition({ source: "wca-import", wcaCompetitionId: "NewZealandChamps2009", averageMs: 14000 }),
+      competition({
+        source: "wca-import",
+        wcaCompetitionId: "NewZealandChamps2009",
+        wcaRoundId: 1,
+        averageMs: 14000,
+      }),
     ];
     const decision = decideImportAction(importCandidate(), existing);
     expect(decision.type).toBe("update");
     expect((decision as { existingId: string }).existingId).toBe("c1");
+  });
+
+  it("treats a different round of an already-imported competition + event as a new record, not a re-import", () => {
+    const existing = [
+      competition({ source: "wca-import", wcaCompetitionId: "NewZealandChamps2009", wcaRoundId: 1 }),
+    ];
+    // Same competition + event, but a different round (e.g. the Final,
+    // where existing only has the First round imported).
+    const decision = decideImportAction(importCandidate({ wcaRoundId: 2, roundLabel: "Final" }), existing);
+    expect(decision.type).toBe("create");
+  });
+
+  it("does not treat sibling rounds of the same WCA competition as conflicting with each other", () => {
+    // Two rounds of the same competition, sharing the same date/name by
+    // construction, with different averages - importing a third round
+    // shouldn't misread its siblings as a manual-entry conflict.
+    const existing = [
+      competition({
+        id: "round1",
+        source: "wca-import",
+        wcaCompetitionId: "NewZealandChamps2009",
+        wcaRoundId: 1,
+        averageMs: 15000,
+      }),
+      competition({
+        id: "round2",
+        source: "wca-import",
+        wcaCompetitionId: "NewZealandChamps2009",
+        wcaRoundId: 2,
+        averageMs: 14500,
+      }),
+    ];
+    const decision = decideImportAction(importCandidate({ wcaRoundId: 3, roundLabel: "Final" }), existing);
+    expect(decision.type).toBe("create");
   });
 
   it("manual-first then import: skips as a duplicate when a manual record already has the same event, date, and times", () => {
@@ -338,7 +429,7 @@ describe("decideImportAction", () => {
 
   it("distinguishes skip-already-imported (re-importing the same WCA result) from skip-duplicate (matching a different record)", () => {
     const reimport = decideImportAction(importCandidate(), [
-      competition({ source: "wca-import", wcaCompetitionId: "NewZealandChamps2009" }),
+      competition({ source: "wca-import", wcaCompetitionId: "NewZealandChamps2009", wcaRoundId: 1 }),
     ]);
     const crossDuplicate = decideImportAction(importCandidate(), [competition({ source: "manual" })]);
     expect(reimport.type).toBe("skip-already-imported");

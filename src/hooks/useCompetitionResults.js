@@ -40,8 +40,17 @@ function normalizeCompetitionDoc(competitionDoc, fallbackId) {
     // Set only for source: "wca-import" records - the stable identifier
     // analytics/wcaImport.ts's duplicate policy matches future imports
     // against, so re-importing never creates a second record for the same
-    // WCA competition + event.
+    // WCA competition + event + round.
     wcaCompetitionId: source.wcaCompetitionId || null,
+    // The specific WCA round this record is (a competition can have several
+    // - First round, Semi Final, Final, ...), each imported as its own
+    // record. Combined with wcaCompetitionId + event, this is what lets a
+    // re-import tell "update this round" apart from "this is a different
+    // round of the same competition."
+    wcaRoundId: typeof source.wcaRoundId === "number" ? source.wcaRoundId : null,
+    // Human-readable label for wcaRoundId (e.g. "First round", "Final") -
+    // shown next to the result in the Competition Results list.
+    roundLabel: source.roundLabel || null,
     // The WCA person ID this record was imported from - findLinkedWcaId
     // (analytics/wcaImport.ts) reads this to lock future imports to the
     // same WCA ID, so two different competitors' results can never end up

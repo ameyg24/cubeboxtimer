@@ -267,6 +267,7 @@ function CompetitionResultsList({ competitions, onEdit, onDelete }) {
               <div style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.9rem" }}>{c.competitionName}</div>
               <div style={{ fontSize: "0.75rem", color: "var(--text-faint)", fontFamily: "monospace" }}>
                 {fmtDate(c.date)} · {c.event}
+                {c.roundLabel ? ` · ${c.roundLabel}` : ""}
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>

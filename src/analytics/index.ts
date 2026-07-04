@@ -72,10 +72,10 @@ export {
   decideImportAction,
   findLinkedWcaId,
   isValidWcaId,
+  labelRoundsByCompetitionEvent,
   mapWcaEventToCubeDimension,
   namesAreSimilar,
   normalizeWcaId,
-  selectFinalRoundResults,
   wcaCentisecondsToMs,
 } from "./wcaImport";
 export type {
@@ -83,6 +83,7 @@ export type {
   DuplicateCheckResult,
   ImportDecision,
   ImportedCompetitionEvent,
+  LabeledWcaRoundResult,
   PersistedCompetitionResultLike,
   SkipReason,
   SkippedWcaResult,

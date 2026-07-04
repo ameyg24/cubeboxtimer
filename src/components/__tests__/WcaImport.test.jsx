@@ -194,11 +194,35 @@ describe("WcaImport", () => {
     expect(status).not.toHaveTextContent(/Conflicts/);
   });
 
-  it("shows the final/deepest-round import policy near the import form", () => {
+  it("shows the every-round import policy near the import form", () => {
     renderImport();
     expect(
-      screen.getByText(/final\/deepest WCA round result/)
+      screen.getByText(/imports every round you competed in/)
     ).toBeInTheDocument();
+  });
+
+  it("shows a progress bar while checking competition metadata", async () => {
+    fetchWcaPersonResults.mockResolvedValue([rawResult()]);
+    let resolveMeta;
+    fetchWcaCompetitionMeta.mockReturnValue(
+      new Promise((resolve) => {
+        resolveMeta = resolve;
+      })
+    );
+    const user = userEvent.setup();
+    renderImport();
+
+    await user.type(screen.getByRole("textbox", { name: "WCA ID" }), "2009ZEMD01");
+    await user.click(screen.getByRole("button", { name: "Import" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("progressbar", { name: "Import progress" })).toBeInTheDocument()
+    );
+    expect(screen.getByText(/Checking competition details… 0 of 1/)).toBeInTheDocument();
+
+    resolveMeta({ name: "New Zealand Championships 2009", date: "2009-07-18T00:00:00.000Z" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Import" })).not.toBeDisabled());
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("does not show a bulk-delete control or the WCA ID lock when nothing has been imported yet", () => {

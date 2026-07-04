@@ -15,11 +15,11 @@
 //     has ever recorded, across every event and every round.
 //   - Times are in centiseconds. -1 = DNF, -2 = DNS, 0 = an unused attempt
 //     slot (e.g. a Bo3 round's unused 4th/5th attempt slots) or "no result".
-//   - A (competition, event) pair can have multiple rounds. Round
+//   - A (competition, event) pair can have multiple rounds, and every round
+//     is imported as its own CompetitionResult (not just the final) - round
 //     progression is reliably tracked by round_id ascending (verified: a
-//     first round always has a lower round_id than that competition's
-//     final round for the same event) — the highest round_id per group is
-//     "the" result WCA itself treats as final for that competition+event.
+//     first round always has a lower round_id than that competition's final
+//     round for the same event).
 //   - GET /api/v0/competitions/{id} gives the competition's name and date,
 //     but there is no bulk-lookup endpoint, so the caller fetches this once
 //     per unique competition_id.
@@ -74,23 +74,57 @@ export interface WcaRawResult {
   average: number;
 }
 
+export interface LabeledWcaRoundResult {
+  result: WcaRawResult;
+  /** e.g. "First round", "Semi Final", "Final". */
+  roundLabel: string;
+}
+
+// WCA labels a competition+event's rounds by position, counting from both
+// ends rather than a fixed name per round number: the last round is always
+// "Final", the second-to-last is "Semi Final" once there are at least 4
+// rounds total, and everything else counts up from the start ("First
+// round", "Second round", ...). Verified against real multi-round
+// competitions: a 3-round event shows First/Second round/Final, a 4-round
+// event shows First/Second round/Semi Final/Final.
+const ROUND_ORDINALS = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth"];
+
+function roundLabelForPosition(indexFromStart: number, totalRounds: number): string {
+  const positionFromEnd = totalRounds - indexFromStart;
+  if (positionFromEnd === 1) return "Final";
+  if (positionFromEnd === 2 && totalRounds >= 4) return "Semi Final";
+  const ordinal = ROUND_ORDINALS[indexFromStart] || `${indexFromStart + 1}th`;
+  return `${ordinal} round`;
+}
+
 /**
- * Reduces every round a person competed in down to one result per
- * (competition, event): the highest round_id in that group, i.e. the
- * deepest/final round — the same result WCA's own person-results page
- * treats as "the" result for that competition and event.
+ * Groups every round a person competed in by (competition, event) and
+ * labels each round by its position within that group - every round is
+ * imported as its own result, not just the deepest one (see
+ * buildImportCandidates). Round progression within a group is ordered by
+ * round_id ascending (see the module-level note on why that's reliable).
  */
-export function selectFinalRoundResults(results: WcaRawResult[]): WcaRawResult[] {
+export function labelRoundsByCompetitionEvent(results: WcaRawResult[]): LabeledWcaRoundResult[] {
   const list = Array.isArray(results) ? results : [];
-  const byGroup = new Map<string, WcaRawResult>();
+  const byGroup = new Map<string, WcaRawResult[]>();
   for (const r of list) {
     const key = `${r.competition_id}::${r.event_id}`;
-    const existing = byGroup.get(key);
-    if (!existing || r.round_id > existing.round_id) {
-      byGroup.set(key, r);
+    const group = byGroup.get(key);
+    if (group) {
+      group.push(r);
+    } else {
+      byGroup.set(key, [r]);
     }
   }
-  return Array.from(byGroup.values());
+
+  const labeled: LabeledWcaRoundResult[] = [];
+  for (const group of byGroup.values()) {
+    const sorted = [...group].sort((a, b) => a.round_id - b.round_id);
+    sorted.forEach((result, index) => {
+      labeled.push({ result, roundLabel: roundLabelForPosition(index, sorted.length) });
+    });
+  }
+  return labeled;
 }
 
 export interface WcaCompetitionMeta {
@@ -113,6 +147,10 @@ export interface SkippedWcaResult {
 
 export interface WcaImportCandidate {
   wcaCompetitionId: string;
+  /** The raw WCA round_id - identifies which round this candidate is, so a
+   * competition's multiple rounds each get their own CompetitionResult. */
+  wcaRoundId: number;
+  roundLabel: string;
   event: ImportedCompetitionEvent;
   competitionName: string;
   /** ISO date string. */
@@ -133,22 +171,23 @@ function isDnfOrDnsAverage(value: number): boolean {
 }
 
 /**
- * Converts final-round WCA results into CompetitionResult-shaped import
- * candidates. Skips (rather than fabricates a value for) any result whose
- * event has no CubeBox equivalent, whose official average is missing or
- * DNF/DNS, or whose competition metadata couldn't be fetched — every skip
- * is reported with a specific reason so the caller can show the user what
- * happened instead of a single opaque "skipped" count.
+ * Converts every round of WCA results into CompetitionResult-shaped import
+ * candidates - one per round, not just the deepest. Skips (rather than
+ * fabricates a value for) any result whose event has no CubeBox equivalent,
+ * whose official average is missing or DNF/DNS, or whose competition
+ * metadata couldn't be fetched — every skip is reported with a specific
+ * reason so the caller can show the user what happened instead of a single
+ * opaque "skipped" count.
  */
 export function buildImportCandidates(
   rawResults: WcaRawResult[],
   competitionMetaById: Map<string, WcaCompetitionMeta>
 ): { candidates: WcaImportCandidate[]; skipped: SkippedWcaResult[] } {
-  const finalRoundResults = selectFinalRoundResults(rawResults);
+  const labeledRounds = labelRoundsByCompetitionEvent(rawResults);
   const candidates: WcaImportCandidate[] = [];
   const skipped: SkippedWcaResult[] = [];
 
-  for (const result of finalRoundResults) {
+  for (const { result, roundLabel } of labeledRounds) {
     const event = mapWcaEventToCubeDimension(result.event_id);
     if (!event) {
       skipped.push({ competitionId: result.competition_id, eventId: result.event_id, reason: "unsupported-event" });
@@ -174,6 +213,8 @@ export function buildImportCandidates(
 
     candidates.push({
       wcaCompetitionId: result.competition_id,
+      wcaRoundId: result.round_id,
+      roundLabel,
       event,
       competitionName: meta.name,
       date: meta.date,
@@ -199,6 +240,7 @@ export interface PersistedCompetitionResultLike {
   bestMs: number | null;
   source: string;
   wcaCompetitionId?: string | null;
+  wcaRoundId?: number | null;
   wcaId?: string | null;
 }
 
@@ -313,20 +355,23 @@ export type ImportDecision =
  * Decides what to do with one import candidate against the user's existing
  * competition history. Checked in order:
  *
- *   1. Same wcaCompetitionId + event as a previous import -> this is a
- *      re-import of the same result. Identical values: "skip-already-imported"
- *      (the user already has this exact result). Different values (e.g. a
- *      late DQ or results correction on WCA's side): deterministically
- *      update that same record - this is safe specifically because it's the
- *      same wcaCompetitionId, not a different competition being folded into
- *      an existing one.
+ *   1. Same wcaCompetitionId + event + round as a previous import -> this is
+ *      a re-import of the same round's result. Identical values:
+ *      "skip-already-imported" (the user already has this exact result).
+ *      Different values (e.g. a late DQ or results correction on WCA's
+ *      side): deterministically update that same record - this is safe
+ *      specifically because it's the same wcaCompetitionId + round, not a
+ *      different round or competition being folded into an existing one.
  *   2/3. Otherwise, run the shared duplicate/conflict check against every
- *      existing record (manual or imported). A match here is a genuinely
- *      different record ("skip-duplicate") rather than a re-import of the
- *      same one, which is why it's reported separately from case 1 - the
- *      user should be able to tell "you already imported this" apart from
- *      "this matches something else you already had." A manual record is
- *      never silently overwritten by either path.
+ *      existing record NOT already known to be a sibling round of this same
+ *      WCA competition + event - sibling rounds share the same date and
+ *      competition name with different times by construction, which would
+ *      otherwise misfire as a "conflict" against each other. A match here is
+ *      a genuinely different record ("skip-duplicate") rather than a
+ *      re-import of the same one, which is why it's reported separately
+ *      from case 1 - the user should be able to tell "you already imported
+ *      this" apart from "this matches something else you already had." A
+ *      manual record is never silently overwritten by either path.
  */
 export function decideImportAction(
   candidate: WcaImportCandidate,
@@ -338,7 +383,8 @@ export function decideImportAction(
     (c) =>
       c.source === "wca-import" &&
       c.wcaCompetitionId === candidate.wcaCompetitionId &&
-      c.event === candidate.event
+      c.event === candidate.event &&
+      c.wcaRoundId === candidate.wcaRoundId
   );
   if (existingImport) {
     const sameValues = existingImport.averageMs === candidate.averageMs && existingImport.bestMs === candidate.bestMs;
@@ -347,11 +393,14 @@ export function decideImportAction(
       : {
           type: "update",
           existingId: existingImport.id,
-          reason: "Already imported for this competition and event; updating with the latest WCA values.",
+          reason: "Already imported for this competition, event, and round; updating with the latest WCA values.",
         };
   }
 
-  const check = checkForDuplicateOrConflict(candidate, list);
+  const unrelated = list.filter(
+    (c) => !(c.source === "wca-import" && c.wcaCompetitionId === candidate.wcaCompetitionId)
+  );
+  const check = checkForDuplicateOrConflict(candidate, unrelated);
   if (check.type === "duplicate") {
     return { type: "skip-duplicate", reason: check.reason as string };
   }
