@@ -92,3 +92,5 @@ export type {
   WcaImportCandidate,
   WcaRawResult,
 } from "./wcaImport";
+export { predictFromCompetitionHistory } from "./peerComparison";
+export type { PeerCompetitionResult, PeerPredictionResult } from "./peerComparison";

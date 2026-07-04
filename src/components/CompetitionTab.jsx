@@ -15,6 +15,7 @@ import {
 } from "../analytics";
 import { CUBE_DIMENSIONS } from "../hooks/useSolveSessions.js";
 import { Modal } from "./Modal.jsx";
+import PeerComparison from "./PeerComparison.jsx";
 import PredictionQuality from "./PredictionQuality.jsx";
 import { PredictionBreakdown, PredictionFactors } from "./PredictionExplanation.jsx";
 import WcaImport from "./WcaImport.jsx";
@@ -713,6 +714,8 @@ const CompetitionTab = ({
       </div>
 
       <PredictionFactors factors={explanation.factors} show={emptyState === null} />
+
+      <PeerComparison cubeDimension={cubeDimension} yourPrediction={prediction} />
 
       <div>
         <div className="section-title">Historical Calibration</div>
