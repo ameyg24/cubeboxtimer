@@ -232,6 +232,16 @@ const WcaImport = ({ competitions, addCompetitionResult, updateCompetitionResult
             aria-invalid={status === "error"}
             aria-describedby={status === "error" ? errorId : undefined}
           />
+          {linkedWcaId && (
+            <a
+              href={`https://www.worldcubeassociation.org/persons/${linkedWcaId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontSize: "0.75rem", marginTop: 4, display: "inline-block" }}
+            >
+              View WCA profile ↗
+            </a>
+          )}
         </div>
         <button className="dash-btn" type="submit" disabled={status === "loading"}>
           {status === "loading" ? "Importing…" : "Import"}

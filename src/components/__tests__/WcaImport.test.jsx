@@ -244,6 +244,17 @@ describe("WcaImport", () => {
     await waitFor(() => expect(fetchWcaPersonResults).toHaveBeenCalledWith("2009ZEMD01"));
   });
 
+  it("links the linked WCA ID to its public WCA profile page", () => {
+    renderImport({ competitions: [importedResult()] });
+    const link = screen.getByRole("link", { name: "View WCA profile ↗" });
+    expect(link).toHaveAttribute("href", "https://www.worldcubeassociation.org/persons/2009ZEMD01");
+  });
+
+  it("does not show a WCA profile link before any WCA ID is linked", () => {
+    renderImport();
+    expect(screen.queryByRole("link", { name: /View WCA profile/ })).not.toBeInTheDocument();
+  });
+
   it("shows a bulk-delete control with the imported count once results have been imported", () => {
     renderImport({ competitions: [importedResult({ id: "a" }), importedResult({ id: "b" })] });
     expect(screen.getByText(/2 imported results across all events/)).toBeInTheDocument();
