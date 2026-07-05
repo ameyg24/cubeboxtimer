@@ -245,6 +245,22 @@ Prediction card, Why?, Prediction Breakdown/Factors) — Model Comparison is
 an additional, opt-in view of how the alternatives are doing, not a
 replacement for it.
 
+### Practice coach (`trainingSignals.ts`, `practiceCoach.ts`)
+
+Answers "what should I practice next, and why?" — deterministically, not
+via an LLM. `computeTrainingSignals` aggregates numbers only: practice
+mean/stddev/DNF/+2 rate straight from `buildFeatureVector`, the
+competition gap straight from `predictCompetitionResult.adjustmentFactorPct`
+(never recomputed), backtest error from `runBacktest`, and days since the
+last PB from `computeRecordHistory`. The only new computation is momentum —
+a comparison between two adjacent 7-day practice windows. `practiceCoach.ts`
+turns those signals into a readiness score (five equally-weighted
+subscores), up to three focus areas from a fixed rule table (hardcoded
+priority and drill per rule, array order as tie-break), and a list of
+limitations when data is missing. Surfaced as the Dashboard's Coach tab.
+Nothing here is persisted — it's recomputed from existing solves and
+competition results on every render, the same way Model Comparison is.
+
 ### WCA competition import (`wcaImport.ts`, `wcaApi.js`, `useWcaImport.js`)
 
 Lets a user pull their own past results from the WCA's public API instead

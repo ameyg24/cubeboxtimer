@@ -10,6 +10,7 @@ import {
   RECORD_TYPE_LABELS,
 } from "../analytics";
 import { logger } from "../logger.js";
+import CoachTab from "./CoachTab.jsx";
 import CompetitionTab from "./CompetitionTab.jsx";
 
 // Chart.js is a large dependency only needed once someone opens the Trend
@@ -372,7 +373,7 @@ const Records = ({ recordHistory }) => (
   </div>
 );
 
-const TABS = ["Overview", "Trend", "Distribution", "Daily", "Records", "Competition"];
+const TABS = ["Overview", "Trend", "Distribution", "Daily", "Records", "Competition", "Coach"];
 
 const Dashboard = ({
   eventSolves,
@@ -441,6 +442,9 @@ const Dashboard = ({
             updateCompetitionResult={updateCompetitionResult}
             deleteCompetitionResult={deleteCompetitionResult}
           />
+        )}
+        {tab === "Coach" && (
+          <CoachTab cubeDimension={cubeDimension} practiceSolves={allSolves} competitions={competitions} />
         )}
       </div>
     </div>

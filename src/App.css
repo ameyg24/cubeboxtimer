@@ -195,6 +195,8 @@
   display: flex;
   gap: var(--space-5);
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .dash-tab {
@@ -208,6 +210,8 @@
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .dash-tab:hover {

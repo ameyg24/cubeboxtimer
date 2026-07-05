@@ -114,3 +114,21 @@ export {
   explainBestModel,
 } from "./modelComparison";
 export type { ModelCase, ModelComparisonResult, ModelId, ModelMetrics } from "./modelComparison";
+export { computeTrainingSignals } from "./trainingSignals";
+export type { CoachSolve, TrainingSignals } from "./trainingSignals";
+export {
+  CV_CAP,
+  DNF_RISK_CAP,
+  MOMENTUM_SENSITIVITY,
+  TARGET_SOLVES_14D,
+  computePracticeCoachResult,
+} from "./practiceCoach";
+export type {
+  CoachConfidence,
+  FocusArea,
+  FocusAreaEvidence,
+  FocusPriority,
+  PracticeCoachResult,
+  ReadinessLabel,
+  ReadinessScore,
+} from "./practiceCoach";
