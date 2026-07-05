@@ -6,9 +6,12 @@
 // per render.
 import { useMemo } from "react";
 import {
+  buildTrainingPlan,
   collapseRoundsToReference,
   computePracticeCoachResult,
   computeTrainingSignals,
+  evaluateRecommendations,
+  FOCUS_RULES,
   predictCompetitionResult,
   runBacktest,
 } from "../analytics";
@@ -18,10 +21,17 @@ const EMPTY_STYLE = { color: "var(--text-faint)", textAlign: "center", padding: 
 const READINESS_BADGE_CLASS = { ready: "high", mixed: "medium", "needs-work": "low" };
 const READINESS_LABELS = { ready: "Ready", mixed: "Mixed", "needs-work": "Needs Work" };
 const CONFIDENCE_LABELS = { low: "Low", medium: "Medium", high: "High" };
+const MAX_REVIEW_CASES = 3;
 
 const fmtSeconds = (ms) => (ms / 1000).toFixed(2);
 const fmtSignedSeconds = (ms) => `${ms >= 0 ? "+" : ""}${fmtSeconds(ms)}`;
 const fmtSignedPct = (fraction) => `${fraction >= 0 ? "+" : ""}${(fraction * 100).toFixed(1)}%`;
+const ruleTitle = (ruleId) => FOCUS_RULES.find((r) => r.id === ruleId)?.title || ruleId;
+
+// No persisted "next competition" date exists yet in CubeBox, so this is
+// always null for now - buildTrainingPlan already handles that case (its
+// own limitation message explains the empty "Before Competition" bucket).
+const NEXT_COMPETITION_DATE_MS = null;
 
 function computeCoachResult(solves, event, competitionResults) {
   const startedAt = performance.now();
@@ -30,13 +40,16 @@ function computeCoachResult(solves, event, competitionResults) {
   const backtest = runBacktest(solves, referencePoints, event);
   const signals = computeTrainingSignals(solves, event, referencePoints, prediction, backtest.summary);
   const result = computePracticeCoachResult(signals);
+  const plan = buildTrainingPlan(result.focusAreas, NEXT_COMPETITION_DATE_MS);
+  const review = evaluateRecommendations(solves, event, competitionResults);
   logger.debug("Practice coach computed.", {
     event,
     readiness: result.readiness.score,
     focusAreaCount: result.focusAreas.length,
+    reviewEvaluatedCount: review.summary.evaluatedCount,
     durationMs: Math.round(performance.now() - startedAt),
   });
-  return { signals, result };
+  return { signals, result, plan, review };
 }
 
 function CoachSummary({ result }) {
@@ -137,8 +150,89 @@ function Limitations({ limitations }) {
   );
 }
 
+function PlanBucket({ title, areas }) {
+  if (areas.length === 0) return null;
+  return (
+    <div style={{ marginBottom: "var(--space-2)" }}>
+      <div className="prediction-basis" style={{ fontWeight: 600, marginBottom: 4 }}>{title}</div>
+      {areas.map((a) => (
+        <div key={a.id} style={{ marginBottom: 4 }}>
+          <div style={{ color: "var(--text)", fontSize: "0.88rem", fontWeight: 600 }}>{a.title}</div>
+          <div className="prediction-basis">{a.suggestedDrill}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TrainingPlanSection({ plan }) {
+  const hasAnyBucket = plan.actNow.length > 0 || plan.thisWeek.length > 0 || plan.beforeNextCompetition.length > 0;
+  return (
+    <div className="section-card">
+      <div className="section-title">Training Plan</div>
+      {hasAnyBucket ? (
+        <>
+          <PlanBucket title="Act now" areas={plan.actNow} />
+          <PlanBucket title="This week" areas={plan.thisWeek} />
+          <PlanBucket title="Before competition" areas={plan.beforeNextCompetition} />
+        </>
+      ) : (
+        <div style={EMPTY_STYLE}>No plan items right now.</div>
+      )}
+      {plan.limitations.map((l) => (
+        <div className="prediction-basis" key={l}>{l}</div>
+      ))}
+    </div>
+  );
+}
+
+const REVIEW_STATUS_BADGE = { resolved: "high", active: "medium", "insufficient-followup": "low" };
+const REVIEW_STATUS_LABELS = { resolved: "Resolved", active: "Still active", "insufficient-followup": "Needs follow-up" };
+
+function reviewStatus(c) {
+  if (c.resolved) return "resolved";
+  if (c.metricAtHorizon === null) return "insufficient-followup";
+  return "active";
+}
+
+// Neutral, non-causal copy - a rule's own metric crossed back past its
+// trigger condition, not "the recommendation worked."
+function reviewText(c) {
+  const status = reviewStatus(c);
+  const title = ruleTitle(c.ruleId);
+  if (status === "resolved") return `${title} crossed its target ${c.daysToResolution} days after being flagged.`;
+  if (status === "insufficient-followup") return `Not enough later data to evaluate ${title}.`;
+  return `${title} is still active.`;
+}
+
+function CoachReview({ review }) {
+  const cases = [...review.cases].sort((a, b) => b.triggeredAt - a.triggeredAt).slice(0, MAX_REVIEW_CASES);
+  return (
+    <div className="section-card">
+      <div className="section-title">Coach Review</div>
+      {cases.length === 0 ? (
+        <div style={EMPTY_STYLE}>No prior recommendations to review yet.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {cases.map((c) => {
+            const status = reviewStatus(c);
+            return (
+              <div key={c.ruleId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: "0.85rem", color: "var(--text)" }}>{reviewText(c)}</span>
+                <span className={`confidence-badge confidence-badge-${REVIEW_STATUS_BADGE[status]}`}>
+                  {REVIEW_STATUS_LABELS[status]}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const CoachTab = ({ cubeDimension, practiceSolves, competitions }) => {
-  const { signals, result } = useMemo(
+  const { signals, result, plan, review } = useMemo(
     () => computeCoachResult(practiceSolves, cubeDimension, competitions),
     [practiceSolves, cubeDimension, competitions]
   );
@@ -150,7 +244,9 @@ const CoachTab = ({ cubeDimension, practiceSolves, competitions }) => {
         <div className="section-title">Top Focus Areas</div>
         <TopFocusAreas focusAreas={result.focusAreas} />
       </div>
+      <TrainingPlanSection plan={plan} />
       <EvidenceSnapshot signals={signals} />
+      <CoachReview review={review} />
       <Limitations limitations={result.limitations} />
     </div>
   );

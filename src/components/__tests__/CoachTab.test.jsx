@@ -49,6 +49,20 @@ const highDnfFixture = () => ({
   competitions: [],
 });
 
+// Dense, no DNFs, monotonically improving toward "now" (keeps setting new
+// PBs), no competitions - no coach rule should ever fire, historically or
+// now, so this is the fixture for the true "nothing to review" empty state
+// (unlike zero solves, where "build recent volume" has always been true).
+const neverTriggersFixture = () => {
+  const practiceSolves = [];
+  for (let daysBack = 0; daysBack <= 90; daysBack++) {
+    for (let i = 0; i < 4; i++) {
+      practiceSolves.push(solve(daysBack, 9000 + daysBack));
+    }
+  }
+  return { practiceSolves, competitions: [] };
+};
+
 describe("CoachTab", () => {
   it("renders a readiness score and label with no data at all", () => {
     render(<CoachTab cubeDimension="3x3x3" practiceSolves={[]} competitions={[]} />);
@@ -80,8 +94,8 @@ describe("CoachTab", () => {
     const { practiceSolves, competitions } = highDnfFixture();
     render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
 
-    const card = screen.getByText("Clean up solves").closest(".section-card");
-    expect(within(card).getByText("DNF rate is above target.")).toBeInTheDocument();
+    const card = screen.getByText("DNF rate is above target.").closest(".section-card");
+    expect(within(card).getByText("Clean up solves")).toBeInTheDocument();
     expect(within(card).getByText("60.0%")).toBeInTheDocument(); // 3 DNFs of 5 solves
     expect(within(card).getByText(/Run 3 blocks of 20 solves where a DNF ends the block/)).toBeInTheDocument();
     expect(within(card).getByText(/DNF rate under 10%/)).toBeInTheDocument();
@@ -122,5 +136,50 @@ describe("CoachTab", () => {
     render(<CoachTab cubeDimension="4x4x4" practiceSolves={fourByFourSolves} competitions={[]} />);
     const snapshot = screen.getByText("Evidence Snapshot").closest(".section-card");
     expect(within(snapshot).getByText("2 solves")).toBeInTheDocument();
+  });
+
+  it("renders the Training Plan section with a high-priority item under Act now", () => {
+    const { practiceSolves, competitions } = highDnfFixture();
+    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+
+    const plan = screen.getByText("Training Plan").closest(".section-card");
+    expect(within(plan).getByText("Act now")).toBeInTheDocument();
+    expect(within(plan).getByText("Clean up solves")).toBeInTheDocument();
+    expect(within(plan).getByText(/Run 3 blocks of 20 solves where a DNF ends the block/)).toBeInTheDocument();
+  });
+
+  it("does not show a fake before-competition plan without a competition date", () => {
+    const { practiceSolves, competitions } = highDnfFixture();
+    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+
+    const plan = screen.getByText("Training Plan").closest(".section-card");
+    expect(within(plan).queryByText("Before competition")).not.toBeInTheDocument();
+    expect(within(plan).getByText(/No upcoming competition date set/)).toBeInTheDocument();
+  });
+
+  it("shows the Training Plan empty state when no focus areas are flagged", () => {
+    const { practiceSolves, competitions } = neverTriggersFixture();
+    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+    const plan = screen.getByText("Training Plan").closest(".section-card");
+    expect(within(plan).getByText("No plan items right now.")).toBeInTheDocument();
+  });
+
+  it("renders the Coach Review empty state when no rule has ever triggered", () => {
+    const { practiceSolves, competitions } = neverTriggersFixture();
+    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+    const review = screen.getByText("Coach Review").closest(".section-card");
+    expect(within(review).getByText("No prior recommendations to review yet.")).toBeInTheDocument();
+  });
+
+  it("renders a Coach Review case with neutral, non-causal status text", () => {
+    const { practiceSolves, competitions } = highDnfFixture();
+    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+
+    const review = screen.getByText("Coach Review").closest(".section-card");
+    // DNFs only 3-5 days back: the 14-day evaluation horizon hasn't elapsed yet.
+    expect(within(review).getByText(/Not enough later data to evaluate Clean up solves/)).toBeInTheDocument();
+    expect(within(review).getByText("Needs follow-up")).toBeInTheDocument();
+    expect(within(review).queryByText(/recommendation worked/i)).not.toBeInTheDocument();
+    expect(within(review).queryByText(/improved your/i)).not.toBeInTheDocument();
   });
 });

@@ -119,6 +119,7 @@ export type { CoachSolve, TrainingSignals } from "./trainingSignals";
 export {
   CV_CAP,
   DNF_RISK_CAP,
+  FOCUS_RULES,
   MOMENTUM_SENSITIVITY,
   TARGET_SOLVES_14D,
   computePracticeCoachResult,
@@ -128,7 +129,20 @@ export type {
   FocusArea,
   FocusAreaEvidence,
   FocusPriority,
+  FocusRule,
   PracticeCoachResult,
   ReadinessLabel,
   ReadinessScore,
 } from "./practiceCoach";
+export { buildTrainingPlan } from "./trainingPlan";
+export type { TrainingPlanResult } from "./trainingPlan";
+export {
+  EVALUATION_HORIZON_DAYS,
+  EVALUATION_LOOKBACK_DAYS,
+  evaluateRecommendations,
+} from "./recommendationEvaluation";
+export type {
+  RecommendationEvaluationCase,
+  RecommendationEvaluationResult,
+  RecommendationEvaluationSummary,
+} from "./recommendationEvaluation";

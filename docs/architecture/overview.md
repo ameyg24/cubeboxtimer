@@ -261,6 +261,18 @@ limitations when data is missing. Surfaced as the Dashboard's Coach tab.
 Nothing here is persisted — it's recomputed from existing solves and
 competition results on every render, the same way Model Comparison is.
 
+Two small additions build on this without introducing any new persistence
+or a bigger "engine": `trainingPlan.ts` reshapes `FocusArea[]` into Act
+now / This week / Before competition buckets (the last only when a
+competition date is supplied — there's no persisted "upcoming
+competition" concept yet, so the Coach tab always passes `null` today).
+`recommendationEvaluation.ts` replays each rule's own trigger condition
+over a 60-day lookback, the same walk-forward shape as `backtesting.ts`,
+to check whether the metric that fired a rule later crossed back past its
+own threshold within a 14-day horizon. This is a retrospective rule check,
+not a causal claim — output is "resolved" / "still active" / "not enough
+later data," never "this recommendation worked."
+
 ### WCA competition import (`wcaImport.ts`, `wcaApi.js`, `useWcaImport.js`)
 
 Lets a user pull their own past results from the WCA's public API instead

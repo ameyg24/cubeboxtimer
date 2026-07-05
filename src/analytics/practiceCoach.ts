@@ -113,11 +113,13 @@ function computeReadiness(s: TrainingSignals): ReadinessScore {
 const fmtPct = (fraction: number) => `${(fraction * 100).toFixed(1)}%`;
 const fmtDays = (days: number) => `${Math.round(days)}`;
 
-interface FocusRule {
+export interface FocusRule {
   id: string;
   title: string;
   priority: FocusPriority;
   trigger: (s: TrainingSignals) => boolean;
+  /** The single number the trigger condition tests, for recommendationEvaluation.ts. */
+  metric: (s: TrainingSignals) => number | null;
   reason: string;
   evidence: (s: TrainingSignals) => FocusAreaEvidence[];
   suggestedDrill: string;
@@ -126,13 +128,16 @@ interface FocusRule {
 
 // Fixed table: hardcoded priority, hardcoded drill, array order is the
 // tie-break for equal-priority rules. Six rules, six distinct signals — no
-// two rules key off the same underlying number.
-const FOCUS_RULES: FocusRule[] = [
+// two rules key off the same underlying number. Exported so
+// recommendationEvaluation.ts can reuse the exact same trigger/metric
+// functions instead of re-deriving them.
+export const FOCUS_RULES: readonly FocusRule[] = [
   {
     id: "clean-up-solves",
     title: "Clean up solves",
     priority: "high",
     trigger: (s) => s.dnfRatePct > DNF_RISK_CAP * 100,
+    metric: (s) => s.dnfRatePct,
     reason: "DNF rate is above target.",
     evidence: (s) => [
       { label: "DNF rate", value: `${s.dnfRatePct.toFixed(1)}%` },
@@ -149,6 +154,7 @@ const FOCUS_RULES: FocusRule[] = [
       s.competitionGapPct !== null &&
       s.competitionConfidence !== "insufficient" &&
       s.competitionGapPct > COMPETITION_GAP_TRIGGER_PCT,
+    metric: (s) => s.competitionGapPct,
     reason: "Competition averages have been slower than practice.",
     evidence: (s) => [
       { label: "Competition gap", value: fmtPct(s.competitionGapPct as number) },
@@ -165,6 +171,7 @@ const FOCUS_RULES: FocusRule[] = [
       const cv = coefficientOfVariation(s);
       return cv !== null && cv > CV_CAP;
     },
+    metric: (s) => coefficientOfVariation(s),
     reason: "Recent practice times are inconsistent.",
     evidence: (s) => [{ label: "Consistency (stddev/mean)", value: fmtPct(coefficientOfVariation(s) as number) }],
     suggestedDrill: "Do 3 blocks of 20 solves focused on clean execution, not speed.",
@@ -180,6 +187,7 @@ const FOCUS_RULES: FocusRule[] = [
       s.practiceMeanMs > 0 &&
       s.momentumMs > 0 &&
       s.momentumMs / s.practiceMeanMs > MOMENTUM_SENSITIVITY,
+    metric: (s) => s.momentumMs,
     reason: "Recent practice has been slower than the two weeks before.",
     evidence: (s) => [{ label: "Momentum", value: `${((s.momentumMs as number) / 1000).toFixed(2)}s slower` }],
     suggestedDrill: "Do controlled-turning sessions and review your worst solves.",
@@ -190,6 +198,7 @@ const FOCUS_RULES: FocusRule[] = [
     title: "Build recent volume",
     priority: "medium",
     trigger: (s) => s.practiceCount < TARGET_SOLVES_14D,
+    metric: (s) => s.practiceCount,
     reason: "Practice volume in the last 14 days is below target.",
     evidence: (s) => [
       { label: "Solves in last 14 days", value: `${s.practiceCount}` },
@@ -203,6 +212,7 @@ const FOCUS_RULES: FocusRule[] = [
     title: "Reset training stimulus",
     priority: "low",
     trigger: (s) => s.daysSinceLastPb !== null && s.daysSinceLastPb > STALE_PB_DAYS,
+    metric: (s) => s.daysSinceLastPb,
     reason: "No personal record set recently.",
     evidence: (s) => [{ label: "Days since last PB", value: fmtDays(s.daysSinceLastPb as number) }],
     suggestedDrill: "Switch to a different practice format for one week (OH, one scramble type, or slow-turning blocks).",

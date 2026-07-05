@@ -142,6 +142,28 @@ describe("Practice Coach integration", () => {
     expect(within(snapshotAfter).getByText("Competition Gap").closest(".stat-tile")).not.toHaveTextContent("-");
   });
 
+  it("feeds imported csTimer solves into the Coach Review", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    const secondsAgo = (n) => Math.floor(daysAgo(n) / 1000);
+    const dnfEntry = (timestampSeconds) => [[-1, 0], "R U R' U'", "", timestampSeconds];
+    await importCsTimerData(
+      user,
+      csTimerExportOf([
+        dnfEntry(secondsAgo(5)),
+        dnfEntry(secondsAgo(4)),
+        dnfEntry(secondsAgo(3)),
+        csTimerEntry(10000, secondsAgo(2)),
+        csTimerEntry(10000, secondsAgo(1)),
+      ])
+    );
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Imported 5 solves"));
+
+    const review = screen.getByText("Coach Review").closest(".section-card");
+    expect(within(review).getByText(/Not enough later data to evaluate Clean up solves/)).toBeInTheDocument();
+  });
+
   it("recomputes for the active event only when switching events", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<Harness cubeDimension="3x3x3" />);
