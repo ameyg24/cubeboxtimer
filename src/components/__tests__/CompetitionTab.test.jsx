@@ -295,6 +295,55 @@ describe("CompetitionTab", () => {
     expect(screen.getByRole("button", { name: "Delete Illini Cubers Spring 2026 (Final)" })).toBeInTheDocument();
   });
 
+  it("never renders the competition name as a round row when a legacy roundless import shares the group", () => {
+    // The first-generation importer stored records without wcaRoundId/
+    // roundLabel. If one is still persisted alongside per-round records
+    // from a later re-import, it must render as a labeled round row - not
+    // as a second copy of the competition-name block inside the group.
+    const rounds = [
+      competition("legacy", 30, 6940, {
+        competitionName: "UIUC Side Events Spring 2025",
+        source: "wca-import",
+        wcaCompetitionId: "UIUCSideEventsSpring2025",
+        // no wcaRoundId, no roundLabel
+      }),
+      competition("r1", 30, 7560, {
+        competitionName: "UIUC Side Events Spring 2025",
+        source: "wca-import",
+        wcaCompetitionId: "UIUCSideEventsSpring2025",
+        wcaRoundId: 1,
+        roundLabel: "First round",
+      }),
+      competition("r2", 30, 6940, {
+        competitionName: "UIUC Side Events Spring 2025",
+        source: "wca-import",
+        wcaCompetitionId: "UIUCSideEventsSpring2025",
+        wcaRoundId: 2,
+        roundLabel: "Final",
+      }),
+    ];
+    renderTab(
+      <CompetitionTab
+        cubeDimension="3x3x3"
+        practiceSolves={[]}
+        competitions={rounds}
+        addCompetitionResult={noop}
+        updateCompetitionResult={noop}
+        deleteCompetitionResult={noop}
+      />
+    );
+
+    // Exactly one competition-name occurrence: the group header.
+    expect(screen.getAllByText("UIUC Side Events Spring 2025")).toHaveLength(1);
+    // The legitimate rounds are untouched...
+    expect(screen.getByText("First round")).toBeInTheDocument();
+    expect(screen.getByText("Final")).toBeInTheDocument();
+    // ...and the legacy record is still shown and addressable, under a
+    // neutral fallback label rather than hidden.
+    expect(screen.getByText("Result")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete UIUC Side Events Spring 2025 (Result)" })).toBeInTheDocument();
+  });
+
   it("links an imported competition's name to its WCA results page, but leaves manual entries as plain text", () => {
     renderTab(
       <CompetitionTab

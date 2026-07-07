@@ -459,6 +459,36 @@ describe("decideImportAction", () => {
     const decision = decideImportAction(importCandidate({ event: "3x3x3" }), existing);
     expect(decision.type).toBe("create");
   });
+
+  // The first-generation importer stored one record per competition + event
+  // (the final round) with no wcaRoundId/roundLabel. Re-importing must adopt
+  // that record as the Final rather than leaving it stranded as a roundless
+  // sibling, which the results list would render as a duplicated
+  // competition-name row inside the group.
+  it("legacy roundless import: the Final-round candidate adopts it as an update, even with identical values", () => {
+    const existing = [
+      competition({ source: "wca-import", wcaCompetitionId: "NewZealandChamps2009" }), // no wcaRoundId
+    ];
+    const decision = decideImportAction(importCandidate({ wcaRoundId: 3, roundLabel: "Final" }), existing);
+    expect(decision.type).toBe("update");
+    expect((decision as { existingId: string }).existingId).toBe("c1");
+  });
+
+  it("legacy roundless import: a non-Final round still creates its own record", () => {
+    const existing = [
+      competition({ source: "wca-import", wcaCompetitionId: "NewZealandChamps2009" }), // no wcaRoundId
+    ];
+    const decision = decideImportAction(importCandidate({ wcaRoundId: 1, roundLabel: "First round" }), existing);
+    expect(decision.type).toBe("create");
+  });
+
+  it("legacy roundless import: a legacy record for a different event is not adopted", () => {
+    const existing = [
+      competition({ source: "wca-import", wcaCompetitionId: "NewZealandChamps2009", event: "2x2x2" }),
+    ];
+    const decision = decideImportAction(importCandidate({ wcaRoundId: 3, roundLabel: "Final", event: "3x3x3" }), existing);
+    expect(decision.type).toBe("create");
+  });
 });
 
 describe("findLinkedWcaId", () => {

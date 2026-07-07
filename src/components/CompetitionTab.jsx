@@ -406,7 +406,12 @@ function CompetitionResultsList({ competitions, onEdit, onDelete }) {
                   <CompetitionRoundRow
                     key={c.id}
                     competition={c}
-                    roundLabel={c.roundLabel}
+                    // A missing roundLabel (a record imported before rounds
+                    // were tracked) must never fall back to the
+                    // competition-name block inside a group - that reads as
+                    // a duplicated header. "Result" keeps the row visible
+                    // and editable under a neutral label instead.
+                    roundLabel={c.roundLabel || "Result"}
                     indent
                     isLast={idx === group.rounds.length - 1}
                     onEdit={onEdit}

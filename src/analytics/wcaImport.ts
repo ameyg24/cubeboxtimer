@@ -447,6 +447,28 @@ export function decideImportAction(
         };
   }
 
+  // The first-generation importer stored one record per competition + event
+  // (its deepest round) with no wcaRoundId/roundLabel. Adopt that record as
+  // the Final on re-import - always an update, even with identical values,
+  // so the record gains its round identity instead of surviving as a
+  // roundless sibling of the newly created per-round records.
+  if (candidate.roundLabel === "Final") {
+    const legacyImport = list.find(
+      (c) =>
+        c.source === "wca-import" &&
+        c.wcaCompetitionId === candidate.wcaCompetitionId &&
+        c.event === candidate.event &&
+        c.wcaRoundId == null
+    );
+    if (legacyImport) {
+      return {
+        type: "update",
+        existingId: legacyImport.id,
+        reason: "Imported before rounds were tracked; updating it with round information.",
+      };
+    }
+  }
+
   const unrelated = list.filter(
     (c) => !(c.source === "wca-import" && c.wcaCompetitionId === candidate.wcaCompetitionId)
   );
