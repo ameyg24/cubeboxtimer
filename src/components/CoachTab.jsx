@@ -5,16 +5,7 @@
 // predictCompetitionResult. No LLM, no narration layer, nothing generated
 // per render.
 import { useMemo } from "react";
-import {
-  buildTrainingPlan,
-  collapseRoundsToReference,
-  computePracticeCoachResult,
-  computeTrainingSignals,
-  evaluateRecommendations,
-  FOCUS_RULES,
-  predictCompetitionResult,
-  runBacktest,
-} from "../analytics";
+import { createAnalyticsContext, FOCUS_RULES } from "../analytics";
 import { logger } from "../logger.js";
 
 const EMPTY_STYLE = { color: "var(--text-faint)", textAlign: "center", padding: "2.5rem" };
@@ -28,20 +19,20 @@ const fmtSignedSeconds = (ms) => `${ms >= 0 ? "+" : ""}${fmtSeconds(ms)}`;
 const fmtSignedPct = (fraction) => `${fraction >= 0 ? "+" : ""}${(fraction * 100).toFixed(1)}%`;
 const ruleTitle = (ruleId) => FOCUS_RULES.find((r) => r.id === ruleId)?.title || ruleId;
 
-// No persisted "next competition" date exists yet in CubeBox, so this is
-// always null for now - buildTrainingPlan already handles that case (its
-// own limitation message explains the empty "Before Competition" bucket).
-const NEXT_COMPETITION_DATE_MS = null;
-
-function computeCoachResult(solves, event, competitionResults) {
+// Builds the shared analytics context and logs after forcing the parts
+// this tab always renders. nextCompetitionDateMs stays unset - no
+// persisted "next competition" date exists yet in CubeBox, and
+// buildTrainingPlan already explains the empty bucket itself.
+function buildCoachAnalytics(solves, event, competitionResults) {
   const startedAt = performance.now();
-  const referencePoints = collapseRoundsToReference(competitionResults.filter((c) => c.event === event));
-  const prediction = predictCompetitionResult(solves, referencePoints, event, Date.now());
-  const backtest = runBacktest(solves, referencePoints, event);
-  const signals = computeTrainingSignals(solves, event, referencePoints, prediction, backtest.summary);
-  const result = computePracticeCoachResult(signals);
-  const plan = buildTrainingPlan(result.focusAreas, NEXT_COMPETITION_DATE_MS);
-  const review = evaluateRecommendations(solves, event, competitionResults);
+  const ctx = createAnalyticsContext({
+    event,
+    allSolvesForEvent: solves,
+    competitionResults,
+    now: Date.now(),
+  });
+  const result = ctx.practiceCoach();
+  const review = ctx.recommendationEvaluation();
   logger.debug("Practice coach computed.", {
     event,
     readiness: result.readiness.score,
@@ -49,7 +40,7 @@ function computeCoachResult(solves, event, competitionResults) {
     reviewEvaluatedCount: review.summary.evaluatedCount,
     durationMs: Math.round(performance.now() - startedAt),
   });
-  return { signals, result, plan, review };
+  return ctx;
 }
 
 function CoachSummary({ result }) {
@@ -232,10 +223,14 @@ function CoachReview({ review }) {
 }
 
 const CoachTab = ({ cubeDimension, practiceSolves, competitions }) => {
-  const { signals, result, plan, review } = useMemo(
-    () => computeCoachResult(practiceSolves, cubeDimension, competitions),
+  const analytics = useMemo(
+    () => buildCoachAnalytics(practiceSolves, cubeDimension, competitions),
     [practiceSolves, cubeDimension, competitions]
   );
+  const signals = analytics.trainingSignals();
+  const result = analytics.practiceCoach();
+  const plan = analytics.trainingPlan();
+  const review = analytics.recommendationEvaluation();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>

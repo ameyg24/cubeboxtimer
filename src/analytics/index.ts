@@ -146,3 +146,12 @@ export type {
   RecommendationEvaluationResult,
   RecommendationEvaluationSummary,
 } from "./recommendationEvaluation";
+export { createAnalyticsContext } from "./platform/context";
+export type { AnalyticsContext, AnalyticsInput } from "./platform/context";
+export {
+  ANALYTICS_PIPELINES,
+  findDependencyCycle,
+  getPipeline,
+  validatePipelineDependencies,
+} from "./platform/registry";
+export type { AnalyticsPipeline, PipelineId } from "./platform/registry";

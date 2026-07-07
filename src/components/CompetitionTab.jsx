@@ -6,16 +6,10 @@
 // like SolveList receives addSolve/updateSolve/deleteSolve from App.jsx.
 import { useId, useMemo, useState } from "react";
 import {
-  buildFeatureVector,
   checkForDuplicateOrConflict,
-  collapseRoundsToReference,
-  compareModels,
+  createAnalyticsContext,
   DEFAULT_PRACTICE_WINDOW_DAYS,
   explainBestModel,
-  explainPrediction,
-  predictCompetitionBest,
-  predictCompetitionResult,
-  runBacktest,
 } from "../analytics";
 import { CUBE_DIMENSIONS } from "../hooks/useSolveSessions.js";
 import CollapsibleSection from "./CollapsibleSection.jsx";
@@ -63,21 +57,25 @@ function classifyPredictionEmptyState(competitionCount, prediction) {
   return null;
 }
 
-// Runs the pure backtest and logs around it (start, finish, evaluation
-// count, duration) — analytics/backtesting.ts itself stays framework- and
-// logger-free, matching every other module in src/analytics. Computed once
-// here so PredictionQuality and PredictionBreakdown/Factors share the same
-// result instead of each re-running the backtest independently.
-function computeBacktest(practiceSolves, competitionsForEvent, event) {
+// Builds the shared analytics context and logs around the eager part of it
+// (the backtest chain everything in this tab renders) — the platform layer
+// itself stays framework- and logger-free, matching every module in
+// src/analytics.
+function buildCompetitionAnalytics(practiceSolves, competitions, event) {
   const startedAt = performance.now();
-  logger.debug("Backtest started.", { event, competitionCount: competitionsForEvent.length });
-  const result = runBacktest(practiceSolves, competitionsForEvent, event);
-  logger.info("Backtest finished.", {
+  const ctx = createAnalyticsContext({
     event,
-    evaluatedCount: result.summary.evaluatedCount,
+    allSolvesForEvent: practiceSolves,
+    competitionResults: competitions,
+    now: Date.now(),
+  });
+  const summary = ctx.backtest().summary;
+  logger.info("Competition analytics computed.", {
+    event,
+    evaluatedCount: summary.evaluatedCount,
     durationMs: Math.round(performance.now() - startedAt),
   });
-  return result;
+  return ctx;
 }
 
 function PredictionCard({ prediction, bestPrediction, emptyState, competitionCount, cubeDimension }) {
@@ -661,50 +659,28 @@ const CompetitionTab = ({
     [competitions, cubeDimension]
   );
 
-  // A competition's multiple imported rounds are each their own row (so
-  // each round stays individually visible/editable in the results list
-  // below), but the prediction model, Historical Calibration, and Prediction
-  // Factors all compare against "how you did at this competition" - so they
-  // run on one reference point per competition (average of its rounds)
-  // instead of counting every round separately. See collapseRoundsToReference.
-  const referencePointsForEvent = useMemo(
-    () => collapseRoundsToReference(competitionsForEvent),
-    [competitionsForEvent]
+  // One shared context per (solves, competitions, event) - every derived
+  // number this tab renders comes out of it, computed once and memoized
+  // inside the context instead of each section re-running its own wiring.
+  // Rounds-collapsed reference points (see collapseRoundsToReference) are
+  // what the prediction/calibration/model sections run on; the uncollapsed
+  // competitionsForEvent above stays only for the editable results list.
+  const analytics = useMemo(
+    () => buildCompetitionAnalytics(practiceSolves, competitions, cubeDimension),
+    [practiceSolves, competitions, cubeDimension]
   );
+
+  const referencePointsForEvent = analytics.referencePoints();
+  const prediction = analytics.prediction();
+  const bestPrediction = analytics.bestPrediction();
+  const backtest = analytics.backtest();
+  const explanation = analytics.explanation();
+  const modelComparison = analytics.modelComparison();
+  const currentFeatures = analytics.features();
 
   const competitionsById = useMemo(
     () => new Map(referencePointsForEvent.map((c) => [c.id, c])),
     [referencePointsForEvent]
-  );
-
-  const prediction = useMemo(
-    () => predictCompetitionResult(practiceSolves, referencePointsForEvent, cubeDimension, Date.now()),
-    [practiceSolves, referencePointsForEvent, cubeDimension]
-  );
-
-  const bestPrediction = useMemo(
-    () => predictCompetitionBest(practiceSolves, referencePointsForEvent, cubeDimension, Date.now()),
-    [practiceSolves, referencePointsForEvent, cubeDimension]
-  );
-
-  const backtest = useMemo(
-    () => computeBacktest(practiceSolves, referencePointsForEvent, cubeDimension),
-    [practiceSolves, referencePointsForEvent, cubeDimension]
-  );
-
-  const explanation = useMemo(
-    () => explainPrediction(prediction, backtest.summary),
-    [prediction, backtest]
-  );
-
-  const modelComparison = useMemo(
-    () => compareModels(practiceSolves, referencePointsForEvent, cubeDimension),
-    [practiceSolves, referencePointsForEvent, cubeDimension]
-  );
-
-  const currentFeatures = useMemo(
-    () => buildFeatureVector(practiceSolves, cubeDimension, Date.now(), referencePointsForEvent),
-    [practiceSolves, referencePointsForEvent, cubeDimension]
   );
 
   const emptyState = classifyPredictionEmptyState(referencePointsForEvent.length, prediction);

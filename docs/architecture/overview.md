@@ -273,6 +273,21 @@ own threshold within a 14-day horizon. This is a retrospective rule check,
 not a causal claim — output is "resolved" / "still active" / "not enough
 later data," never "this recommendation worked."
 
+### Analytics context (`platform/context.ts`, `platform/registry.ts`)
+
+`createAnalyticsContext` is the single derived-data boundary between the
+UI and the modules above: one immutable context per (event, solves,
+competitions, now), with every output — records, prediction, backtest,
+features, explanation, model comparison, signals, coach, plan, review —
+computed lazily on first read and memoized for the context's lifetime.
+CompetitionTab and CoachTab previously each assembled the same
+filter → collapse-rounds → predict → backtest wiring by hand; both now
+read from one context, so consumers can't drift apart or recompute shared
+inputs. `registry.ts` lists each capability as a pipeline with an explicit
+`dependencies` array mirroring the real module-level call structure, with
+tests pinning that the graph is complete and acyclic. Outputs remain
+deterministic and are never persisted.
+
 ### WCA competition import (`wcaImport.ts`, `wcaApi.js`, `useWcaImport.js`)
 
 Lets a user pull their own past results from the WCA's public API instead
