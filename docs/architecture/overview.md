@@ -231,6 +231,10 @@ competitions per event don't need one, and a plain, from-scratch
 implementation keeps every formula inspectable in the same way the
 rule-based model already is.
 
+Dataset construction (`mlDataset.ts`), the shared error metrics
+(`mlEvaluation.ts`), and interval calibration (`calibration.ts`) are
+documented in [`docs/architecture/model-evaluation.md`](model-evaluation.md).
+
 This is surfaced as the Competition tab's Feature Snapshot (the live
 feature vector, compact) and Model Comparison (the metrics table, with the
 best model highlighted and its one-line explanation) — both sit alongside,

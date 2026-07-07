@@ -15,12 +15,15 @@
 
 import type { ConfidenceLevel, CompetitionResultInput, TimedPracticeSolve } from "./competitionPrediction";
 import { DEFAULT_PRACTICE_WINDOW_DAYS, predictCompetitionResult } from "./competitionPrediction";
+import { median } from "./mlEvaluation";
 
 export interface BacktestCase {
   competitionId: string;
   /** ISO date string, as supplied on the competition result. */
   date: string;
   predictedAverageMs: number;
+  /** The prediction's confidence interval at the time, for calibration.ts. Set whenever the prediction itself is. */
+  confidenceRangeMs: [number, number] | null;
   actualAverageMs: number;
   absoluteErrorMs: number;
   /** |predicted - actual| / actual, as a percent. Always >= 0. */
@@ -53,12 +56,6 @@ export interface BacktestResult {
 
 function numericMean(values: number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length;
-}
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
 function summarizeBacktest(cases: BacktestCase[]): BacktestSummary {
@@ -133,6 +130,7 @@ export function runBacktest(
       competitionId: target.id,
       date: target.date,
       predictedAverageMs,
+      confidenceRangeMs: prediction.confidenceRangeMs,
       actualAverageMs,
       absoluteErrorMs,
       percentErrorPct: (absoluteErrorMs / actualAverageMs) * 100,

@@ -16,13 +16,19 @@ export interface TrainingRow {
 // Fixed feature order used by both models. All four are well-defined
 // numbers whenever practiceMeanMs is non-null (a successful practiceMeanMs
 // implies at least one valid solve, which is enough for computeSessionStats
-// to also produce a real stddevMs), so toVector only needs to guard on the
-// first one.
-const FEATURE_KEYS = ["practiceMeanMs", "practiceStddevMs", "dnfRatePct", "priorCompetitionCount"] as const;
+// to also produce a real stddevMs), so toModelVector only needs to guard on
+// the first one. Exported so mlDataset.ts builds its feature matrix from
+// the exact projection the models train on, not a second definition.
+export const MODEL_FEATURE_KEYS = [
+  "practiceMeanMs",
+  "practiceStddevMs",
+  "dnfRatePct",
+  "priorCompetitionCount",
+] as const;
 
-function toVector(f: FeatureVector): number[] | null {
+export function toModelVector(f: FeatureVector): number[] | null {
   if (f.practiceMeanMs === null || f.practiceStddevMs === null) return null;
-  return FEATURE_KEYS.map((key) => f[key] as number);
+  return MODEL_FEATURE_KEYS.map((key) => f[key] as number);
 }
 
 interface ColumnStats {
@@ -94,7 +100,7 @@ export interface LinearRegressionFit {
  */
 export function fitLinearRegression(trainingRows: TrainingRow[]): LinearRegressionFit {
   const usable = trainingRows
-    .map((r) => ({ vec: toVector(r.features), y: r.actualAverageMs }))
+    .map((r) => ({ vec: toModelVector(r.features), y: r.actualAverageMs }))
     .filter((r): r is { vec: number[]; y: number } => r.vec !== null);
 
   if (usable.length < MIN_LINEAR_REGRESSION_ROWS) {
@@ -114,7 +120,7 @@ export function fitLinearRegression(trainingRows: TrainingRow[]): LinearRegressi
 
   return {
     predict(features: FeatureVector): number | null {
-      const vec = toVector(features);
+      const vec = toModelVector(features);
       if (vec === null) return null;
       const z = vec.map((v, c) => (v - stats[c].mean) / stats[c].std);
       const dot = z.reduce((sum, v, i) => sum + v * weights[i], 0);
@@ -138,9 +144,9 @@ export function predictNearestNeighbor(
   k: number = DEFAULT_KNN_NEIGHBORS
 ): number | null {
   const usable = trainingRows
-    .map((r) => ({ vec: toVector(r.features), y: r.actualAverageMs }))
+    .map((r) => ({ vec: toModelVector(r.features), y: r.actualAverageMs }))
     .filter((r): r is { vec: number[]; y: number } => r.vec !== null);
-  const targetVec = toVector(target);
+  const targetVec = toModelVector(target);
   if (usable.length === 0 || targetVec === null) return null;
 
   const { standardized, stats } = standardizeColumns(usable.map((r) => r.vec));

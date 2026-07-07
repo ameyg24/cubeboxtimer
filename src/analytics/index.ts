@@ -105,7 +105,13 @@ export type {
 } from "./cstimerImport";
 export { buildFeatureVector } from "./predictionFeatures";
 export type { FeatureVector } from "./predictionFeatures";
-export { DEFAULT_KNN_NEIGHBORS, fitLinearRegression, predictNearestNeighbor } from "./predictionModels";
+export {
+  DEFAULT_KNN_NEIGHBORS,
+  MODEL_FEATURE_KEYS,
+  fitLinearRegression,
+  predictNearestNeighbor,
+  toModelVector,
+} from "./predictionModels";
 export type { LinearRegressionFit, TrainingRow } from "./predictionModels";
 export {
   MIN_COMPARABLE_FOR_COMPARISON,
@@ -146,6 +152,12 @@ export type {
   RecommendationEvaluationResult,
   RecommendationEvaluationSummary,
 } from "./recommendationEvaluation";
+export { buildMlDataset, toFeatureMatrix } from "./mlDataset";
+export type { DatasetRow, DatasetStats, FeatureMatrix, MlDataset, WalkForwardCase } from "./mlDataset";
+export { computeRegressionMetrics, median } from "./mlEvaluation";
+export type { PredictionActualPair, RegressionMetrics } from "./mlEvaluation";
+export { computeCalibrationReport, toCalibrationCases } from "./calibration";
+export type { CalibrationCase, CalibrationReport } from "./calibration";
 export { createAnalyticsContext } from "./platform/context";
 export type { AnalyticsContext, AnalyticsInput } from "./platform/context";
 export {
