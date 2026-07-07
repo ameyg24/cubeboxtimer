@@ -108,21 +108,44 @@ export type { FeatureVector } from "./predictionFeatures";
 export {
   DEFAULT_KNN_NEIGHBORS,
   MODEL_FEATURE_KEYS,
+  explainNearestNeighbors,
   fitLinearRegression,
   predictNearestNeighbor,
   toModelVector,
 } from "./predictionModels";
-export type { LinearRegressionFit, TrainingRow } from "./predictionModels";
+export type {
+  KnnExplanation,
+  LinearRegressionFit,
+  ModelFeatureKey,
+  NeighborExplanation,
+  RidgeContribution,
+  RidgeExplanation,
+  TrainingRow,
+} from "./predictionModels";
 export {
   MIN_COMPARABLE_FOR_COMPARISON,
   MODEL_LABELS,
   compareModels,
   explainBestModel,
+  runFeatureAblation,
 } from "./modelComparison";
-export type { ModelCase, ModelComparisonResult, ModelId, ModelMetrics } from "./modelComparison";
+export type {
+  AblationModelMetrics,
+  FeatureAblationEntry,
+  FeatureAblationResult,
+  ModelCase,
+  ModelComparisonResult,
+  ModelId,
+  ModelMetrics,
+} from "./modelComparison";
+export { computeErrorNotes, ERROR_NOTE_LABELS } from "./errorNotes";
+export type { ErrorNoteId } from "./errorNotes";
+export { renderBenchmarkReport } from "./benchmarkReport";
+export type { BenchmarkInput } from "./benchmarkReport";
 export { computeTrainingSignals } from "./trainingSignals";
 export type { CoachSolve, TrainingSignals } from "./trainingSignals";
 export {
+  COMPETITION_GAP_TRIGGER_PCT,
   CV_CAP,
   DNF_RISK_CAP,
   FOCUS_RULES,

@@ -12,5 +12,5 @@
     "isolatedModules": true,
     "types": ["vitest/globals"]
   },
-  "include": ["src/analytics"]
+  "include": ["src/analytics", "scripts/benchmarkData.ts"]
 }

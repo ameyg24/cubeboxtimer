@@ -32,7 +32,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "benchmark:models": "vite-node scripts/benchmark.js"
   },
   "dependencies": {
     "chart.js": "^4.5.0",

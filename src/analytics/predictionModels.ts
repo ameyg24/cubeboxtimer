@@ -7,18 +7,18 @@
 // fabricated number.
 
 import type { FeatureVector } from "./predictionFeatures";
+import type { DatasetRow } from "./mlDataset";
 
 export interface TrainingRow {
   features: FeatureVector;
   actualAverageMs: number;
 }
 
-// Fixed feature order used by both models. All four are well-defined
-// numbers whenever practiceMeanMs is non-null (a successful practiceMeanMs
-// implies at least one valid solve, which is enough for computeSessionStats
-// to also produce a real stddevMs), so toModelVector only needs to guard on
-// the first one. Exported so mlDataset.ts builds its feature matrix from
-// the exact projection the models train on, not a second definition.
+// Fixed feature order used by both models. Exported so mlDataset.ts builds
+// its feature matrix from the exact projection the models train on, not a
+// second definition. Both models accept a key subset so feature ablation
+// (modelComparison.ts) can genuinely remove a column — zeroing a value
+// instead would pass an off-manifold point through standardization.
 export const MODEL_FEATURE_KEYS = [
   "practiceMeanMs",
   "practiceStddevMs",
@@ -26,9 +26,14 @@ export const MODEL_FEATURE_KEYS = [
   "priorCompetitionCount",
 ] as const;
 
-export function toModelVector(f: FeatureVector): number[] | null {
-  if (f.practiceMeanMs === null || f.practiceStddevMs === null) return null;
-  return MODEL_FEATURE_KEYS.map((key) => f[key] as number);
+export type ModelFeatureKey = (typeof MODEL_FEATURE_KEYS)[number];
+
+export function toModelVector(
+  f: FeatureVector,
+  keys: readonly ModelFeatureKey[] = MODEL_FEATURE_KEYS
+): number[] | null {
+  const values = keys.map((key) => f[key]);
+  return values.every((v): v is number => typeof v === "number") ? values : null;
 }
 
 interface ColumnStats {
@@ -88,8 +93,27 @@ function invert(m: number[][]): number[][] {
 const RIDGE_LAMBDA = 1;
 const MIN_LINEAR_REGRESSION_ROWS = 2;
 
+export interface RidgeContribution {
+  feature: ModelFeatureKey;
+  contributionMs: number;
+}
+
+// Model mechanics, NOT feature importance: contributions are the exact
+// additive terms of the fitted linear formula (prediction = interceptMs +
+// sum of contributionMs), which for a linear model is also what SHAP
+// reduces to under feature independence. Independence doesn't hold here —
+// correlated predictors share attribution arbitrarily under ridge
+// shrinkage — so these describe how the model computed this number, not
+// which feature matters.
+export interface RidgeExplanation {
+  interceptMs: number;
+  contributions: RidgeContribution[];
+  predictedMs: number;
+}
+
 export interface LinearRegressionFit {
   predict(features: FeatureVector): number | null;
+  explain(features: FeatureVector): RidgeExplanation | null;
 }
 
 /**
@@ -98,13 +122,16 @@ export interface LinearRegressionFit {
  * needed: predict() re-adds meanY and re-scales each feature through the
  * same stats the fit was trained on.
  */
-export function fitLinearRegression(trainingRows: TrainingRow[]): LinearRegressionFit {
+export function fitLinearRegression(
+  trainingRows: TrainingRow[],
+  keys: readonly ModelFeatureKey[] = MODEL_FEATURE_KEYS
+): LinearRegressionFit {
   const usable = trainingRows
-    .map((r) => ({ vec: toModelVector(r.features), y: r.actualAverageMs }))
+    .map((r) => ({ vec: toModelVector(r.features, keys), y: r.actualAverageMs }))
     .filter((r): r is { vec: number[]; y: number } => r.vec !== null);
 
   if (usable.length < MIN_LINEAR_REGRESSION_ROWS) {
-    return { predict: () => null };
+    return { predict: () => null, explain: () => null };
   }
 
   const { standardized, stats } = standardizeColumns(usable.map((r) => r.vec));
@@ -118,51 +145,145 @@ export function fitLinearRegression(trainingRows: TrainingRow[]): LinearRegressi
   const XtY = matMul(Xt, centeredY.map((v) => [v]));
   const weights = matMul(invert(regularized), XtY).map((row) => row[0]);
 
+  const contributionsFor = (features: FeatureVector): RidgeContribution[] | null => {
+    const vec = toModelVector(features, keys);
+    if (vec === null) return null;
+    return vec.map((v, c) => ({
+      feature: keys[c],
+      contributionMs: ((v - stats[c].mean) / stats[c].std) * weights[c],
+    }));
+  };
+
   return {
     predict(features: FeatureVector): number | null {
-      const vec = toModelVector(features);
-      if (vec === null) return null;
-      const z = vec.map((v, c) => (v - stats[c].mean) / stats[c].std);
-      const dot = z.reduce((sum, v, i) => sum + v * weights[i], 0);
-      return meanY + dot;
+      const contributions = contributionsFor(features);
+      if (contributions === null) return null;
+      return meanY + contributions.reduce((sum, c) => sum + c.contributionMs, 0);
+    },
+    explain(features: FeatureVector): RidgeExplanation | null {
+      const contributions = contributionsFor(features);
+      if (contributions === null) return null;
+      return {
+        interceptMs: meanY,
+        contributions,
+        predictedMs: meanY + contributions.reduce((sum, c) => sum + c.contributionMs, 0),
+      };
     },
   };
 }
 
 export const DEFAULT_KNN_NEIGHBORS = 3;
 
-/**
- * Weighted k-nearest-neighbor regression: distances are computed on the
- * same standardized feature space as the linear model, so no single raw
- * feature (e.g. a practice mean in the thousands of ms vs a 0-100 DNF rate)
- * dominates the distance. An exact match (distance 0) is returned directly
- * rather than divided into with 1/distance weights.
- */
-export function predictNearestNeighbor(
-  trainingRows: TrainingRow[],
-  target: FeatureVector,
-  k: number = DEFAULT_KNN_NEIGHBORS
-): number | null {
-  const usable = trainingRows
-    .map((r) => ({ vec: toModelVector(r.features), y: r.actualAverageMs }))
-    .filter((r): r is { vec: number[]; y: number } => r.vec !== null);
-  const targetVec = toModelVector(target);
-  if (usable.length === 0 || targetVec === null) return null;
+interface ScoredNeighbor {
+  /** Index into the usable-rows list this neighbor came from. */
+  index: number;
+  y: number;
+  dist: number;
+  /** Normalized 1/distance weight; the weights of one prediction sum to 1. */
+  weight: number;
+}
 
-  const { standardized, stats } = standardizeColumns(usable.map((r) => r.vec));
+// The shared core of predictNearestNeighbor and explainNearestNeighbors:
+// distances on the standardized feature space, nearest k, 1/distance
+// weights normalized to sum to 1. An exact match (distance 0) takes weight
+// 1 outright rather than being divided into.
+function scoreNeighbors(
+  rows: { vec: number[]; y: number; index: number }[],
+  targetVec: number[],
+  k: number
+): ScoredNeighbor[] {
+  const { standardized, stats } = standardizeColumns(rows.map((r) => r.vec));
   const zTarget = targetVec.map((v, c) => (v - stats[c].mean) / stats[c].std);
 
-  const withDistance = usable.map((r, i) => ({
+  const withDistance = rows.map((r, i) => ({
+    index: r.index,
     y: r.y,
     dist: Math.sqrt(standardized[i].reduce((sum, z, c) => sum + (z - zTarget[c]) ** 2, 0)),
   }));
   withDistance.sort((a, b) => a.dist - b.dist);
 
-  const neighbors = withDistance.slice(0, Math.min(k, withDistance.length));
-  const exact = neighbors.find((n) => n.dist === 0);
-  if (exact) return exact.y;
+  const nearest = withDistance.slice(0, Math.min(k, withDistance.length));
+  const exact = nearest.find((n) => n.dist === 0);
+  if (exact) return [{ ...exact, weight: 1 }];
 
-  const weights = neighbors.map((n) => 1 / n.dist);
-  const weightSum = weights.reduce((a, b) => a + b, 0);
-  return neighbors.reduce((sum, n, i) => sum + n.y * weights[i], 0) / weightSum;
+  const rawWeights = nearest.map((n) => 1 / n.dist);
+  const weightSum = rawWeights.reduce((a, b) => a + b, 0);
+  return nearest.map((n, i) => ({ ...n, weight: rawWeights[i] / weightSum }));
+}
+
+function toUsableRows(
+  rows: { features: FeatureVector; y: number }[],
+  keys: readonly ModelFeatureKey[]
+): { vec: number[]; y: number; index: number }[] {
+  return rows
+    .map((r, index) => ({ vec: toModelVector(r.features, keys), y: r.y, index }))
+    .filter((r): r is { vec: number[]; y: number; index: number } => r.vec !== null);
+}
+
+/**
+ * Weighted k-nearest-neighbor regression: distances are computed on the
+ * same standardized feature space as the linear model, so no single raw
+ * feature (e.g. a practice mean in the thousands of ms vs a 0-100 DNF rate)
+ * dominates the distance.
+ */
+export function predictNearestNeighbor(
+  trainingRows: TrainingRow[],
+  target: FeatureVector,
+  k: number = DEFAULT_KNN_NEIGHBORS,
+  keys: readonly ModelFeatureKey[] = MODEL_FEATURE_KEYS
+): number | null {
+  const usable = toUsableRows(
+    trainingRows.map((r) => ({ features: r.features, y: r.actualAverageMs })),
+    keys
+  );
+  const targetVec = toModelVector(target, keys);
+  if (usable.length === 0 || targetVec === null) return null;
+
+  return scoreNeighbors(usable, targetVec, k).reduce((sum, n) => sum + n.y * n.weight, 0);
+}
+
+export interface NeighborExplanation {
+  competitionId: string;
+  /** ISO date string, from the dataset row. */
+  date: string;
+  actualAverageMs: number;
+  distance: number;
+  weight: number;
+  contributionMs: number;
+}
+
+export interface KnnExplanation {
+  predictedMs: number;
+  /** Nearest first. Weights sum to 1; contributions sum to predictedMs. */
+  neighbors: NeighborExplanation[];
+}
+
+/** The same prediction as predictNearestNeighbor, decomposed into the specific competitions it was averaged from. */
+export function explainNearestNeighbors(
+  trainingRows: DatasetRow[],
+  target: FeatureVector,
+  k: number = DEFAULT_KNN_NEIGHBORS,
+  keys: readonly ModelFeatureKey[] = MODEL_FEATURE_KEYS
+): KnnExplanation | null {
+  const rows = Array.isArray(trainingRows) ? trainingRows : [];
+  const usable = toUsableRows(
+    rows.map((r) => ({ features: r.features, y: r.targetAverageMs })),
+    keys
+  );
+  const targetVec = toModelVector(target, keys);
+  if (usable.length === 0 || targetVec === null) return null;
+
+  const neighbors = scoreNeighbors(usable, targetVec, k).map((n) => ({
+    competitionId: rows[n.index].competitionId,
+    date: rows[n.index].date,
+    actualAverageMs: n.y,
+    distance: n.dist,
+    weight: n.weight,
+    contributionMs: n.y * n.weight,
+  }));
+
+  return {
+    predictedMs: neighbors.reduce((sum, n) => sum + n.contributionMs, 0),
+    neighbors,
+  };
 }

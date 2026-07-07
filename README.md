@@ -89,6 +89,26 @@ The app is served at http://localhost:5173 (or the port shown in your terminal).
 | `npm run test:run` | Run the unit test suite (Vitest) |
 | `npm run typecheck` | Type-check the TypeScript sources (`tsc --noEmit`) |
 | `npm run lint` | Run ESLint |
+| `npm run benchmark:models` | Walk-forward model benchmark on a committed sample dataset |
+
+## ML Evaluation
+
+CubeBox scores every competition prediction with deterministic walk-forward
+validation: each competition is predicted using only strictly-earlier
+competitions and the practice data that existed at the time.
+
+Six predictors are compared on identical cases — three naive baselines
+(Practice Mean, Practice Window Average, Last Competition) and three models
+(Rule-based, Ridge Regression, Weighted k-NN) — with MAE/RMSE/MAPE/bias,
+interval calibration, leave-one-feature-out ablation, and exact per-feature
+prediction decomposition. Methodology and limitations:
+[`docs/architecture/model-evaluation.md`](docs/architecture/model-evaluation.md).
+
+Run it locally against the committed sample fixture:
+
+```sh
+npm run benchmark:models
+```
 
 ## Architecture
 

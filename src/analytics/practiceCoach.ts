@@ -50,7 +50,7 @@ export const TARGET_SOLVES_14D = 50;
 export const CV_CAP = 0.15;
 export const DNF_RISK_CAP = 0.1;
 export const MOMENTUM_SENSITIVITY = 0.08;
-const COMPETITION_GAP_TRIGGER_PCT = 0.05;
+export const COMPETITION_GAP_TRIGGER_PCT = 0.05;
 const STALE_PB_DAYS = 30;
 
 const NEUTRAL_SCORE = 0.5;
