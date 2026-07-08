@@ -210,7 +210,7 @@ export function compareModels(
   };
 }
 
-/** Short, deterministic sentence for the selected/best model — no ML/LLM prose, just a fixed lookup. */
+/** Short, deterministic sentence for the selected/best model — a fixed lookup, nothing composed at runtime. */
 export function explainBestModel(comparison: ModelComparisonResult): string {
   if (comparison.bestModelId === null) {
     return "Not enough historical data yet to compare prediction models.";

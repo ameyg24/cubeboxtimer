@@ -1,8 +1,7 @@
 // CubeBox analytics — public entry point.
 //
 // Pure, framework-free performance analytics over a list of solves. No React,
-// no Firebase, no browser APIs. This is the foundation layer of the CubeBox
-// Speedcubing Performance Intelligence Platform.
+// no Firebase, no browser APIs.
 
 export type { AverageResult, Penalty, Solve } from "./types";
 export {

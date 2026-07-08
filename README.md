@@ -14,6 +14,10 @@ CubeBox is an offline-first speedcubing performance platform for recording solve
 - **Performance statistics** — best, worst, mean, mo3, ao5, ao12, ao50, ao100, and session/all-time aggregates.
 - **Personal records & PB history** — automatic detection of Single/ao5/ao12/ao50/ao100 records across every session, a dedicated Records tab with the full timeline of when each was set, and an in-timer celebration naming exactly which record just broke.
 - **Interactive charts** — visualize trends and rolling averages with Chart.js.
+- **Competition prediction** — predicts your next official average from recent practice and past results, with confidence intervals, backtesting, and a comparison against baseline and statistical models (see [ML Evaluation](#ml-evaluation)).
+- **Practice coach** — deterministic training recommendations (readiness score, focus areas, drills) derived from the same analytics, with a retrospective review of whether past recommendations resolved.
+- **WCA import** — pull your official results from the WCA public API, with per-round handling and duplicate/conflict detection.
+- **csTimer import** — paste or upload a csTimer export to backfill practice history.
 - **Cloud sync & offline mode** — solves persist to Firebase Firestore when signed in, with an automatic local fallback when offline or signed out.
 - **Google authentication** — sign in to sync across devices.
 - **Responsive UI** — works on desktop and mobile, in light and dark mode.

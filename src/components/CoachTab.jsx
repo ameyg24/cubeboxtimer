@@ -1,9 +1,7 @@
-// CoachTab.jsx - Practice Coach, the Dashboard's "Coach" tab. Deterministic
-// and explainable: every number here comes from computeTrainingSignals /
-// computePracticeCoachResult (src/analytics) - this file only formats and
-// lays them out, mirroring how CompetitionTab.jsx relates to
-// predictCompetitionResult. No LLM, no narration layer, nothing generated
-// per render.
+// CoachTab.jsx - Practice Coach, the Dashboard's "Coach" tab. Every number
+// here comes from computeTrainingSignals / computePracticeCoachResult
+// (src/analytics) - this file only formats and lays them out, mirroring
+// how CompetitionTab.jsx relates to predictCompetitionResult.
 import { useMemo } from "react";
 import { createAnalyticsContext, FOCUS_RULES } from "../analytics";
 import { logger } from "../logger.js";

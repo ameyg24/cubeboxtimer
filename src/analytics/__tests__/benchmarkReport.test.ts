@@ -40,7 +40,7 @@ describe("renderBenchmarkReport", () => {
     expect(renderBenchmarkReport(sampleInput())).toBe(renderBenchmarkReport(sampleInput()));
   });
 
-  it("renders the honest empty state for no data at all", () => {
+  it("renders empty states instead of metrics when there is no data", () => {
     const report = renderBenchmarkReport({
       event: "3x3x3",
       solves: [],

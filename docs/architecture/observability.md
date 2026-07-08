@@ -88,7 +88,7 @@ distinguishable in the log; every retry logs at `info`.
 Nothing in this app calls out to a network endpoint to report logs, errors,
 or timings. That's deliberate, not an oversight:
 
-- CubeBox is a small, offline-first hobby/portfolio app with no existing
+- CubeBox is a small, offline-first hobby app with no existing
   error-reporting backend, on-call rotation, or budget line for one.
   Wiring up a real telemetry vendor without anyone positioned to act on the
   data would just be a data-collection liability for no operational payoff.

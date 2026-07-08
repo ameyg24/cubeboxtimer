@@ -251,8 +251,8 @@ replacement for it.
 
 ### Practice coach (`trainingSignals.ts`, `practiceCoach.ts`)
 
-Answers "what should I practice next, and why?" — deterministically, not
-via an LLM. `computeTrainingSignals` aggregates numbers only: practice
+Answers "what should I practice next, and why?" with fixed rules over
+observed data. `computeTrainingSignals` aggregates numbers only: practice
 mean/stddev/DNF/+2 rate straight from `buildFeatureVector`, the
 competition gap straight from `predictCompetitionResult.adjustmentFactorPct`
 (never recomputed), backtest error from `runBacktest`, and days since the
