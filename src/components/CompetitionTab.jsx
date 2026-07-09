@@ -58,7 +58,7 @@ function classifyPredictionEmptyState(competitionCount, prediction) {
 }
 
 // Builds the shared analytics context and logs around the eager part of it
-// (the backtest chain everything in this tab renders) — the platform layer
+// (the backtest chain everything in this tab renders) - the platform layer
 // itself stays framework- and logger-free, matching every module in
 // src/analytics.
 function buildCompetitionAnalytics(practiceSolves, competitions, event) {
@@ -264,7 +264,7 @@ function CalibrationTable({ comparisons, competitionsById, totalCompetitionsForE
 function EventScopeNote({ cubeDimension, totalCount, eventCount }) {
   const otherEventsNote =
     totalCount > eventCount
-      ? ` You have ${totalCount} competition result${totalCount === 1 ? "" : "s"} total across all events — switch the cube size selector above to view another event.`
+      ? ` You have ${totalCount} competition result${totalCount === 1 ? "" : "s"} total across all events - switch the cube size selector above to view another event.`
       : "";
   return (
     <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>

@@ -11,7 +11,7 @@ import { ThemeProvider } from "../ThemeContext.jsx";
 // component wired to the real useCompetitionResults hook.
 //
 // Wrapped in ThemeProvider because the Prediction Quality section's chart
-// (lazy-loaded) calls useTheme() — matching how App.jsx always wraps the
+// (lazy-loaded) calls useTheme() - matching how App.jsx always wraps the
 // real app in ThemeProvider.
 const renderTab = (ui) => render(<ThemeProvider>{ui}</ThemeProvider>);
 

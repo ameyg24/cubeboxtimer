@@ -1,10 +1,10 @@
-// CubeBox analytics — recommendation effectiveness review (pure).
+// CubeBox analytics - recommendation effectiveness review (pure).
 //
 // For each coach rule, finds the most recent point in the lookback window
 // where it started triggering, then checks whether the same metric crossed
 // back past the rule's own trigger condition within a fixed horizon. A
 // walk-forward replay of computeTrainingSignals/practiceCoach's own
-// trigger functions — the same shape as backtesting.ts, applied to rule
+// trigger functions - the same shape as backtesting.ts, applied to rule
 // conditions instead of prediction error. "Resolved" means the condition
 // that fired the rule stopped holding, not that the recommendation caused
 // it.
@@ -60,7 +60,7 @@ function signalsAsOf(
 
 /**
  * Replays each coach rule over the lookback window. At most one case per
- * rule — its most recent onset — matching "show a few recent cases," not a
+ * rule - its most recent onset - matching "show a few recent cases," not a
  * full history of every trigger/resolve cycle.
  */
 export function evaluateRecommendations(

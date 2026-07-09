@@ -1,4 +1,4 @@
-// CubeBox analytics — peer competition comparison (pure).
+// CubeBox analytics - peer competition comparison (pure).
 //
 // predictCompetitionResult (competitionPrediction.ts) needs practice solves,
 // which CubeBox only has for the local user - there's no way to see how

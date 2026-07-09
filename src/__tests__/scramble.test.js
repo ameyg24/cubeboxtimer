@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { generateScramble } from "../scramble.js";
 
-// generateScramble uses Math.random() internally (no injectable RNG — adding
+// generateScramble uses Math.random() internally (no injectable RNG - adding
 // one just for tests would add API surface to a small utility for little
 // benefit). Instead these run the generator many times per dimension and
 // assert the structural invariants hold on every run, which gives strong

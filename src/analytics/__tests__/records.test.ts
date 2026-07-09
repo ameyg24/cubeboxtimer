@@ -92,7 +92,7 @@ describe("computeRecordHistory", () => {
     // 8 mediocre solves (ao5 record locks in at 20000 by solve 5, single
     // record locks in at 20000 by solve 1), then two fast solves in a row.
     // The 10th solve is both a new Single PB (4000 < 5000) and drags its
-    // trailing ao5 window below the standing ao5 record — a single outlier
+    // trailing ao5 window below the standing ao5 record - a single outlier
     // can't do that alone (it gets trimmed), but two consecutive fast solves
     // can, and both land on the same, most recent solve.
     const solves = [

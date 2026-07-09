@@ -1,4 +1,4 @@
-// CubeBox analytics — aggregate stats for a list of solves (pure).
+// CubeBox analytics - aggregate stats for a list of solves (pure).
 //
 // This is the single source of truth behind the dashboard's stat cards.
 // Averages are returned as AverageResult; scalar aggregates are in milliseconds.

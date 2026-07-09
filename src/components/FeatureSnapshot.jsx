@@ -1,6 +1,6 @@
 // FeatureSnapshot.jsx - compact view of the current feature vector feeding
 // the ML-style models (analytics/predictionFeatures.ts). Only the fields a
-// user would actually recognize as "what's driving this" — the full vector
+// user would actually recognize as "what's driving this" - the full vector
 // also carries competition-gap and prior-error features used by the models
 // but not worth surfacing here.
 const EMPTY_STYLE = { color: "var(--text-faint)", textAlign: "center", padding: "2.5rem" };

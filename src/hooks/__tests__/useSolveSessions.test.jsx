@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { useSolveSessions } from "../useSolveSessions.js";
 
 // These tests exercise the hook with no signed-in user, which is the
-// localStorage-only code path — real Firebase config is absent in this
+// localStorage-only code path - real Firebase config is absent in this
 // environment, so src/firebase/config.js already falls back to a null db,
 // and the hook's own `if (!user)` branch never touches Firestore either way.
 

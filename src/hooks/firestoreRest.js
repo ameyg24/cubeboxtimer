@@ -1,4 +1,4 @@
-// Firestore REST client — shared by every hook that syncs an offline write
+// Firestore REST client - shared by every hook that syncs an offline write
 // queue to Firestore (useSolveSessions, useCompetitionResults). Extracted
 // out of useSolveSessions.js verbatim: this has no solve-specific knowledge
 // at all, so duplicating it for a second entity type would just be copying

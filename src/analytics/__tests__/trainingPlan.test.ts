@@ -36,7 +36,7 @@ describe("buildTrainingPlan", () => {
     const areas = [focusArea("a", "high")];
     const plan = buildTrainingPlan(areas);
     expect(plan.beforeNextCompetition).toEqual([]);
-    expect(plan.limitations).toContain("No upcoming competition date set — before-competition plan not shown.");
+    expect(plan.limitations).toContain("No upcoming competition date set - before-competition plan not shown.");
   });
 
   it("populates beforeNextCompetition when a competition date is given", () => {
@@ -61,7 +61,7 @@ describe("buildTrainingPlan", () => {
     expect(plan.limitations).toEqual([]);
   });
 
-  it("is deterministic — identical inputs produce identical output", () => {
+  it("is deterministic - identical inputs produce identical output", () => {
     const areas = [focusArea("a", "high"), focusArea("b", "medium")];
     const date = Date.now();
     expect(buildTrainingPlan(areas, date)).toEqual(buildTrainingPlan(areas, date));

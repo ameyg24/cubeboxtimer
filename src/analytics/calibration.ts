@@ -1,4 +1,4 @@
-// CubeBox analytics — interval calibration (pure).
+// CubeBox analytics - interval calibration (pure).
 //
 // Measures whether predicted confidence intervals actually contained the
 // results they claimed to cover, over walk-forward cases: of N intervals,
@@ -21,9 +21,9 @@ export interface CalibrationReport {
   coveragePct: number | null;
   meanIntervalWidth: number | null;
   meanAbsoluteError: number | null;
-  /** actual above the interval — the prediction ran low. */
+  /** actual above the interval - the prediction ran low. */
   underPredictionCount: number;
-  /** actual below the interval — the prediction ran high. */
+  /** actual below the interval - the prediction ran high. */
   overPredictionCount: number;
 }
 

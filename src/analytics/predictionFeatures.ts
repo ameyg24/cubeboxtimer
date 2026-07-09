@@ -1,7 +1,7 @@
-// CubeBox analytics — feature engineering for the ML-style prediction
+// CubeBox analytics - feature engineering for the ML-style prediction
 // models (pure). Turns solve history + competition history, as of a single
 // point in time, into a fixed-shape numeric feature vector. Every feature
-// is computed only from data strictly before `referenceDateMs` — this file
+// is computed only from data strictly before `referenceDateMs` - this file
 // is the one place that invariant is enforced, so predictionModels.ts and
 // modelComparison.ts never have to re-derive it.
 
@@ -31,7 +31,7 @@ export interface FeatureVector {
   priorCompetitionCount: number;
   /**
    * Rule-based model's absolute error (ms) on the most recent prior
-   * competition it could actually score — i.e. the last entry runBacktest
+   * competition it could actually score - i.e. the last entry runBacktest
    * produces over `priorResults`. Null when there isn't one (fewer than 2
    * prior competitions, or no practice data existed at the time).
    */
@@ -40,7 +40,7 @@ export interface FeatureVector {
 
 /**
  * Builds a feature vector as of `referenceDateMs`, using only solves and
- * competitions strictly before it — `priorResults` is filtered defensively
+ * competitions strictly before it - `priorResults` is filtered defensively
  * here rather than trusting the caller, so a leakage bug elsewhere can't
  * silently corrupt training data. `allSolvesForEvent` should be every known
  * solve for the event (not just recent ones); computePracticeWindow already

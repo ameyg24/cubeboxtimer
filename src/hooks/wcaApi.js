@@ -98,7 +98,7 @@ export async function mapWithConcurrency(items, limit, fn) {
   return results;
 }
 
-// GET /persons/{wcaId}/results — every result the person has ever recorded,
+// GET /persons/{wcaId}/results - every result the person has ever recorded,
 // across every event and round. See analytics/wcaImport.ts for how this is
 // reduced down to one result per (competition, event).
 export async function fetchWcaPersonResults(wcaId) {
@@ -116,7 +116,7 @@ export async function fetchWcaPersonResults(wcaId) {
   return response.json();
 }
 
-// GET /competitions/{id} — just the fields the import needs (name, date).
+// GET /competitions/{id} - just the fields the import needs (name, date).
 // There's no bulk-lookup endpoint (verified), so this is called once per
 // unique competition_id the person has results for, with retry-on-429 above.
 export async function fetchWcaCompetitionMeta(competitionId, rateLimitState) {

@@ -1,9 +1,9 @@
-// CubeBox analytics — pipeline registry (pure).
+// CubeBox analytics - pipeline registry (pure).
 //
 // A declarative table of the analytics capabilities the context exposes,
 // with explicit dependencies. Dependencies mirror the real module-level
 // call structure (what each analytics module actually consumes), not an
-// aspirational diagram — see the tests that pin them. Adding a pipeline is
+// aspirational diagram - see the tests that pin them. Adding a pipeline is
 // one new row plus its context getter; existing rows don't change.
 
 import type { AnalyticsContext } from "./context";

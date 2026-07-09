@@ -52,7 +52,7 @@ const fmtDate = (iso) =>
 // Never fabricates a metric: explains why there isn't one instead.
 function backtestEmptyMessage(competitionCount, backtest) {
   if (competitionCount < 2) {
-    return "Backtesting needs at least 2 competitions for this event — add another result to see how predictions have performed.";
+    return "Backtesting needs at least 2 competitions for this event - add another result to see how predictions have performed.";
   }
   if (backtest.summary.evaluatedCount === 0) {
     return "None of your competitions had enough matching practice data at the time to backtest yet.";

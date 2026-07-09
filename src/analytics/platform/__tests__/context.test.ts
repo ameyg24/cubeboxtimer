@@ -79,14 +79,14 @@ describe("createAnalyticsContext", () => {
     expect(ctx.referencePoints().map((c) => c.id)).toEqual(["c1", "c2"]);
   });
 
-  it("memoizes every getter — repeated reads return the same object, not a recomputation", () => {
+  it("memoizes every getter - repeated reads return the same object, not a recomputation", () => {
     const ctx = createAnalyticsContext(fullInput());
     for (const getter of GETTERS) {
       expect(ctx[getter]()).toBe(ctx[getter]());
     }
   });
 
-  it("is deterministic — two contexts over identical input produce equal outputs", () => {
+  it("is deterministic - two contexts over identical input produce equal outputs", () => {
     const a = createAnalyticsContext(fullInput());
     const b = createAnalyticsContext(fullInput());
     expect(a.prediction()).toEqual(b.prediction());
@@ -131,7 +131,7 @@ describe("createAnalyticsContext", () => {
     expect(withDate.trainingPlan().beforeNextCompetition).toEqual(withDate.practiceCoach().focusAreas);
   });
 
-  it("produces event-scoped output — different events over the same data differ", () => {
+  it("produces event-scoped output - different events over the same data differ", () => {
     // Solves are the caller's job to scope per event (they carry no event
     // field), matching every existing analytics function; competitions
     // carry one, so the context scopes those itself.

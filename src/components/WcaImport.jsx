@@ -1,7 +1,7 @@
 // WcaImport.jsx - "Import from WCA" controls, shown near Competition
 // Results in the Competition tab. All fetch/convert/dedupe orchestration
 // lives in useWcaImport (src/hooks) and the pure analytics/wcaImport.ts
-// module — this file only renders the form and the resulting status/summary.
+// module - this file only renders the form and the resulting status/summary.
 import { useId, useMemo, useState } from "react";
 import { WCA_ID_EXAMPLE, findLinkedWcaId } from "../analytics";
 import { useWcaImport } from "../hooks/useWcaImport.js";
@@ -44,7 +44,7 @@ function buildSummaryLines(summary) {
   }
   if (metadataFailureCount > 0) {
     lines.push(
-      `Skipped ${metadataFailureCount} result${metadataFailureCount === 1 ? "" : "s"} — competition details unavailable`
+      `Skipped ${metadataFailureCount} result${metadataFailureCount === 1 ? "" : "s"} - competition details unavailable`
     );
   }
   if (conflictCount > 0) {
@@ -72,7 +72,7 @@ function ImportSummary({ summary }) {
   if (createdCount === 0 && updatedCount === 0 && totalSkipped === 0 && conflictCount === 0) {
     return (
       <div role="status" style={{ fontSize: "0.85rem", color: "var(--text-faint)" }}>
-        No 2x2x2–5x5x5 results found for this WCA ID.
+        No 2x2x2-5x5x5 results found for this WCA ID.
       </div>
     );
   }
@@ -88,7 +88,7 @@ function ImportSummary({ summary }) {
         <ul style={{ margin: 0, paddingLeft: 18, color: "var(--warning)" }}>
           {conflicts.map(({ candidate, reason }) => (
             <li key={`${candidate.wcaCompetitionId}-${candidate.event}-${candidate.wcaRoundId}`}>
-              {candidate.competitionName} ({candidate.event}, {candidate.roundLabel}, {fmtSeconds(candidate.averageMs)}) — {reason}
+              {candidate.competitionName} ({candidate.event}, {candidate.roundLabel}, {fmtSeconds(candidate.averageMs)}) - {reason}
             </li>
           ))}
         </ul>

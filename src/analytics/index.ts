@@ -1,4 +1,4 @@
-// CubeBox analytics — public entry point.
+// CubeBox analytics - public entry point.
 //
 // Pure, framework-free performance analytics over a list of solves. No React,
 // no Firebase, no browser APIs.

@@ -36,7 +36,7 @@ describe("renderBenchmarkReport", () => {
     }
   });
 
-  it("contains no wall-clock output — identical input renders identical text", () => {
+  it("contains no wall-clock output - identical input renders identical text", () => {
     expect(renderBenchmarkReport(sampleInput())).toBe(renderBenchmarkReport(sampleInput()));
   });
 

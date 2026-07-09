@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
 // Full integration: the real useSolveSessions/useCompetitionResults hooks
-// wired to CompetitionTab + SolveList, exactly how App.jsx composes them —
+// wired to CompetitionTab + SolveList, exactly how App.jsx composes them -
 // mirrors PracticeBackfill.integration.test.jsx and
 // CsTimerImport.integration.test.jsx, but exercises the Model Comparison /
 // Feature Snapshot sections instead of the rule-based prediction alone.

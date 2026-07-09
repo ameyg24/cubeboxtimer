@@ -5,8 +5,8 @@ import { logger } from "../logger.js";
 // equivalent. Renders fallback(retry, info) in place of children once a
 // descendant throws during render; calling retry clears the error and
 // remounts children. The caught error and component stack are kept on state
-// and passed to fallback (not rendered by CubeBox's own fallback UI — no
-// stack traces in the UI — but available for a future diagnostics hook).
+// and passed to fallback (not rendered by CubeBox's own fallback UI - no
+// stack traces in the UI - but available for a future diagnostics hook).
 export default class ErrorBoundary extends Component {
   state = { hasError: false, error: null, componentStack: null };
 
@@ -36,7 +36,7 @@ export default class ErrorBoundary extends Component {
   }
 }
 
-// Shared calm fallback UI for error boundaries — no stack traces, just a short
+// Shared calm fallback UI for error boundaries - no stack traces, just a short
 // message and a way forward. `compact` fits it inside a smaller slot such as
 // a dashboard panel rather than the full page.
 export function ErrorFallback({

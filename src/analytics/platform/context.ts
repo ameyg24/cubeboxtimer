@@ -1,4 +1,4 @@
-// CubeBox analytics — analytics context (pure).
+// CubeBox analytics - analytics context (pure).
 //
 // One immutable, per-input view over every derived analytics output. A
 // consumer builds a context once per (event, solves, competitions, now)
@@ -33,7 +33,7 @@ import type { RecordHistoryResult } from "../records";
 export interface AnalyticsInput {
   event: string;
   allSolvesForEvent: CoachSolve[];
-  /** The full persisted competition list, unfiltered — the context scopes to `event` itself. */
+  /** The full persisted competition list, unfiltered - the context scopes to `event` itself. */
   competitionResults: PersistedCompetitionResultLike[];
   now: number;
   /** No persisted "upcoming competition" concept exists yet, so this is normally null. */

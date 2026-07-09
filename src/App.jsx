@@ -139,7 +139,7 @@ function App() {
     setSelectedScrambleIdx(0);
   }, [scrambleType, cubeDimension]);
 
-  // Fires once after the app shell first commits — the simplest reliable
+  // Fires once after the app shell first commits - the simplest reliable
   // proxy for "time to interactive" without adding a dedicated timing API.
   useEffect(() => {
     logger.info("App mounted.", { elapsedMs: Math.round(performance.now()) });
@@ -280,7 +280,7 @@ function App() {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("keyup", handleKeyUp);
     };
-  }, []); // empty deps — reads live values via refs
+  }, []); // empty deps - reads live values via refs
 
   return (
     <div
@@ -526,7 +526,7 @@ export default function AppWithAuthProvider() {
           fallback={(retry) => (
             <ErrorFallback
               title="Something went wrong"
-              message="CubeBox hit a snag. Your solves are safe — try again, or reload the page if that doesn't help."
+              message="CubeBox hit a snag. Your solves are safe - try again, or reload the page if that doesn't help."
               onRetry={retry}
               secondaryAction={{ label: "Reload page", onClick: () => window.location.reload() }}
             />

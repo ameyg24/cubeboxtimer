@@ -28,7 +28,7 @@ describe("trimCount (WCA 5% rule)", () => {
   });
 });
 
-describe("ao5 — normal solves", () => {
+describe("ao5 - normal solves", () => {
   it("drops best and worst, averages the middle three", () => {
     // times: 1,2,3,4,5 (s) -> drop 1 and 5 -> mean(2,3,4) = 3s = 3000ms
     const solves = [s(1000), s(2000), s(3000), s(4000), s(5000)];
@@ -56,7 +56,7 @@ describe("+2 penalty", () => {
   });
 });
 
-describe("ao5 — exactly one DNF (WCA: DNF is the worst, trimmed once)", () => {
+describe("ao5 - exactly one DNF (WCA: DNF is the worst, trimmed once)", () => {
   it("trims the DNF and the single fastest, averages the remaining three", () => {
     // valid 1,2,3,4 (s) + 1 DNF. DNF is worst (trimmed), 1s is best (trimmed)
     // -> mean(2,3,4) = 3s = 3000ms. (Regression guard: old code averaged only 2.)
@@ -65,7 +65,7 @@ describe("ao5 — exactly one DNF (WCA: DNF is the worst, trimmed once)", () => 
   });
 });
 
-describe("ao5 — two or more DNFs", () => {
+describe("ao5 - two or more DNFs", () => {
   it("returns dnf with exactly two DNFs", () => {
     const solves = [s(1000), s(2000), s(3000), dnf(), dnf()];
     expect(ao5(solves)).toEqual({ status: "dnf" });
@@ -77,7 +77,7 @@ describe("ao5 — two or more DNFs", () => {
   });
 });
 
-describe("ao5 — insufficient solves", () => {
+describe("ao5 - insufficient solves", () => {
   it("returns insufficient with fewer than five solves", () => {
     expect(ao5([s(1000), s(2000), s(3000), s(4000)])).toEqual({
       status: "insufficient",
@@ -112,7 +112,7 @@ describe("ao12", () => {
   });
 });
 
-describe("averageOfN — generic WCA trim for larger n", () => {
+describe("averageOfN - generic WCA trim for larger n", () => {
   it("ao50 trims 3 from each end", () => {
     // 1..50 s. trim 3 each end -> mean(4..47) = (4+47)/2 = 25.5s = 25500ms
     const solves = Array.from({ length: 50 }, (_, i) => s((i + 1) * 1000));
@@ -128,9 +128,9 @@ describe("averageOfN — generic WCA trim for larger n", () => {
   });
 });
 
-describe("mo3 — arithmetic mean of three (NOT median)", () => {
+describe("mo3 - arithmetic mean of three (NOT median)", () => {
   it("averages all three solves without trimming", () => {
-    // mean(1,2,9) = 4s = 4000ms (median would be 2s — regression guard)
+    // mean(1,2,9) = 4s = 4000ms (median would be 2s - regression guard)
     expect(mo3([s(1000), s(2000), s(9000)])).toEqual({
       status: "ok",
       valueMs: 4000,

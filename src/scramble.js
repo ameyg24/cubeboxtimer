@@ -4,7 +4,7 @@
 // actually uses for 2x2-3x3 (via TNoodle). Random-state scrambling needs a
 // cube solver and is out of scope here. What this does implement, matching
 // standard cubing convention:
-//   - 2x2x2 scrambles only use R/U/F — a 2x2 has no fixed centers, so the
+//   - 2x2x2 scrambles only use R/U/F - a 2x2 has no fixed centers, so the
 //     whole puzzle can be freely reoriented and 3 faces reach every case.
 //   - No two consecutive moves share a face (e.g. "R ... R'").
 //   - No three consecutive moves share an axis (e.g. "R L R2"), since

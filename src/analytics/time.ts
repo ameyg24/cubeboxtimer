@@ -1,4 +1,4 @@
-// CubeBox analytics — solve-level time helpers (pure).
+// CubeBox analytics - solve-level time helpers (pure).
 
 import type { Solve } from "./types";
 

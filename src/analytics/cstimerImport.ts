@@ -1,4 +1,4 @@
-// CubeBox analytics — csTimer practice-solve import (pure).
+// CubeBox analytics - csTimer practice-solve import (pure).
 //
 // csTimer (cstimer.net) is a third-party browser-based practice timer, not
 // affiliated with CubeBox or the WCA. Its "Export to file" (Menu > Export >

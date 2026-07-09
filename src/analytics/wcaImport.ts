@@ -1,9 +1,9 @@
-// CubeBox analytics — WCA competition result import (pure).
+// CubeBox analytics - WCA competition result import (pure).
 //
 // Turns raw WCA public API data into CompetitionResult-shaped import
 // candidates, and decides deterministically what to do with each one
 // against a user's existing competition history. This module does no
-// fetching itself (see src/hooks/wcaApi.js for that) — everything here is
+// fetching itself (see src/hooks/wcaApi.js for that) - everything here is
 // pure, framework-free interpretation of already-fetched WCA data, matching
 // the same "no React, Firebase, or browser dependencies" bar as the rest of
 // src/analytics, even though the subject matter (WCA import) is a
@@ -26,7 +26,7 @@
 
 export type ImportedCompetitionEvent = "2x2x2" | "3x3x3" | "4x4x4" | "5x5x5";
 
-// Only WCA's standard NxNxN speedsolving events have a CubeBox equivalent —
+// Only WCA's standard NxNxN speedsolving events have a CubeBox equivalent -
 // every other WCA event (blindfolded, one-handed, FMC, megaminx, ...) is
 // intentionally left unmapped and its results are skipped on import.
 const WCA_EVENT_TO_CUBE_DIMENSION: Record<string, ImportedCompetitionEvent> = {
@@ -41,7 +41,7 @@ export function mapWcaEventToCubeDimension(wcaEventId: string): ImportedCompetit
 }
 
 // WCA ID format: 4-digit year + 4-letter name code + 2-digit disambiguator,
-// e.g. "2009ZEMD01" — WCA's own long-standing public ID format.
+// e.g. "2009ZEMD01" - WCA's own long-standing public ID format.
 const WCA_ID_PATTERN = /^\d{4}[A-Z]{4}\d{2}$/;
 export const WCA_ID_EXAMPLE = "2009ZEMD01";
 
@@ -57,7 +57,7 @@ export function isValidWcaId(rawId: string): boolean {
  * Converts a WCA time value (centiseconds, with DNF/DNS/unused-slot
  * sentinels) into milliseconds, or null when there's no usable time.
  * -1 (DNF), -2 (DNS), 0 (unused/unattempted), and any other non-positive or
- * non-finite value all map to null — CompetitionResult has no separate DNF
+ * non-finite value all map to null - CompetitionResult has no separate DNF
  * concept, so a result with no usable time is simply not importable (see
  * buildImportCandidates).
  */
@@ -175,7 +175,7 @@ function isDnfOrDnsAverage(value: number): boolean {
  * candidates - one per round, not just the deepest. Skips (rather than
  * fabricates a value for) any result whose event has no CubeBox equivalent,
  * whose official average is missing or DNF/DNS, or whose competition
- * metadata couldn't be fetched — every skip is reported with a specific
+ * metadata couldn't be fetched - every skip is reported with a specific
  * reason so the caller can show the user what happened instead of a single
  * opaque "skipped" count.
  */
@@ -316,7 +316,7 @@ function normalizeName(name: string): string {
 
 /**
  * A deliberately simple, deterministic "is this probably the same
- * competition" check — not a fuzzy-matching library. Two names are similar
+ * competition" check - not a fuzzy-matching library. Two names are similar
  * when normalized they're identical, one contains the other, or they share
  * at least half of their significant (length > 2) words.
  */

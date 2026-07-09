@@ -52,7 +52,7 @@ const solve = (daysBack, millis) => ({
 });
 
 // Wrapped in ThemeProvider because the Prediction Quality section's chart
-// (lazy-loaded) calls useTheme() — matching how App.jsx always wraps the
+// (lazy-loaded) calls useTheme() - matching how App.jsx always wraps the
 // real app in ThemeProvider.
 function Harness({ practiceSolves = [], cubeDimension = "3x3x3" }) {
   const { competitions, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =

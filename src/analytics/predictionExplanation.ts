@@ -1,7 +1,7 @@
-// CubeBox analytics — prediction explainability (pure).
+// CubeBox analytics - prediction explainability (pure).
 //
-// Turns a PredictionResult and a BacktestSummary — both already fully
-// computed elsewhere — into a structured explanation of how the prediction
+// Turns a PredictionResult and a BacktestSummary - both already fully
+// computed elsewhere - into a structured explanation of how the prediction
 // was produced and how much each input contributed to it. This module
 // never recomputes prediction math: every field is either a direct
 // passthrough of an already-computed value, or a plain arithmetic
@@ -26,7 +26,7 @@ export interface PredictionExplanation {
   confidenceLevel: ConfidenceLevel;
   confidenceIntervalMs: [number, number] | null;
   competitionsUsed: number;
-  /** Renamed passthrough of practiceDnfRatePct — the DNF rate in the current practice window, read as an estimated probability. */
+  /** Renamed passthrough of practiceDnfRatePct - the DNF rate in the current practice window, read as an estimated probability. */
   dnfProbabilityPct: number | null;
   /** BacktestSummary.averageAbsoluteErrorPct. Independent of the live prediction: can be null (not enough backtest history) even when a live prediction exists. */
   historicalAverageErrorPct: number | null;
@@ -34,12 +34,12 @@ export interface PredictionExplanation {
   factors: PredictionFactors | null;
 }
 
-// PREDICTION_FACTORS — what "relative contribution" means here
+// PREDICTION_FACTORS - what "relative contribution" means here
 // -----------------------------------------------------------------------
 // predictCompetitionResult's point-value formula has exactly two real
 // terms: predicted = practiceAverage * (1 + adjustmentFactor). Consistency,
 // DNF history, and competition-history sample size don't appear in that
-// formula at all — they only widen or narrow the confidence range and the
+// formula at all - they only widen or narrow the confidence range and the
 // confidence level. There is no mathematically exact way to split a
 // two-term product into five independent percentages.
 //
@@ -51,7 +51,7 @@ export interface PredictionExplanation {
 //
 //   practicePerformanceScore = 1 (constant)
 //     Every prediction is unconditionally anchored to the practice
-//     average — even a prediction with a zero adjustment factor still
+//     average - even a prediction with a zero adjustment factor still
 //     depends entirely on it. This is the one factor that's always fully
 //     present, so it gets a fixed baseline score of 1.
 //
@@ -72,7 +72,7 @@ export interface PredictionExplanation {
 //
 //   competitionHistoryScore = min(competitionsUsed / 5, 1)
 //     How much competition history backs the adjustment factor. Capped at
-//     5 competitions — the same point at which computeConfidence's own
+//     5 competitions - the same point at which computeConfidence's own
 //     thresholds stop treating sample size as a limiting factor (4+ past
 //     competitions unlocks its "high" base confidence), reused here rather
 //     than inventing a second threshold.
@@ -129,7 +129,7 @@ function computeFactors(prediction: PredictionResult): PredictionFactors {
  * a structured explanation. Recomputes nothing: every field is a
  * passthrough or a plain arithmetic reading of fields those two functions
  * already produced. Returns factors: null whenever there's no live
- * prediction to explain (predictedAverageMs === null) — never fabricates a
+ * prediction to explain (predictedAverageMs === null) - never fabricates a
  * breakdown for a prediction that doesn't exist.
  */
 export function explainPrediction(

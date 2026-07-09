@@ -1,4 +1,4 @@
-// CubeBox analytics — shared types.
+// CubeBox analytics - shared types.
 //
 // These describe the *minimal* solve shape the analytics layer needs. The app's
 // stored solve objects carry extra fields (id, reviewed, scramble, ...) that

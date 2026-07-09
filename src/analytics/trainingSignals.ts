@@ -1,10 +1,10 @@
-// CubeBox analytics — training signals for the practice coach (pure).
+// CubeBox analytics - training signals for the practice coach (pure).
 //
 // Aggregates numbers, not language: every field here is either a direct
 // read of an existing analytics output (buildFeatureVector, a
 // predictCompetitionResult call, a runBacktest call, computeRecordHistory)
 // or a small derived count/comparison over them. The only genuinely new
-// computation is momentum — a comparison between two adjacent practice
+// computation is momentum - a comparison between two adjacent practice
 // windows. See practiceCoach.ts for scoring/rules built on top of this.
 
 import type { CompetitionResultInput, ConfidenceLevel, PredictionResult, TimedPracticeSolve } from "./competitionPrediction";
@@ -33,7 +33,7 @@ export interface TrainingSignals {
   /** recentMeanMs - earlierMeanMs over two adjacent 7-day windows; negative = getting faster. Null without a full valid solve in each window. */
   momentumMs: number | null;
 
-  /** Same value as predictCompetitionResult's adjustmentFactorPct — never recomputed. */
+  /** Same value as predictCompetitionResult's adjustmentFactorPct - never recomputed. */
   competitionGapPct: number | null;
   competitionConfidence: ConfidenceLevel;
   /** BacktestSummary.averageAbsoluteErrorPct, passed through. */
@@ -75,7 +75,7 @@ function computeDaysSinceLastPb(solves: CoachSolve[], now: number): number | nul
 
 /**
  * `prediction` and `backtestSummary` are accepted pre-computed rather than
- * re-derived here — same division of labor as explainPrediction, which
+ * re-derived here - same division of labor as explainPrediction, which
  * also takes both as already-computed arguments instead of recomputing
  * predictCompetitionResult/runBacktest a second time.
  */

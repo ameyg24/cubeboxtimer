@@ -1,9 +1,9 @@
-// CubeBox analytics — statistical prediction models (pure).
+// CubeBox analytics - statistical prediction models (pure).
 //
 // Two small, from-scratch models over the FeatureVector produced by
 // predictionFeatures.ts. Both operate on the same fixed set of numeric
 // features and degrade to "no prediction" (null) exactly like
-// predictCompetitionResult does when there isn't enough data — never a
+// predictCompetitionResult does when there isn't enough data - never a
 // fabricated number.
 
 import type { FeatureVector } from "./predictionFeatures";
@@ -17,7 +17,7 @@ export interface TrainingRow {
 // Fixed feature order used by both models. Exported so mlDataset.ts builds
 // its feature matrix from the exact projection the models train on, not a
 // second definition. Both models accept a key subset so feature ablation
-// (modelComparison.ts) can genuinely remove a column — zeroing a value
+// (modelComparison.ts) can genuinely remove a column - zeroing a value
 // instead would pass an off-manifold point through standardization.
 export const MODEL_FEATURE_KEYS = [
   "practiceMeanMs",
@@ -49,7 +49,7 @@ function standardizeColumns(rows: number[][]): { standardized: number[][]; stats
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
     const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length;
     // A constant column (std 0, e.g. every training row has 0 DNFs) would
-    // divide by zero — std 1 leaves it at its centered value (0) instead.
+    // divide by zero - std 1 leaves it at its centered value (0) instead.
     stats.push({ mean, std: Math.sqrt(variance) || 1 });
   }
   const standardized = rows.map((row) => row.map((v, c) => (v - stats[c].mean) / stats[c].std));
@@ -87,7 +87,7 @@ function invert(m: number[][]): number[][] {
 
 // Mild L2 regularization. Standardized features put every column on the
 // same ~unit scale, so one fixed lambda works regardless of raw feature
-// units (ms vs percent vs a plain count) — this is what makes ridge, not
+// units (ms vs percent vs a plain count) - this is what makes ridge, not
 // plain least squares, the right fit here: training rows (competitions) are
 // usually fewer than the 4 features, which plain OLS can't handle at all.
 const RIDGE_LAMBDA = 1;

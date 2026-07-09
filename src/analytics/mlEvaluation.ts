@@ -1,4 +1,4 @@
-// CubeBox analytics — regression evaluation metrics (pure).
+// CubeBox analytics - regression evaluation metrics (pure).
 //
 // One place for the point-prediction error formulas modelComparison.ts
 // previously computed inline. Unit-agnostic: metrics come back in the same

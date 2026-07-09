@@ -120,7 +120,7 @@ describe("compareModels", () => {
   it("breaks a MAE tie by preferring the simplest model (baselines before models)", () => {
     // One competition, one prior with identical averages: the rule-based
     // model and the last-competition baseline both predict 11000 exactly.
-    // On a tie the simpler predictor must win — a model has to strictly
+    // On a tie the simpler predictor must win - a model has to strictly
     // beat the baselines to be selected.
     const solves = [solveAt(20, 10000), solveAt(16, 10000), solveAt(6, 10000), solveAt(2, 10000)];
     const results = [competition("c1", 15, 11000), competition("c2", 5, 11000)];

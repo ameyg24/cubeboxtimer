@@ -1,7 +1,7 @@
-// CubeBox analytics — practice coach (pure).
+// CubeBox analytics - practice coach (pure).
 //
 // Converts TrainingSignals into a scored, prioritized recommendation list.
-// No new statistics live here — every evidence value is a formatted read of
+// No new statistics live here - every evidence value is a formatted read of
 // a TrainingSignals field. Readiness is a fixed weighted average of five
 // subscores; focus areas come from a fixed rule table (hardcoded priority,
 // hardcoded drill, array order as tie-break).
@@ -42,7 +42,7 @@ export interface PracticeCoachResult {
   limitations: string[];
 }
 
-// Plain, disclosed constants — not fitted. Each also doubles as the trigger
+// Plain, disclosed constants - not fitted. Each also doubles as the trigger
 // threshold for the one rule its subscore corresponds to (see FOCUS_RULES),
 // so a rule's `target` field can quote the exact number that fired it.
 export const TARGET_SOLVES_14D = 50;
@@ -59,7 +59,7 @@ function coefficientOfVariation(s: TrainingSignals): number | null {
   return s.practiceStddevMs / s.practiceMeanMs;
 }
 
-// A null underlying signal scores neutral (0.5), not 0 — missing data isn't
+// A null underlying signal scores neutral (0.5), not 0 - missing data isn't
 // evidence of poor performance, it just means this subscore can't speak.
 function consistencyScore(s: TrainingSignals): number {
   const cv = coefficientOfVariation(s);
@@ -81,7 +81,7 @@ function dnfRiskScore(s: TrainingSignals): number {
   return 1 - Math.min(s.dnfRatePct / 100 / DNF_RISK_CAP, 1);
 }
 
-// Explicit lookup, not a formula — "insufficient" competition history is
+// Explicit lookup, not a formula - "insufficient" competition history is
 // genuinely scored 0 here (unlike the neutral-default subscores above),
 // matching how confidenceLevel already gates the live prediction itself.
 const COMPETITION_CONFIDENCE_SCORES: Record<ConfidenceLevel, number> = {
@@ -126,7 +126,7 @@ export interface FocusRule {
 }
 
 // Fixed table: hardcoded priority, hardcoded drill, array order is the
-// tie-break for equal-priority rules. Six rules, six distinct signals — no
+// tie-break for equal-priority rules. Six rules, six distinct signals - no
 // two rules key off the same underlying number. Exported so
 // recommendationEvaluation.ts can reuse the exact same trigger/metric
 // functions instead of re-deriving them.

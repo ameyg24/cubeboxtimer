@@ -1,4 +1,4 @@
-// CubeBox analytics — prediction backtesting (pure).
+// CubeBox analytics - prediction backtesting (pure).
 //
 // Answers "how accurate have our predictions actually been?" by replaying
 // history: for every competition, simulate the exact prediction
@@ -9,7 +9,7 @@
 // No prediction math is re-implemented here: predictCompetitionResult is
 // called once per competition with `now` pinned to that competition's own
 // date and `pastResultsForEvent` restricted to strictly earlier
-// competitions — the same function, replayed at an earlier point in time.
+// competitions - the same function, replayed at an earlier point in time.
 
 import type { ConfidenceLevel, CompetitionResultInput, TimedPracticeSolve } from "./competitionPrediction";
 import { DEFAULT_PRACTICE_WINDOW_DAYS, predictCompetitionResult } from "./competitionPrediction";
@@ -86,13 +86,13 @@ function summarizeBacktest(cases: BacktestCase[]): BacktestSummary {
  * Replays history and scores every eligible competition. A competition is
  * eligible only when predictCompetitionResult, run as of that competition's
  * own date with strictly earlier competitions as its only history, actually
- * produces a numeric prediction — the same "don't fabricate a prediction"
+ * produces a numeric prediction - the same "don't fabricate a prediction"
  * rule the live prediction already follows. A competition with no earlier
  * competitions (nothing to learn an adjustment factor from) or no matching
  * practice data at that point in time is simply not included in `cases`.
  *
  * `allSolvesForEvent` should be every known solve for the target event, not
- * just recent ones — early competitions in the backtest need practice
+ * just recent ones - early competitions in the backtest need practice
  * windows from far enough back in solve history.
  */
 export function runBacktest(
@@ -113,7 +113,7 @@ export function runBacktest(
 
   for (let i = 0; i < usable.length; i++) {
     const target = usable[i];
-    // Strictly earlier only — a same-day tie must not count as "prior".
+    // Strictly earlier only - a same-day tie must not count as "prior".
     const priorResults = usable.slice(0, i).filter((r) => r.dateMs < target.dateMs);
     if (priorResults.length === 0) continue;
 

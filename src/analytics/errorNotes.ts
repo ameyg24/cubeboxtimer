@@ -1,8 +1,8 @@
-// CubeBox analytics — walk-forward error notes (pure).
+// CubeBox analytics - walk-forward error notes (pure).
 //
 // Per-case flags over a backtested prediction: which already-defined
 // conditions held when it was made, and whether its interval held the
-// actual result. Every threshold is imported from practiceCoach.ts —
+// actual result. Every threshold is imported from practiceCoach.ts -
 // nothing here defines a new one.
 
 import type { BacktestCase } from "./backtesting";

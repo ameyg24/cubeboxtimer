@@ -1,7 +1,7 @@
-// CubeBox analytics — training plan (pure).
+// CubeBox analytics - training plan (pure).
 //
 // Reshapes PracticeCoach's FocusArea[] into a small time-boxed plan.
-// Nothing new is computed — this is a display-oriented grouping of an
+// Nothing new is computed - this is a display-oriented grouping of an
 // already-produced list, not a scheduling engine.
 
 import type { FocusArea } from "./practiceCoach";
@@ -14,7 +14,7 @@ export interface TrainingPlanResult {
 }
 
 /**
- * `nextCompetitionDateMs` is the only date this module accepts — there is
+ * `nextCompetitionDateMs` is the only date this module accepts - there is
  * no persisted "upcoming competition" concept in CubeBox yet, so callers
  * without one should pass null rather than inventing a schedule.
  */
@@ -29,7 +29,7 @@ export function buildTrainingPlan(
 
   const limitations: string[] = [];
   if (nextCompetitionDateMs === null) {
-    limitations.push("No upcoming competition date set — before-competition plan not shown.");
+    limitations.push("No upcoming competition date set - before-competition plan not shown.");
   }
 
   return { actNow, thisWeek, beforeNextCompetition, limitations };

@@ -31,7 +31,7 @@ const relativeTime = (id) => {
 };
 
 // Hover state lives here, per row, so hovering one row doesn't re-render the
-// whole list — only the row whose hover state actually changed. The action
+// whole list - only the row whose hover state actually changed. The action
 // buttons also show on keyboard focus, not just mouse hover, so they're
 // reachable without a mouse.
 const SolveRow = ({ solve, idx, isFocused, isPB, isFirst, updateSolve, deleteSolve }) => {
@@ -331,7 +331,7 @@ function AddSolveModal({ titleId, defaultEvent, onClose, onSubmit }) {
 
         <div className="form-field">
           <label className="form-label" htmlFor={timeId}>
-            Time (seconds){form.penalty === "DNF" ? " — not needed for a DNF" : ""}
+            Time (seconds){form.penalty === "DNF" ? " - not needed for a DNF" : ""}
           </label>
           <input
             id={timeId}

@@ -43,7 +43,7 @@ export function PredictionBreakdown({ explanation, show }) {
       </div>
       <div className="summary-row">
         <span>Confidence interval</span>
-        <span className="val">{fmtSeconds(lo)} – {fmtSeconds(hi)}</span>
+        <span className="val">{fmtSeconds(lo)} - {fmtSeconds(hi)}</span>
       </div>
       <div className="summary-row">
         <span>Confidence level</span>
@@ -94,7 +94,7 @@ export function PredictionFactors({ factors, show }) {
     <div className="section-card">
       <div className="section-title">Prediction Factors</div>
       <p className="prediction-basis" style={{ margin: "0 0 var(--space-3)" }}>
-        A transparent, rule-based breakdown of what shaped this prediction — not a machine-learning
+        A transparent, rule-based breakdown of what shaped this prediction - not a machine-learning
         model or a fitted score.
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

@@ -1,4 +1,4 @@
-// CubeBox analytics — averages, means, best/worst (pure, WCA-style).
+// CubeBox analytics - averages, means, best/worst (pure, WCA-style).
 //
 // All values are computed in milliseconds. Consumers convert to seconds for
 // display. DNF solves are treated as the largest possible time for trimming.
@@ -26,8 +26,8 @@ export function trimCount(n: number): number {
  * so they are trimmed first; the average is a DNF only if a DNF survives the
  * trim (i.e. dnfCount > trimCount(n)).
  *
- * Note: this is the canonical WCA "average". It is NOT used for mo3 — see
- * `meanOfN` — because a mean of 3 is not trimmed.
+ * Note: this is the canonical WCA "average". It is NOT used for mo3 - see
+ * `meanOfN` - because a mean of 3 is not trimmed.
  */
 export function averageOfN(solves: Solve[], n: number): AverageResult {
   if (!Array.isArray(solves) || solves.length < n) return INSUFFICIENT;

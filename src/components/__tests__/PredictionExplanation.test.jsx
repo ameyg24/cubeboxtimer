@@ -41,7 +41,7 @@ describe("PredictionBreakdown", () => {
     expect(screen.getByText("10.00")).toBeInTheDocument(); // practice average
     expect(screen.getByText("+10.0%")).toBeInTheDocument(); // adjustment factor
     expect(screen.getByText("11.00")).toBeInTheDocument(); // predicted average
-    expect(screen.getByText("10.50 – 11.50")).toBeInTheDocument(); // confidence interval
+    expect(screen.getByText("10.50 - 11.50")).toBeInTheDocument(); // confidence interval
     expect(screen.getByText("Medium")).toBeInTheDocument(); // confidence badge
     expect(screen.getByText("3")).toBeInTheDocument(); // competitions used
     expect(screen.getByText("10.0%")).toBeInTheDocument(); // DNF probability

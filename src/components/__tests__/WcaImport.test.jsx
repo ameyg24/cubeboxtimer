@@ -152,7 +152,7 @@ describe("WcaImport", () => {
     await user.click(screen.getByRole("button", { name: "Import" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent(/No 2x2x2–5x5x5 results found/)
+      expect(screen.getByRole("status")).toHaveTextContent(/No 2x2x2-5x5x5 results found/)
     );
   });
 

@@ -99,7 +99,7 @@ function computeDailyStats(solvesRaw) {
   return result;
 }
 
-// Records are fully derived from solvesRaw — no separate storage. This only
+// Records are fully derived from solvesRaw - no separate storage. This only
 // re-runs when allSolves changes identity (an actual add/edit/delete), not
 // on every render, so a deleted or re-penalized solve is always reflected
 // correctly on the next recompute instead of drifting from a stale cache.
@@ -239,7 +239,7 @@ const Distribution = ({ solves }) => {
         {buckets.filter((b) => b.count > 0).map((b) => (
           <div key={b.lo} style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ minWidth: 74, fontSize: "0.78rem", fontFamily: "monospace", color: "var(--text-muted)", textAlign: "right" }}>
-              {b.lo.toFixed(1)}–{b.hi.toFixed(1)}s
+              {b.lo.toFixed(1)}-{b.hi.toFixed(1)}s
             </span>
             <div style={{ flex: 1, background: "var(--surface-alt)", borderRadius: 4, height: 16, overflow: "hidden" }}>
               <div style={{ width: `${(b.count / maxCount) * 100}%`, height: "100%", background: "var(--accent)", borderRadius: 4, transition: "width 0.3s ease" }} />
@@ -325,7 +325,7 @@ const PbTimeline = ({ history }) => {
   if (history.length === 0) {
     return (
       <div className="section-card" style={{ color: "var(--text-faint)", textAlign: "center", padding: "2.5rem" }}>
-        No records yet — solve to start building your history.
+        No records yet - solve to start building your history.
       </div>
     );
   }

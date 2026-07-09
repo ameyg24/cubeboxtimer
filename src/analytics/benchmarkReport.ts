@@ -1,7 +1,7 @@
-// CubeBox analytics — benchmark report (pure).
+// CubeBox analytics - benchmark report (pure).
 //
-// Renders the full evaluation pipeline — dataset, model comparison,
-// calibration, ablation, explanations, error notes — as one plain-text
+// Renders the full evaluation pipeline - dataset, model comparison,
+// calibration, ablation, explanations, error notes - as one plain-text
 // report. Composes existing modules only; computes nothing new. The CLI
 // entry (scripts/benchmark.js) prints this for a committed sample fixture;
 // tests render it directly. No timestamps: identical input, identical text.
@@ -16,7 +16,7 @@ import { explainNearestNeighbors, fitLinearRegression } from "./predictionModels
 import type { CoachSolve } from "./trainingSignals";
 
 // No `now` input: the evaluation is entirely retrospective, driven by
-// competition dates — nothing in the report depends on wall-clock time.
+// competition dates - nothing in the report depends on wall-clock time.
 export interface BenchmarkInput {
   event: string;
   solves: CoachSolve[];
@@ -64,7 +64,7 @@ export function renderBenchmarkReport(input: BenchmarkInput): string {
   const backtest = runBacktest(solves, competitionResults, event);
   const calibration = computeCalibrationReport(toCalibrationCases(backtest.cases));
   lines.push("");
-  lines.push("CALIBRATION (rule-based intervals only — baselines and statistical models produce point predictions)");
+  lines.push("CALIBRATION (rule-based intervals only - baselines and statistical models produce point predictions)");
   if (calibration.evaluatedCount === 0) {
     lines.push("  no intervals to evaluate");
   } else {
@@ -77,7 +77,7 @@ export function renderBenchmarkReport(input: BenchmarkInput): string {
 
   const ablation = runFeatureAblation(solves, competitionResults, event);
   lines.push("");
-  lines.push("FEATURE ABLATION (ridge + k-NN; directional only at this label count — do not rank small deltas)");
+  lines.push("FEATURE ABLATION (ridge + k-NN; directional only at this label count - do not rank small deltas)");
   lines.push(`  ${col("Removed feature", 24)}${num("Ridge MAE", 11)}${num("Ridge Bias", 12)}${num("kNN MAE", 10)}${num("kNN Bias", 11)}`);
   const ablationRow = (label: string, metrics: typeof ablation.allFeatures) => {
     const ridge = metrics.find((m) => m.modelId === "linear-regression");
@@ -101,7 +101,7 @@ export function renderBenchmarkReport(input: BenchmarkInput): string {
     const trainingRows = lastCase.trainingRows.map((r) => ({ features: r.features, actualAverageMs: r.targetAverageMs }));
 
     const ridge = fitLinearRegression(trainingRows).explain(lastCase.target.features);
-    lines.push("  ridge (model mechanics, not feature importance — correlated predictors share attribution):");
+    lines.push("  ridge (model mechanics, not feature importance - correlated predictors share attribution):");
     if (ridge === null) {
       lines.push("    not fittable for this case");
     } else {

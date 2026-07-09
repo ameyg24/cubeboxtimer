@@ -40,7 +40,7 @@ export default function InspectionTimer({
     startTimeRef.current = Date.now();
 
     // The tick runs its side effects here, in the interval callback, rather than
-    // inside a setRemaining updater — updaters must stay pure, and firing the
+    // inside a setRemaining updater - updaters must stay pure, and firing the
     // parent's onPenalty from one warns about updating state during render.
     timerRef.current = setInterval(() => {
       const newRemaining = remainingRef.current - 1;

@@ -74,7 +74,7 @@ describe("runBacktest", () => {
 
   it("returns cases in chronological order, oldest first", () => {
     const { solves, results } = fullFixture();
-    // Shuffle the input order — the backtest must still evaluate and
+    // Shuffle the input order - the backtest must still evaluate and
     // return cases chronologically regardless of input order.
     const shuffled = [results[3], results[0], results[4], results[1], results[2]];
     const result = runBacktest(solves, shuffled, "3x3x3");
@@ -214,7 +214,7 @@ describe("runBacktest", () => {
   it("never lets a competition's own official result influence its own simulated prediction", () => {
     const solves = [solveAt(108, 10000), solveAt(104, 10000), solveAt(78, 10000), solveAt(74, 10000)];
     const results = [
-      competition("seed", 100, 11000), // +10% gap — the only real history
+      competition("seed", 100, 11000), // +10% gap - the only real history
       // An extreme, self-inflating official average. If this were mistakenly
       // folded into its own adjustment factor, the predicted value would be
       // wildly different from 11000.

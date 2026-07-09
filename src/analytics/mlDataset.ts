@@ -1,10 +1,10 @@
-// CubeBox analytics — model-ready dataset builder (pure).
+// CubeBox analytics - model-ready dataset builder (pure).
 //
 // The single source of truth for how competition history becomes training
 // data: one row per usable competition (feature vector as of that
 // competition's date, official average as the target), plus the
 // walk-forward cases the models are evaluated on. Feature engineering is
-// buildFeatureVector, unchanged — this module only decides which rows
+// buildFeatureVector, unchanged - this module only decides which rows
 // exist and what each row was allowed to see. The leakage rule lives here
 // once: a row's features use only strictly-earlier competitions (same-day
 // ties excluded), and buildFeatureVector re-enforces the date cutoff
@@ -27,7 +27,7 @@ export interface DatasetRow {
 
 export interface WalkForwardCase {
   target: DatasetRow;
-  /** Rows strictly earlier than the target — a same-day competition is never training data for it. */
+  /** Rows strictly earlier than the target - a same-day competition is never training data for it. */
   trainingRows: DatasetRow[];
 }
 

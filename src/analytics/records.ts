@@ -1,10 +1,10 @@
-// CubeBox analytics — personal record detection (pure).
+// CubeBox analytics - personal record detection (pure).
 //
 // A record event is fully derivable from the solve list itself (no extra
 // state needed): replay solves in chronological order and note every time a
 // value beats the best seen so far. This reuses the exact same average math
 // as the rest of analytics (rollingAverageOfN) rather than re-implementing
-// windowing/trimming — it's a chronological walk over already-computed
+// windowing/trimming - it's a chronological walk over already-computed
 // values, not a second averaging engine.
 
 import type { Solve } from "./types";
@@ -73,7 +73,7 @@ function emptyCurrentRecords(): CurrentRecords {
  * Walks a chronologically-ordered solve list once and detects every moment a
  * new personal record was set, for the single time and each WCA average
  * window. A record only counts as new when it strictly beats the previous
- * one — a tie is not a PB.
+ * one - a tie is not a PB.
  */
 export function computeRecordHistory(solvesChronological: TimedSolve[]): RecordHistoryResult {
   const solves = Array.isArray(solvesChronological) ? solvesChronological : [];

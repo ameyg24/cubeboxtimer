@@ -1,5 +1,5 @@
 // Committed sample fixture for `npm run benchmark:models`. Synthetic and
-// deterministic (fixed dates, seeded LCG) — real user data is per-user and
+// deterministic (fixed dates, seeded LCG) - real user data is per-user and
 // local, so the benchmark can never see it. Shape: two seasons of practice
 // with a slow improvement trend, eight competitions each preceded by a
 // practice block, competition averages ~6% slower than practice.
@@ -10,7 +10,7 @@ import type { CoachSolve } from "../src/analytics/trainingSignals";
 export const SAMPLE_EVENT = "3x3x3";
 const SAMPLE_NOW = Date.UTC(2026, 4, 1);
 export const SAMPLE_DATA_LABEL =
-  "SAMPLE DATA — synthetic fixture (scripts/benchmarkData.ts), not real user results.";
+  "SAMPLE DATA - synthetic fixture (scripts/benchmarkData.ts), not real user results.";
 
 const DAY = 24 * 60 * 60 * 1000;
 

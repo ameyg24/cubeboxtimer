@@ -30,7 +30,7 @@ try {
   provider = new GoogleAuthProvider();
   logger.info("Firebase initialized.", { projectId: firebaseProjectId });
 } catch (e) {
-  logger.warn("Firebase init failed — running in offline/local mode.", { error: e.message });
+  logger.warn("Firebase init failed - running in offline/local mode.", { error: e.message });
   db = null;
   auth = null;
   provider = null;

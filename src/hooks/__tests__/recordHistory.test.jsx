@@ -3,8 +3,8 @@
 // Integration tests for how record history behaves wired into the real
 // persistence layer: computeRecordHistory itself is pure and covered in
 // src/analytics/__tests__/records.test.ts. These tests instead exercise the
-// property that makes that design safe — records are derived fresh from
-// allSolves, never cached separately — across reload, session switching,
+// property that makes that design safe - records are derived fresh from
+// allSolves, never cached separately - across reload, session switching,
 // deletion, and penalty edits.
 import { describe, it, expect, beforeEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
@@ -57,7 +57,7 @@ describe("record history wired into useSolveSessions", () => {
       result.current.addSession();
     });
     act(() => {
-      // Slower solve in the new session — should not overwrite the record.
+      // Slower solve in the new session - should not overwrite the record.
       result.current.addSolve(solve({ id: "b", millis: 15000, localCreatedAt: 2 }));
     });
 

@@ -7,20 +7,20 @@ CubeBox is an offline-first speedcubing performance platform for recording solve
 
 ## Features
 
-- **WCA-style timer** — start and stop with the spacebar or a tap, with a visual countdown.
-- **Inspection & penalties** — 15-second inspection with automatic +2 and DNF handling per WCA rules.
-- **WCA-style scrambles** — random-move scrambles for 2x2x2 through 5x5x5 using standard outer-block-turn notation, with no repeated face and no three consecutive moves on the same axis. This is not the random-state scrambling the WCA uses officially for 2x2x2/3x3x3 (that requires a full cube solver); see [`src/scramble.js`](src/scramble.js) for the exact rules.
-- **Session management** — create, switch, and delete sessions; each tracks its own solves.
-- **Performance statistics** — best, worst, mean, mo3, ao5, ao12, ao50, ao100, and session/all-time aggregates.
-- **Personal records & PB history** — automatic detection of Single/ao5/ao12/ao50/ao100 records across every session, a dedicated Records tab with the full timeline of when each was set, and an in-timer celebration naming exactly which record just broke.
-- **Interactive charts** — visualize trends and rolling averages with Chart.js.
-- **Competition prediction** — predicts your next official average from recent practice and past results, with confidence intervals, backtesting, and a comparison against baseline and statistical models (see [ML Evaluation](#ml-evaluation)).
-- **Practice coach** — deterministic training recommendations (readiness score, focus areas, drills) derived from the same analytics, with a retrospective review of whether past recommendations resolved.
-- **WCA import** — pull your official results from the WCA public API, with per-round handling and duplicate/conflict detection.
-- **csTimer import** — paste or upload a csTimer export to backfill practice history.
-- **Cloud sync & offline mode** — solves persist to Firebase Firestore when signed in, with an automatic local fallback when offline or signed out.
-- **Google authentication** — sign in to sync across devices.
-- **Responsive UI** — works on desktop and mobile, in light and dark mode.
+- **WCA-style timer** - start and stop with the spacebar or a tap, with a visual countdown.
+- **Inspection & penalties** - 15-second inspection with automatic +2 and DNF handling per WCA rules.
+- **WCA-style scrambles** - random-move scrambles for 2x2x2 through 5x5x5 using standard outer-block-turn notation, with no repeated face and no three consecutive moves on the same axis. This is not the random-state scrambling the WCA uses officially for 2x2x2/3x3x3 (that requires a full cube solver); see [`src/scramble.js`](src/scramble.js) for the exact rules.
+- **Session management** - create, switch, and delete sessions; each tracks its own solves.
+- **Performance statistics** - best, worst, mean, mo3, ao5, ao12, ao50, ao100, and session/all-time aggregates.
+- **Personal records & PB history** - automatic detection of Single/ao5/ao12/ao50/ao100 records across every session, a dedicated Records tab with the full timeline of when each was set, and an in-timer celebration naming exactly which record just broke.
+- **Interactive charts** - visualize trends and rolling averages with Chart.js.
+- **Competition prediction** - predicts your next official average from recent practice and past results, with confidence intervals, backtesting, and a comparison against baseline and statistical models (see [ML Evaluation](#ml-evaluation)).
+- **Practice coach** - deterministic training recommendations (readiness score, focus areas, drills) derived from the same analytics, with a retrospective review of whether past recommendations resolved.
+- **WCA import** - pull your official results from the WCA public API, with per-round handling and duplicate/conflict detection.
+- **csTimer import** - paste or upload a csTimer export to backfill practice history.
+- **Cloud sync & offline mode** - solves persist to Firebase Firestore when signed in, with an automatic local fallback when offline or signed out.
+- **Google authentication** - sign in to sync across devices.
+- **Responsive UI** - works on desktop and mobile, in light and dark mode.
 
 ## Tech Stack
 
@@ -65,7 +65,7 @@ Required variables:
 
 If Firebase is not configured, CubeBox still runs and stores solves locally in the browser.
 
-If you're pointing at your own Firebase project, also deploy the access rules in [`firestore.rules`](firestore.rules) (`firebase deploy --only firestore:rules`) — without them your Firestore database falls back to whatever default rules your project was created with, which is usually locked down to nobody.
+If you're pointing at your own Firebase project, also deploy the access rules in [`firestore.rules`](firestore.rules) (`firebase deploy --only firestore:rules`) - without them your Firestore database falls back to whatever default rules your project was created with, which is usually locked down to nobody.
 
 ### Running
 
@@ -77,11 +77,11 @@ The app is served at http://localhost:5173 (or the port shown in your terminal).
 
 ### Troubleshooting
 
-- **Sign-in button does nothing / shows "Auth config needed".** Firebase environment variables are missing or incomplete — check `.env` against `.env.example`, then restart the dev server (Vite only reads `.env` on startup).
-- **Signed in, but nothing syncs.** Firestore rules may not be deployed for your project — see the note above. Check the sync badge in the header; it explains the current state (`offline`, `sign in to sync`, `pending`, `sync failed`, `synced`).
+- **Sign-in button does nothing / shows "Auth config needed".** Firebase environment variables are missing or incomplete - check `.env` against `.env.example`, then restart the dev server (Vite only reads `.env` on startup).
+- **Signed in, but nothing syncs.** Firestore rules may not be deployed for your project - see the note above. Check the sync badge in the header; it explains the current state (`offline`, `sign in to sync`, `pending`, `sync failed`, `synced`).
 - **Port 5173 is already in use.** Another Vite dev server is probably running; stop it, or pass `--port` to `npm run dev -- --port 5174`.
-- **`npm run typecheck` fails on a file outside `src/analytics`.** That's expected — `tsconfig.json` only type-checks the analytics module by design (the rest of the app is plain JS/JSX). See [`docs/architecture/overview.md`](docs/architecture/overview.md).
-- **Tests fail only in CI, not locally.** Confirm your local Node version matches CI (`node -v`, should be 20+) — see `engines` in `package.json`.
+- **`npm run typecheck` fails on a file outside `src/analytics`.** That's expected - `tsconfig.json` only type-checks the analytics module by design (the rest of the app is plain JS/JSX). See [`docs/architecture/overview.md`](docs/architecture/overview.md).
+- **Tests fail only in CI, not locally.** Confirm your local Node version matches CI (`node -v`, should be 20+) - see `engines` in `package.json`.
 
 ## Scripts
 
@@ -101,9 +101,9 @@ CubeBox scores every competition prediction with deterministic walk-forward
 validation: each competition is predicted using only strictly-earlier
 competitions and the practice data that existed at the time.
 
-Six predictors are compared on identical cases — three naive baselines
+Six predictors are compared on identical cases - three naive baselines
 (Practice Mean, Practice Window Average, Last Competition) and three models
-(Rule-based, Ridge Regression, Weighted k-NN) — with MAE/RMSE/MAPE/bias,
+(Rule-based, Ridge Regression, Weighted k-NN) - with MAE/RMSE/MAPE/bias,
 interval calibration, leave-one-feature-out ablation, and exact per-feature
 prediction decomposition. Methodology and limitations:
 [`docs/architecture/model-evaluation.md`](docs/architecture/model-evaluation.md).
@@ -118,14 +118,14 @@ npm run benchmark:models
 
 CubeBox is organized into three layers:
 
-- **UI (React)** — the timer, session controls, dashboard, and charts.
-- **Analytics** — a pure, framework-free TypeScript module in [`src/analytics/`](src/analytics) that computes all solve statistics and personal records using WCA-style averaging rules. It has no React, Firebase, or browser dependencies, which keeps it easy to test and reuse.
-- **Persistence** — Firebase Authentication and Cloud Firestore, with an automatic local-storage fallback so the app works offline and without an account.
+- **UI (React)** - the timer, session controls, dashboard, and charts.
+- **Analytics** - a pure, framework-free TypeScript module in [`src/analytics/`](src/analytics) that computes all solve statistics and personal records using WCA-style averaging rules. It has no React, Firebase, or browser dependencies, which keeps it easy to test and reuse.
+- **Persistence** - Firebase Authentication and Cloud Firestore, with an automatic local-storage fallback so the app works offline and without an account.
 
 Two deeper documents cover this in more detail, including a diagram and the reasoning behind the offline-first sync design:
 
-- [`docs/architecture/overview.md`](docs/architecture/overview.md) — layers, the analytics/records model, offline-first sync.
-- [`docs/architecture/observability.md`](docs/architecture/observability.md) — logging strategy, what's instrumented and why, and how real telemetry would plug in later.
+- [`docs/architecture/overview.md`](docs/architecture/overview.md) - layers, the analytics/records model, offline-first sync.
+- [`docs/architecture/observability.md`](docs/architecture/observability.md) - logging strategy, what's instrumented and why, and how real telemetry would plug in later.
 
 ## Testing
 
@@ -135,7 +135,7 @@ Unit tests run with [Vitest](https://vitest.dev):
 npm run test:run
 ```
 
-The analytics module — averaging rules, penalties (+2 / DNF), edge cases, and personal-record detection — is tested in isolation with no DOM or network. Components and hooks are covered too: session persistence, offline sync, and reload/session-switching behavior (`useSolveSessions`), keyboard interaction and focus handling in the solve list and dialogs, the inspection timer's warning/penalty timing, the logging layer's dev/production level filtering, and error-boundary recovery.
+The analytics module - averaging rules, penalties (+2 / DNF), edge cases, and personal-record detection - is tested in isolation with no DOM or network. Components and hooks are covered too: session persistence, offline sync, and reload/session-switching behavior (`useSolveSessions`), keyboard interaction and focus handling in the solve list and dialogs, the inspection timer's warning/penalty timing, the logging layer's dev/production level filtering, and error-boundary recovery.
 
 ## Continuous Integration
 

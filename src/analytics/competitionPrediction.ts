@@ -1,9 +1,9 @@
-// CubeBox analytics — competition performance prediction (pure).
+// CubeBox analytics - competition performance prediction (pure).
 //
 // For every past competition where both the practice average leading up to
 // it and the official result are known, compute how far off practice was
 // ("the gap"). The average of those gaps is a personal "competition
-// adjustment factor" — applied to current practice data, it becomes the
+// adjustment factor" - applied to current practice data, it becomes the
 // prediction. Built on mean()/rollingAverageOfN()/computeSessionStats()
 // from this module. See docs/architecture/overview.md.
 
@@ -85,7 +85,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // Confidence thresholds are on gapPct variance (a fraction, e.g. 0.0025 is a
 // population stddev of ~5 percentage points across past gaps). These are
-// plain, documented round numbers — not fitted parameters.
+// plain, documented round numbers - not fitted parameters.
 const LOW_VARIANCE_THRESHOLD = 0.0025;
 const HIGH_VARIANCE_THRESHOLD = 0.01;
 
@@ -97,7 +97,7 @@ const SINGLE_DATA_POINT_RANGE_FRACTION = 0.15;
  * Slices a solve list down to the window of `windowDays` immediately before
  * `referenceDateMs` (e.g. a competition date, or "now" for a live
  * prediction). Callers are expected to have already scoped `solves` to a
- * single event — this function does not filter by event, matching how
+ * single event - this function does not filter by event, matching how
  * computeRecordHistory and computeSessionStats treat their solve lists.
  */
 export function computePracticeWindow(
@@ -150,7 +150,7 @@ export function computeAdjustmentFactor(pairs: PracticeVsOfficial[]): Adjustment
 /**
  * Confidence is a fixed, inspectable rule ladder over (a) how many past
  * competitions back the adjustment factor and (b) how consistent those
- * gaps have been — never a fitted score.
+ * gaps have been - never a fitted score.
  */
 export function computeConfidence(competitionsUsed: number, variance: number | null): ConfidenceLevel {
   if (competitionsUsed <= 0) return "insufficient";
@@ -172,11 +172,11 @@ export function computeConfidence(competitionsUsed: number, variance: number | n
  * every past competition, derives the adjustment factor and confidence,
  * then applies that factor to the *current* practice window to produce a
  * prediction. Returns predictedAverageMs = null (no prediction) whenever
- * there isn't enough data to responsibly extrapolate from — either no
+ * there isn't enough data to responsibly extrapolate from - either no
  * historical comparisons, or no current practice data to apply them to.
  *
  * `allSolvesForEvent` should be every known solve for the target event
- * (not just recent ones) — past competitions can be far enough back that
+ * (not just recent ones) - past competitions can be far enough back that
  * their practice window falls well outside any "recent" slice.
  */
 export function predictCompetitionResult(
