@@ -1,6 +1,6 @@
 # CubeBox Architecture
 
-This document describes how CubeBox is structured, for contributors.
+This document describes how CubeBox is structured.
 
 ## Overview
 
