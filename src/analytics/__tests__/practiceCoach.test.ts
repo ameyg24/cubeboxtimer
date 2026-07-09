@@ -165,7 +165,7 @@ describe("computePracticeCoachResult", () => {
     ]);
   });
 
-  it("contains no banned marketing/AI-flavored words anywhere in its static strings", () => {
+  it("contains no marketing language in its static strings", () => {
     const allSixTrigger = baseSignals({
       dnfRatePct: 20,
       practiceStddevMs: 10000 * (CV_CAP + 0.05),

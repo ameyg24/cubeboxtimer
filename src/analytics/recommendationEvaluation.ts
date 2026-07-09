@@ -1,14 +1,13 @@
 // CubeBox analytics — recommendation effectiveness review (pure).
 //
-// Retrospective, not causal: for each coach rule, finds the most recent
-// point in the lookback window where it started triggering, then checks
-// whether the same metric crossed back past the rule's own trigger
-// condition within a fixed horizon. This is a walk-forward replay of
-// computeTrainingSignals/practiceCoach's own trigger functions — the same
-// shape as backtesting.ts, applied to rule conditions instead of
-// prediction error. No new persistence, no causal claim: "resolved" means
-// the condition that fired the rule stopped holding, not that this
-// recommendation was the reason.
+// For each coach rule, finds the most recent point in the lookback window
+// where it started triggering, then checks whether the same metric crossed
+// back past the rule's own trigger condition within a fixed horizon. A
+// walk-forward replay of computeTrainingSignals/practiceCoach's own
+// trigger functions — the same shape as backtesting.ts, applied to rule
+// conditions instead of prediction error. "Resolved" means the condition
+// that fired the rule stopped holding, not that the recommendation caused
+// it.
 
 import { predictCompetitionResult } from "./competitionPrediction";
 import { collapseRoundsToReference } from "./wcaImport";

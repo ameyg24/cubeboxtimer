@@ -1,16 +1,11 @@
 // CubeBox analytics — competition performance prediction (pure).
 //
-// A transparent statistical model, not a black box: for every past
-// competition where we know both the practice average leading up to it and
-// the official result, we compute how far off practice was ("the gap").
-// The average of those gaps is a personal "competition adjustment factor" —
-// applied to current practice data, it becomes the prediction. Every number
-// here is directly traceable back to mean()/rollingAverageOfN()/
-// computeSessionStats(), already defined elsewhere in this module. Nothing
-// is fitted, sampled, or hidden behind a model file.
-//
-// No WCA integration, no ML, no UI here — see docs/architecture/overview.md
-// for what this module intentionally does not yet do.
+// For every past competition where both the practice average leading up to
+// it and the official result are known, compute how far off practice was
+// ("the gap"). The average of those gaps is a personal "competition
+// adjustment factor" — applied to current practice data, it becomes the
+// prediction. Built on mean()/rollingAverageOfN()/computeSessionStats()
+// from this module. See docs/architecture/overview.md.
 
 import type { Solve } from "./types";
 import { best, mean, rollingAverageOfN } from "./averages";
@@ -94,9 +89,8 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const LOW_VARIANCE_THRESHOLD = 0.0025;
 const HIGH_VARIANCE_THRESHOLD = 0.01;
 
-// With exactly one past competition there's no variance to measure at all.
-// ±15% is a deliberately wide, clearly-labeled placeholder range for that
-// single-data-point case, not a fitted number.
+// With exactly one past competition there's no variance to measure at all,
+// so ±15% is a wide placeholder range for that single-data-point case.
 const SINGLE_DATA_POINT_RANGE_FRACTION = 0.15;
 
 /**

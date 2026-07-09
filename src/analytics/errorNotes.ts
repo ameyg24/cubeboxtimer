@@ -1,11 +1,9 @@
 // CubeBox analytics — walk-forward error notes (pure).
 //
-// Deterministic per-case flags over a backtested prediction: which
-// already-defined conditions held when it was made, and whether its
-// interval held the actual result. Every threshold is imported from
-// practiceCoach.ts — nothing here defines a new one. Flags are observed
-// associations attached to individual cases, not a failure taxonomy: with
-// this few competition labels there is no distribution to summarize.
+// Per-case flags over a backtested prediction: which already-defined
+// conditions held when it was made, and whether its interval held the
+// actual result. Every threshold is imported from practiceCoach.ts —
+// nothing here defines a new one.
 
 import type { BacktestCase } from "./backtesting";
 import type { FeatureVector } from "./predictionFeatures";

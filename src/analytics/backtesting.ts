@@ -6,12 +6,10 @@
 // competition happened, using only competitions strictly earlier than it,
 // then compare that simulated prediction to what actually happened.
 //
-// This deliberately does not re-implement any prediction math. It calls
-// predictCompetitionResult once per competition with `now` pinned to that
-// competition's own date and `pastResultsForEvent` restricted to strictly
-// earlier competitions — the same function, the same rules, just replayed
-// at an earlier point in time. No ML, no fitting: every number here is
-// directly traceable back to predictCompetitionResult and plain arithmetic.
+// No prediction math is re-implemented here: predictCompetitionResult is
+// called once per competition with `now` pinned to that competition's own
+// date and `pastResultsForEvent` restricted to strictly earlier
+// competitions — the same function, replayed at an earlier point in time.
 
 import type { ConfidenceLevel, CompetitionResultInput, TimedPracticeSolve } from "./competitionPrediction";
 import { DEFAULT_PRACTICE_WINDOW_DAYS, predictCompetitionResult } from "./competitionPrediction";

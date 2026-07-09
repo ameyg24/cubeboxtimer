@@ -98,13 +98,11 @@ export interface RidgeContribution {
   contributionMs: number;
 }
 
-// Model mechanics, NOT feature importance: contributions are the exact
+// Model mechanics, not feature importance: contributions are the exact
 // additive terms of the fitted linear formula (prediction = interceptMs +
-// sum of contributionMs), which for a linear model is also what SHAP
-// reduces to under feature independence. Independence doesn't hold here —
-// correlated predictors share attribution arbitrarily under ridge
-// shrinkage — so these describe how the model computed this number, not
-// which feature matters.
+// sum of contributionMs). Correlated predictors share attribution under
+// ridge shrinkage, so these describe how the model computed this number,
+// not which feature matters.
 export interface RidgeExplanation {
   interceptMs: number;
   contributions: RidgeContribution[];

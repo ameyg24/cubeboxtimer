@@ -5,13 +5,12 @@
 // model's own practice window without its adjustment, and carrying the
 // previous competition forward), the rule-based model
 // (competitionPrediction.ts, unchanged), linear regression, and
-// nearest-neighbor (both predictionModels.ts). Baselines exist so the
-// models have something honest to beat — a model that can't outperform
-// "predict your practice mean" hasn't earned its complexity. Same
-// discipline as backtesting.ts: a competition is only scored using strictly
-// earlier competitions and the practice window before it, and each model's
-// own evaluated count only includes competitions it actually had enough
-// data to predict — never a fabricated number. Baselines produce point
+// nearest-neighbor (both predictionModels.ts). Baselines give the models
+// something to beat — a model that can't outperform "predict your practice
+// mean" hasn't earned its complexity. Same discipline as backtesting.ts: a
+// competition is only scored using strictly earlier competitions and the
+// practice window before it, and each model's evaluated count only includes
+// competitions it had enough data to predict. Baselines produce point
 // predictions only; they never appear in interval calibration.
 
 import type { CompetitionResultInput, TimedPracticeSolve } from "./competitionPrediction";

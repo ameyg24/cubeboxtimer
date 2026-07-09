@@ -7,10 +7,6 @@
 // passthrough of an already-computed value, or a plain arithmetic
 // interpretation of one. See PREDICTION_FACTORS below for exactly what
 // "contribution" means and why.
-//
-// No ML, no fitting, no hidden weights: everything here is a documented,
-// deterministic formula over fields predictCompetitionResult and
-// runBacktest already produced.
 
 import type { ConfidenceLevel, PredictionResult } from "./competitionPrediction";
 import type { BacktestSummary } from "./backtesting";

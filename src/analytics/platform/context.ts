@@ -5,9 +5,7 @@
 // and reads what it needs; each value is computed lazily on first read and
 // memoized for the context's lifetime, so consumers that share an input
 // (e.g. the prediction feeding both the explanation and the coach) share
-// one computation instead of each re-running the wiring. Nothing here is
-// persisted, and nothing new is computed — this is the same call chain
-// CompetitionTab/CoachTab previously assembled by hand, in one place.
+// one computation instead of each re-running the wiring.
 
 import { predictCompetitionBest, predictCompetitionResult } from "../competitionPrediction";
 import type { BestPredictionResult, PredictionResult } from "../competitionPrediction";

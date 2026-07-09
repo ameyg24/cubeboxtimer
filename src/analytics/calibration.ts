@@ -1,10 +1,9 @@
 // CubeBox analytics — interval calibration (pure).
 //
 // Measures whether predicted confidence intervals actually contained the
-// results they claimed to cover, over walk-forward cases. Empirical
-// coverage only: no significance claim, no causal claim — just "of N
-// intervals, how many held the actual value, and how wide were they."
-// Units are the caller's (ms everywhere in this codebase).
+// results they claimed to cover, over walk-forward cases: of N intervals,
+// how many held the actual value, and how wide were they. Units are the
+// caller's (ms everywhere in this codebase).
 
 import type { BacktestCase } from "./backtesting";
 

@@ -4,8 +4,7 @@
 // No new statistics live here — every evidence value is a formatted read of
 // a TrainingSignals field. Readiness is a fixed weighted average of five
 // subscores; focus areas come from a fixed rule table (hardcoded priority,
-// hardcoded drill, array order as tie-break) — nothing fitted, nothing
-// generated per case.
+// hardcoded drill, array order as tie-break).
 
 import type { ConfidenceLevel } from "./competitionPrediction";
 import type { TrainingSignals } from "./trainingSignals";
