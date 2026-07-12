@@ -13,6 +13,7 @@ import { useCompetitionResults } from "../../hooks/useCompetitionResults.js";
 import CompetitionTab from "../CompetitionTab.jsx";
 import { ThemeProvider } from "../ThemeContext.jsx";
 import { fetchWcaCompetitionMeta, fetchWcaPersonResults } from "../../hooks/wcaApi.js";
+import { createIndexedDbRepository } from "../../storage/indexedDb";
 
 // Chart.js's responsive-resize binding needs real canvas layout, which jsdom
 // doesn't provide - the same reason no existing test renders StatsChart
@@ -39,7 +40,11 @@ vi.mock("../../hooks/wcaApi.js", async (importOriginal) => {
   };
 });
 
-const STORAGE_KEY = "cubeboxtimer_competitions";
+// Durable data lives in IndexedDB; persistence assertions read it back
+// through the repository (writes are asynchronous, hence waitFor).
+const waitForPersisted = (assert) =>
+  waitFor(async () => assert(await createIndexedDbRepository().loadCompetitions()));
+
 const DAY = 24 * 60 * 60 * 1000;
 const daysAgo = (n) => Date.now() - n * DAY;
 
@@ -55,10 +60,11 @@ const solve = (daysBack, millis) => ({
 // (lazy-loaded) calls useTheme() - matching how App.jsx always wraps the
 // real app in ThemeProvider.
 function Harness({ practiceSolves = [], cubeDimension = "3x3x3" }) {
-  const { competitions, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
+  const { competitions, hydrated, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
     useCompetitionResults({ user: null });
   return (
     <ThemeProvider>
+      {hydrated && <span data-testid="hydrated" hidden />}
       <CompetitionTab
         cubeDimension={cubeDimension}
         practiceSolves={practiceSolves}
@@ -84,20 +90,28 @@ async function fillAndSubmit(user, dialog, { name, date, average, submitLabel = 
   await user.click(within(dialog).getByRole("button", { name: submitLabel }));
 }
 
+// IndexedDB hydration is asynchronous; the harness surfaces a marker once
+// the hook has hydrated so tests interact only with hydrated state.
+async function renderHydrated(ui) {
+  const utils = render(ui);
+  await screen.findAllByTestId("hydrated");
+  return utils;
+}
+
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
 });
 
 describe("CompetitionTab wired to useCompetitionResults", () => {
-  it("shows the no-history empty state before anything is entered", () => {
-    render(<Harness />);
+  it("shows the no-history empty state before anything is entered", async () => {
+    await renderHydrated(<Harness />);
     expect(screen.getByText("No competition history yet.")).toBeInTheDocument();
   });
 
   it("adds a competition through the form and persists it to localStorage", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -109,15 +123,16 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByText("Tokyo Open")).toBeInTheDocument();
 
-    const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    expect(persisted).toHaveLength(1);
-    expect(persisted[0].competitionName).toBe("Tokyo Open");
-    expect(persisted[0].averageMs).toBe(13200);
+    await waitForPersisted((persisted) => {
+      expect(persisted).toHaveLength(1);
+      expect(persisted[0].competitionName).toBe("Tokyo Open");
+      expect(persisted[0].averageMs).toBe(13200);
+    });
   });
 
   it("shows the more-history-needed message after exactly one competition is added", async () => {
     const user = userEvent.setup();
-    render(<Harness practiceSolves={[solve(5, 10000), solve(2, 10000)]} />);
+    await renderHydrated(<Harness practiceSolves={[solve(5, 10000), solve(2, 10000)]} />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -138,7 +153,7 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
       solve(70, 10000), solve(66, 10000),
       solve(5, 10000), solve(2, 10000),
     ];
-    render(<Harness practiceSolves={practiceSolves} />);
+    await renderHydrated(<Harness practiceSolves={practiceSolves} />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -163,7 +178,7 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
 
   it("edits a competition and reflects the change in the list and localStorage", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -180,13 +195,12 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
 
     expect(screen.getByText("Tokyo Open 2026")).toBeInTheDocument();
-    const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    expect(persisted[0].competitionName).toBe("Tokyo Open 2026");
+    await waitForPersisted((persisted) => expect(persisted[0].competitionName).toBe("Tokyo Open 2026"));
   });
 
   it("deletes a competition and it disappears from the list and localStorage", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -200,13 +214,12 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
 
     expect(screen.queryByText("Tokyo Open")).not.toBeInTheDocument();
     expect(screen.getByText("No competition history yet.")).toBeInTheDocument();
-    const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    expect(persisted).toHaveLength(0);
+    await waitForPersisted((persisted) => expect(persisted).toHaveLength(0));
   });
 
   it("survives a reload: unmounting and remounting rehydrates from localStorage", async () => {
     const user = userEvent.setup();
-    const { unmount } = render(<Harness />);
+    const { unmount } = await renderHydrated(<Harness />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -216,13 +229,13 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     });
     unmount();
 
-    render(<Harness />);
-    expect(screen.getByText("Tokyo Open")).toBeInTheDocument();
+    await renderHydrated(<Harness />);
+    expect(await screen.findByText("Tokyo Open")).toBeInTheDocument();
   });
 
   it("does not show a competition entered for a different event", async () => {
     const user = userEvent.setup();
-    render(<Harness cubeDimension="3x3x3" />);
+    await renderHydrated(<Harness cubeDimension="3x3x3" />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     const dialog = screen.getByRole("dialog");
@@ -230,13 +243,12 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     await fillAndSubmit(user, dialog, { name: "2x2 Comp", date: "2026-03-01", average: "3.20" });
 
     expect(screen.getByText("No competition history yet.")).toBeInTheDocument();
-    const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    expect(persisted[0].event).toBe("2x2x2");
+    await waitForPersisted((persisted) => expect(persisted[0].event).toBe("2x2x2"));
   });
 
   it("Prediction Quality explains it needs more history with only one competition entered", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -258,7 +270,7 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
       solve(70, 10000), solve(66, 10000),
       solve(5, 10000), solve(2, 10000),
     ];
-    render(<Harness practiceSolves={practiceSolves} />);
+    await renderHydrated(<Harness practiceSolves={practiceSolves} />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -289,7 +301,7 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
       solve(70, 10000), solve(66, 10000),
       solve(5, 10000), solve(2, 10000),
     ];
-    const { unmount } = render(<Harness practiceSolves={practiceSolves} />);
+    const { unmount } = await renderHydrated(<Harness practiceSolves={practiceSolves} />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -306,8 +318,8 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     expect(screen.getByText("Predictions Evaluated")).toBeInTheDocument();
     unmount();
 
-    render(<Harness practiceSolves={practiceSolves} />);
-    expect(screen.getByText("Predictions Evaluated")).toBeInTheDocument();
+    await renderHydrated(<Harness practiceSolves={practiceSolves} />);
+    expect(await screen.findByText("Predictions Evaluated")).toBeInTheDocument();
     const historyTable = screen.getByRole("table", { name: "Prediction history" });
     expect(within(historyTable).getByText("Second Comp")).toBeInTheDocument();
   });
@@ -319,7 +331,7 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
       solve(70, 10000), solve(66, 10000),
       solve(5, 10000), solve(2, 10000),
     ];
-    render(<Harness practiceSolves={practiceSolves} />);
+    await renderHydrated(<Harness practiceSolves={practiceSolves} />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -347,7 +359,7 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
       solve(70, 10000), solve(66, 10000),
       solve(5, 10000), solve(2, 10000),
     ];
-    render(<Harness practiceSolves={practiceSolves} />);
+    await renderHydrated(<Harness practiceSolves={practiceSolves} />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -383,7 +395,7 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
       solve(70, 10000), solve(66, 10000),
       solve(5, 10000), solve(2, 10000),
     ];
-    const { rerender } = render(<Harness practiceSolves={initialSolves} />);
+    const { rerender } = await renderHydrated(<Harness practiceSolves={initialSolves} />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -416,7 +428,7 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
       solve(70, 10000), solve(66, 10000),
       solve(5, 10000), solve(2, 10000),
     ];
-    const { unmount } = render(<Harness practiceSolves={practiceSolves} />);
+    const { unmount } = await renderHydrated(<Harness practiceSolves={practiceSolves} />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -435,8 +447,8 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     const before = within(breakdownCard).getByText(/Adjustment factor/).closest(".summary-row").textContent;
     unmount();
 
-    render(<Harness practiceSolves={practiceSolves} />);
-    expect(screen.getByText("Prediction Breakdown")).toBeInTheDocument();
+    await renderHydrated(<Harness practiceSolves={practiceSolves} />);
+    expect(await screen.findByText("Prediction Breakdown")).toBeInTheDocument();
     expect(screen.getByText("Prediction Factors")).toBeInTheDocument();
     const reloadedCard = screen.getByText("Prediction Breakdown").closest(".section-card");
     const after = within(reloadedCard).getByText(/Adjustment factor/).closest(".summary-row").textContent;
@@ -453,7 +465,7 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     });
 
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     const addDialog = screen.getByRole("dialog");
@@ -473,9 +485,10 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/Skipped 1 duplicate/));
     // Still exactly one record - the import recognized the manual entry as
     // the same result rather than creating a second one.
-    const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    expect(persisted).toHaveLength(1);
-    expect(persisted[0].source).toBe("manual");
+    await waitForPersisted((persisted) => {
+      expect(persisted).toHaveLength(1);
+      expect(persisted[0].source).toBe("manual");
+    });
   });
 
   it("import-first then manual: a manual entry matching an existing WCA import is blocked as a duplicate", async () => {
@@ -488,7 +501,7 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     });
 
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await user.type(screen.getByRole("textbox", { name: "WCA ID" }), "2009ZEMD01");
     await user.click(screen.getByRole("button", { name: "Import" }));
@@ -506,14 +519,15 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     await user.click(within(dialog).getByRole("button", { name: "Add" }));
 
     expect(within(dialog).getByRole("alert")).toHaveTextContent(/already exists/);
-    const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    expect(persisted).toHaveLength(1);
-    expect(persisted[0].source).toBe("wca-import");
+    await waitForPersisted((persisted) => {
+      expect(persisted).toHaveLength(1);
+      expect(persisted[0].source).toBe("wca-import");
+    });
   });
 
   it("shows a conflict warning (not a silent overwrite) when a manual entry shares event/date/name with an existing result but different times, and requires confirmation to proceed", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {
@@ -530,17 +544,15 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     await user.click(within(dialog).getByRole("button", { name: "Add" }));
 
     expect(within(dialog).getByRole("alert")).toHaveTextContent(/already has a result/);
-    let persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    expect(persisted).toHaveLength(1); // not yet created - warning only
+    await waitForPersisted((persisted) => expect(persisted).toHaveLength(1)); // not yet created - warning only
 
     await user.click(within(dialog).getByRole("button", { name: "Add anyway" }));
-    persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    expect(persisted).toHaveLength(2);
+    await waitForPersisted((persisted) => expect(persisted).toHaveLength(2));
   });
 
   it("clears a pending conflict confirmation when the form is edited afterward", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await user.click(screen.getByRole("button", { name: "Add competition" }));
     await fillAndSubmit(user, screen.getByRole("dialog"), {

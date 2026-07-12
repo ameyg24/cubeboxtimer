@@ -33,14 +33,15 @@ const daysAgo = (n) => Date.now() - n * DAY;
 const dateInput = (n) => new Date(daysAgo(n)).toISOString().slice(0, 10);
 
 function Harness({ cubeDimension = "3x3x3" }) {
-  const { eventSolves, allSolves, addSolve, updateSolve, deleteSolve } = useSolveSessions({
+  const { eventSolves, allSolves, addSolve, updateSolve, deleteSolve, hydrated: solvesHydrated } = useSolveSessions({
     user: null,
     cubeDimension,
   });
-  const { competitions, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
+  const { competitions, hydrated: competitionsHydrated, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
     useCompetitionResults({ user: null });
   return (
     <ThemeProvider>
+      {solvesHydrated && competitionsHydrated && <span data-testid="hydrated" hidden />}
       <CompetitionTab
         cubeDimension={cubeDimension}
         practiceSolves={allSolves}
@@ -85,6 +86,14 @@ async function addPastSolve(user, { date, event, timeSeconds, penalty }) {
   await user.click(within(dialog).getByRole("button", { name: "Add" }));
 }
 
+// IndexedDB hydration is asynchronous; the harness surfaces a marker once
+// the default session exists so tests interact only with hydrated state.
+async function renderHydrated(ui) {
+  const utils = render(ui);
+  await screen.findAllByTestId("hydrated");
+  return utils;
+}
+
 beforeEach(() => {
   localStorage.clear();
 });
@@ -92,7 +101,7 @@ beforeEach(() => {
 describe("Backfilling practice solves feeds the prediction and historical calibration", () => {
   it("shows the insufficient-practice-match empty state for two competitions with no nearby practice", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await addCompetition(user, { name: "First Comp", date: dateInput(90), average: "10.50" });
     await addCompetition(user, { name: "Second Comp", date: dateInput(60), average: "10.60" });
@@ -103,7 +112,7 @@ describe("Backfilling practice solves feeds the prediction and historical calibr
 
   it("becomes a real prediction after backfilling practice solves near both competitions and recent practice", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await addCompetition(user, { name: "First Comp", date: dateInput(90), average: "10.50" });
     await addCompetition(user, { name: "Second Comp", date: dateInput(60), average: "10.60" });
@@ -126,7 +135,7 @@ describe("Backfilling practice solves feeds the prediction and historical calibr
 
   it("historical calibration alone becomes available with just the backfilled comparisons, even without recent practice", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await addCompetition(user, { name: "First Comp", date: dateInput(90), average: "10.50" });
     await addCompetition(user, { name: "Second Comp", date: dateInput(60), average: "10.60" });
@@ -141,7 +150,7 @@ describe("Backfilling practice solves feeds the prediction and historical calibr
 
   it("a manually backfilled DNF solve is excluded from the practice average like any other DNF", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await addPastSolve(user, { date: dateInput(2), penalty: "DNF" });
 
@@ -154,7 +163,7 @@ describe("Backfilling practice solves feeds the prediction and historical calibr
 
   it("a manually backfilled +2 solve applies the penalty through the existing effectiveMillis display, not a stored raw+2000 value", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await addPastSolve(user, { date: dateInput(2), timeSeconds: "10.00", penalty: "+2" });
 
@@ -164,7 +173,7 @@ describe("Backfilling practice solves feeds the prediction and historical calibr
 
   it("backfills a solve into a different event than the one currently active", async () => {
     const user = userEvent.setup();
-    render(<Harness cubeDimension="3x3x3" />);
+    await renderHydrated(<Harness cubeDimension="3x3x3" />);
 
     await addPastSolve(user, { date: dateInput(2), event: "4x4x4", timeSeconds: "45.00" });
 
@@ -174,7 +183,7 @@ describe("Backfilling practice solves feeds the prediction and historical calibr
 
   it("deleting a backfilled solve removes it and updates the solve count", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await addPastSolve(user, { date: dateInput(2), timeSeconds: "10.00" });
     expect(screen.getByText("1 total")).toBeInTheDocument();
@@ -191,7 +200,7 @@ describe("Backfilling practice solves feeds the prediction and historical calibr
 
   it("survives a reload", async () => {
     const user = userEvent.setup();
-    const { unmount } = render(<Harness />);
+    const { unmount } = await renderHydrated(<Harness />);
 
     await addCompetition(user, { name: "First Comp", date: dateInput(90), average: "10.50" });
     await addCompetition(user, { name: "Second Comp", date: dateInput(60), average: "10.60" });
@@ -201,7 +210,7 @@ describe("Backfilling practice solves feeds the prediction and historical calibr
     await waitFor(() => expect(screen.getByText("Predicted Competition Average")).toBeInTheDocument());
     unmount();
 
-    render(<Harness />);
+    await renderHydrated(<Harness />);
     await waitFor(() => expect(screen.getByText("Predicted Competition Average")).toBeInTheDocument());
     expect(screen.getByText("3 total")).toBeInTheDocument();
   });

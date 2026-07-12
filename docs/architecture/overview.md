@@ -15,9 +15,12 @@ layers:
 2. **Analytics (TypeScript)** - `src/analytics` is a pure, framework-free module
    that computes every solve statistic, including personal-record detection
    (`records.ts`). It has no React, Firebase, or browser dependencies.
-3. **Persistence** - `src/firebase` initializes Firebase Authentication and Cloud
-   Firestore. When Firebase is unconfigured, or the user is offline or signed out,
-   the app falls back to `localStorage`.
+3. **Persistence** - `src/storage` owns durable local data behind a small
+   typed repository interface backed by IndexedDB; `src/firebase` initializes
+   Firebase Authentication and Cloud Firestore. When Firebase is unconfigured,
+   or the user is offline or signed out, the app runs entirely on the local
+   repository. Small synchronous values (UI preferences, the active session
+   id, the offline write queues) stay in `localStorage`.
 
 ```mermaid
 flowchart TD
@@ -35,7 +38,7 @@ flowchart TD
     end
 
     subgraph Persistence["Persistence layer"]
-        LocalStorage["localStorage (offline fallback)"]
+        Repository["IndexedDB repository - src/storage (signed out)"]
         Firestore["Cloud Firestore (signed in)"]
     end
 
@@ -44,7 +47,7 @@ flowchart TD
     Hook -- "allSolves" --> SolveList
     Dashboard -- "solves" --> Averages
     Dashboard -- "solves" --> Records
-    Hook <--> LocalStorage
+    Hook <--> Repository
     Hook <--> Firestore
 ```
 
@@ -461,6 +464,71 @@ they're really the same "manage past solves" concern:
 `localStorage` keys are prefixed `cubeboxtimer_*`. These are storage keys, not
 branding - renaming them would orphan existing users' local data, so they are kept
 stable.
+
+### Storage boundary (src/storage)
+
+Durable signed-out data - sessions with their solves, and competition
+results - lives in IndexedDB behind `StorageRepository`
+(`src/storage/repository.ts`): four methods (`loadSessions`,
+`saveSessions`, `loadCompetitions`, `saveCompetitions`) shaped by how the
+app actually uses persistence - hydrate everything once at startup, then
+write the full snapshot after each change. Saves are replace-all inside one
+IndexedDB transaction, which preserves the exact semantics the old
+localStorage blobs had (deletes need no separate call; a failed write
+leaves the previous snapshot intact). Two implementations exist: the
+IndexedDB one (`indexedDb.ts`, database `cubeboxtimer` version 1, object
+stores `sessions` and `competitions` with insertion-ordered keys and no
+secondary indexes - every real read is a full hydration) and an in-memory
+one (`repository.ts`) for tests and future differential harnesses. Shape
+coercion for persisted records lives in `src/storage/normalize.ts`, shared
+by the hooks, the migration, and any future consumer.
+
+The hooks hydrate asynchronously and gate their persist effects until
+hydration lands, so the initial empty React state can never overwrite the
+stored snapshot. Both hooks expose this as a `hydrated` flag - the
+signed-out analog of `firestoreLoading`.
+
+### Migration from localStorage
+
+The first signed-out hydration migrates the legacy `cubeboxtimer_sessions`
+and `cubeboxtimer_competitions` blobs into IndexedDB
+(`src/storage/migration.ts`). A three-state marker
+(`cbt_idb_migration`: absent / `in-progress` / `complete`) makes the copy
+safe against a page death at any point: the marker is set to `in-progress`
+before the first write, and to `complete` only after reading the data back
+and verifying it matches - until then the legacy keys remain the source of
+truth and every retry redoes the whole copy (replace-all writes make that
+idempotent). After `complete`, IndexedDB owns the data and legacy is never
+consulted again, since re-copying would resurrect records the user deleted.
+The legacy keys themselves are never removed or rewritten; they stay behind
+as a frozen pre-migration snapshot. Malformed individual records are
+dropped with a log line rather than aborting the migration around the valid
+ones; an unparseable whole blob behaves like it always did (start fresh,
+keep the blob).
+
+### Operation vocabulary (src/storage/operations.ts)
+
+Every durable mutation the app can perform has exactly one typed,
+serializable operation shape (`AddSolve`, `UpdateSolve`, `DeleteSolve`,
+`AddSession`, `RemoveSession`, `AddCompetitionResult`,
+`UpdateCompetitionResult`, `DeleteCompetitionResult`), validated by
+`validateOperation`. Nothing consumes these yet beyond their tests; they
+exist so the planned operation log, analytics worker messages, replay, and
+randomized differential tests share one mutation format instead of growing
+incompatible ones. Operations carry no wall-clock reads - timestamps appear
+only where the caller supplied them - so replaying an operation later
+produces the identical record.
+
+### Firestore conflict semantics
+
+Concurrent writes resolve as last-write-wins at Firestore document
+granularity, ordered by arrival at the server: the REST flush PATCHes whole
+documents for creates and field-masked patches for updates, with no
+client-clock or version comparison anywhere. The `ts` field on write-queue
+entries only feeds `createdAt`/`localCreatedAt` defaults; it is never
+compared. On the read side, each `onSnapshot` delivery replaces local state
+wholesale, with still-pending queue entries overlaid on top. Nothing here
+is conflict-free multi-device merging and the code does not claim to be.
 
 Offline-first sync works through a write queue rather than an optimistic
 network call: every `addSolve`/`updateSolve`/`deleteSolve` action updates

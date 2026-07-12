@@ -3,6 +3,19 @@ import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { logger } from "../logger.js";
 import { firestoreRestRequest } from "./firestoreRest.js";
+import {
+  createCompetitionId,
+  normalizeCompetitionDoc,
+  normalizeCompetitionsShape,
+  byDateAscending,
+} from "../storage/normalize";
+import { createIndexedDbRepository } from "../storage/indexedDb";
+import { migrateIfNeeded, MIGRATION_KEY } from "../storage/migration";
+
+// Normalization moved to src/storage/normalize.ts (shared with the
+// migration); createCompetitionId stays exported from here so existing
+// imports keep working.
+export { createCompetitionId };
 
 // Offline-first persistence for CompetitionResult, mirroring
 // useSolveSessions.js's architecture: optimistic local state, a
@@ -12,60 +25,8 @@ import { firestoreRestRequest } from "./firestoreRest.js";
 // so this is a flat collection rather than solves' session/solve nesting -
 // but the offline/sync mechanics are identical.
 
-const STORAGE_KEY = "cubeboxtimer_competitions";
 const WRITE_QUEUE_KEY = "cbt_competition_write_queue";
 const VALID_QUEUE_TYPES = ["createCompetition", "updateCompetition", "deleteCompetition"];
-
-export function createCompetitionId() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-// Defensive shape coercion for a persisted CompetitionResult doc - the same
-// role normalizeSolveDoc plays for solves. There's no legacy format to
-// migrate FROM yet, but this is the seam a future migration would extend.
-function normalizeCompetitionDoc(competitionDoc, fallbackId) {
-  const source = competitionDoc || {};
-  return {
-    id: String(source.id || fallbackId || createCompetitionId()),
-    competitionName: source.competitionName || "",
-    date: source.date || new Date().toISOString(),
-    event: source.event || "3x3x3",
-    bestMs: typeof source.bestMs === "number" ? source.bestMs : null,
-    averageMs: typeof source.averageMs === "number" ? source.averageMs : null,
-    source: source.source || "manual",
-    notes: source.notes || undefined,
-    // Set only for source: "wca-import" records - the stable identifier
-    // analytics/wcaImport.ts's duplicate policy matches future imports
-    // against, so re-importing never creates a second record for the same
-    // WCA competition + event + round.
-    wcaCompetitionId: source.wcaCompetitionId || null,
-    // The specific WCA round this record is (a competition can have several
-    // - First round, Semi Final, Final, ...), each imported as its own
-    // record. Combined with wcaCompetitionId + event, this is what lets a
-    // re-import tell "update this round" apart from "this is a different
-    // round of the same competition."
-    wcaRoundId: typeof source.wcaRoundId === "number" ? source.wcaRoundId : null,
-    // Human-readable label for wcaRoundId (e.g. "First round", "Final") -
-    // shown next to the result in the Competition Results list.
-    roundLabel: source.roundLabel || null,
-    // The WCA person ID this record was imported from - findLinkedWcaId
-    // (analytics/wcaImport.ts) reads this to lock future imports to the
-    // same WCA ID, so two different competitors' results can never end up
-    // mixed into one history.
-    wcaId: source.wcaId || null,
-  };
-}
-
-function normalizeCompetitionsShape(competitions) {
-  return Array.isArray(competitions) ? competitions.map((c) => normalizeCompetitionDoc(c)) : [];
-}
-
-function byDateAscending(a, b) {
-  return (Date.parse(a.date) || 0) - (Date.parse(b.date) || 0);
-}
 
 function readWriteQueue() {
   try {
@@ -173,9 +134,20 @@ export function useCompetitionResults({ user } = {}) {
   const [pendingWriteCount, setPendingWriteCount] = useState(() => readWriteQueue().length);
   const [syncError, setSyncError] = useState("");
   const [syncing, setSyncing] = useState(false);
+  // Mirrors hydratedRef as renderable state; see useSolveSessions.js.
+  const [hydrated, setHydrated] = useState(false);
 
   const flushingQueueRef = useRef(false);
   const didLoadCompetitions = useRef(false);
+
+  // Durable local storage for the signed-out path; see useSolveSessions.js
+  // for the identical pattern and the hydration-gate rationale.
+  const repositoryRef = useRef(null);
+  const getRepository = useCallback(() => {
+    if (!repositoryRef.current) repositoryRef.current = createIndexedDbRepository();
+    return repositoryRef.current;
+  }, []);
+  const hydratedRef = useRef(false);
 
   const refreshPendingWriteCount = useCallback(() => {
     setPendingWriteCount(readWriteQueue().length);
@@ -233,28 +205,51 @@ export function useCompetitionResults({ user } = {}) {
 
   useEffect(() => {
     if (!user) {
+      // Hydrate from IndexedDB ONCE on mount only; the one-time
+      // localStorage-to-IndexedDB migration runs first.
       if (!didLoadCompetitions.current) {
-        const startedAt = performance.now();
-        const local = localStorage.getItem(STORAGE_KEY);
-        let loaded = null;
-        try {
-          loaded = local ? JSON.parse(local) : null;
-        } catch (error) {
-          logger.warn("Failed to parse locally saved competition results; starting fresh.", { error });
-          loaded = null;
-        }
-        const merged = applyPendingQueueToCompetitions(
-          normalizeCompetitionsShape(Array.isArray(loaded) ? loaded : [])
-        );
-        setCompetitions(merged);
-        logger.info("Competition results load completed from localStorage.", {
-          competitionCount: merged.length,
-          durationMs: Math.round(performance.now() - startedAt),
-        });
+        didLoadCompetitions.current = true;
+        let cancelled = false;
+        (async () => {
+          const startedAt = performance.now();
+          let loaded = [];
+          let hydrationFailed = false;
+          try {
+            await migrateIfNeeded(getRepository());
+            loaded = await getRepository().loadCompetitions();
+          } catch (error) {
+            logger.error("Failed to hydrate competition results from IndexedDB; starting fresh.", {
+              error,
+            });
+            hydrationFailed = true;
+            loaded = [];
+          }
+          if (cancelled) return;
+          const merged = applyPendingQueueToCompetitions(normalizeCompetitionsShape(loaded));
+          setCompetitions(merged);
+          // A failed read must not unlock writes; see useSolveSessions.js.
+          if (!hydrationFailed) {
+            hydratedRef.current = true;
+            setHydrated(true);
+          }
+          logger.info("Competition results load completed from IndexedDB.", {
+            competitionCount: merged.length,
+            durationMs: Math.round(performance.now() - startedAt),
+          });
+        })();
+        return () => {
+          cancelled = true;
+          // If hydration had not landed yet (StrictMode's double effect,
+          // or a sign-in racing the load), let the next run redo it.
+          if (!hydratedRef.current) didLoadCompetitions.current = false;
+        };
       }
-      didLoadCompetitions.current = true;
       return;
     }
+    // With a signed-in user the Firestore listener owns the state; see
+    // useSolveSessions.js for why this opens the persist gate.
+    hydratedRef.current = true;
+    setHydrated(true);
 
     const loadStartedAt = performance.now();
     const competitionsCol = collection(db, "users", user.uid, "competitions");
@@ -282,14 +277,21 @@ export function useCompetitionResults({ user } = {}) {
       }
     );
     return () => unsubscribe();
-  }, [user]);
+  }, [user, getRepository]);
 
-  // Persist to localStorage on any change (if not logged in).
+  // Persist to IndexedDB on any change (if not logged in). Gated on
+  // hydration so the initial empty state never overwrites stored data; the
+  // migration marker confirmation mirrors useSolveSessions.js.
   useEffect(() => {
-    if (!user) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(competitions));
+    if (!user && hydratedRef.current) {
+      getRepository()
+        .saveCompetitions(competitions)
+        .then(() => localStorage.setItem(MIGRATION_KEY, "complete"))
+        .catch((error) => {
+          logger.error("Failed to persist competition results to IndexedDB.", { error });
+        });
     }
-  }, [competitions, user]);
+  }, [competitions, user, getRepository]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -407,6 +409,7 @@ export function useCompetitionResults({ user } = {}) {
 
   return {
     competitions,
+    hydrated,
     firestoreLoading,
     syncStatus,
     addCompetitionResult,

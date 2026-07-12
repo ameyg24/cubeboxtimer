@@ -38,14 +38,15 @@ const daysAgo = (n) => Date.now() - n * DAY;
 const dateInput = (n) => new Date(daysAgo(n)).toISOString().slice(0, 10);
 
 function Harness({ cubeDimension = "3x3x3" }) {
-  const { eventSolves, allSolves, addSolve, updateSolve, deleteSolve, sessions } = useSolveSessions({
+  const { eventSolves, allSolves, addSolve, updateSolve, deleteSolve, sessions, hydrated: solvesHydrated } = useSolveSessions({
     user: null,
     cubeDimension,
   });
-  const { competitions, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
+  const { competitions, hydrated: competitionsHydrated, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
     useCompetitionResults({ user: null });
   return (
     <ThemeProvider>
+      {solvesHydrated && competitionsHydrated && <span data-testid="hydrated" hidden />}
       <CompetitionTab
         cubeDimension={cubeDimension}
         practiceSolves={allSolves}
@@ -91,6 +92,14 @@ async function importCsTimerData(user, content) {
 const csTimerEntry = (rawTimeMs, timestampSeconds) => [[0, rawTimeMs], "R U R' U'", "", timestampSeconds];
 const csTimerExportOf = (entries) => JSON.stringify({ session1: entries });
 
+// IndexedDB hydration is asynchronous; the harness surfaces a marker once
+// the default session exists so tests interact only with hydrated state.
+async function renderHydrated(ui) {
+  const utils = render(ui);
+  await screen.findAllByTestId("hydrated");
+  return utils;
+}
+
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
@@ -99,7 +108,7 @@ beforeEach(() => {
 describe("Practice Coach integration", () => {
   it("starts with zero practice volume and updates after a manual backfilled solve", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     expect(coachVolumeTile()).toBe("0 solves");
 
@@ -109,7 +118,7 @@ describe("Practice Coach integration", () => {
 
   it("feeds imported csTimer practice solves into the Coach's evidence snapshot", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     const secondsAgo = (n) => Math.floor(daysAgo(n) / 1000);
     await importCsTimerData(
@@ -128,7 +137,7 @@ describe("Practice Coach integration", () => {
     fetchWcaCompetitionMeta.mockResolvedValue({ name: "Comp A", date: new Date(daysAgo(30)).toISOString() });
 
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     const snapshotBefore = screen.getByText("Evidence Snapshot").closest(".section-card");
     expect(within(snapshotBefore).getByText("Competition Gap").closest(".stat-tile")).toHaveTextContent("-");
@@ -144,7 +153,7 @@ describe("Practice Coach integration", () => {
 
   it("feeds imported csTimer solves into the Coach Review", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     const secondsAgo = (n) => Math.floor(daysAgo(n) / 1000);
     const dnfEntry = (timestampSeconds) => [[-1, 0], "R U R' U'", "", timestampSeconds];
@@ -166,7 +175,7 @@ describe("Practice Coach integration", () => {
 
   it("recomputes for the active event only when switching events", async () => {
     const user = userEvent.setup();
-    const { rerender } = render(<Harness cubeDimension="3x3x3" />);
+    const { rerender } = await renderHydrated(<Harness cubeDimension="3x3x3" />);
 
     await addPastSolve(user, { date: dateInput(1), timeSeconds: "10.00" });
     expect(coachVolumeTile()).toBe("1 solves");

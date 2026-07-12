@@ -12,23 +12,23 @@ import {
 import { db } from "../firebase/config";
 import { logger } from "../logger.js";
 import { firestoreRestRequest } from "./firestoreRest.js";
+import {
+  CUBE_DIMENSIONS,
+  createEmptySolves,
+  createSolveId,
+  normalizeSolveDoc,
+  normalizeSolvesShape,
+  normalizeSessionsShape,
+} from "../storage/normalize";
+import { createIndexedDbRepository } from "../storage/indexedDb";
+import { migrateIfNeeded, MIGRATION_KEY } from "../storage/migration";
 
-export const CUBE_DIMENSIONS = ["2x2x2", "3x3x3", "4x4x4", "5x5x5"];
+// Normalization moved to src/storage/normalize.ts (shared with the
+// migration); the identifiers below stay exported from here so existing
+// imports keep working.
+export { CUBE_DIMENSIONS, createEmptySolves, createSolveId };
+
 const WRITE_QUEUE_KEY = "cbt_write_queue";
-
-export function createEmptySolves() {
-  return CUBE_DIMENSIONS.reduce((acc, dimension) => {
-    acc[dimension] = [];
-    return acc;
-  }, {});
-}
-
-export function createSolveId() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
 
 function readWriteQueue() {
   try {
@@ -101,30 +101,6 @@ function removeQueuedWrite(queueItem) {
   );
 }
 
-function normalizeSolvesShape(solves) {
-  const normalized = createEmptySolves();
-  if (!solves) return normalized;
-  if (Array.isArray(solves)) {
-    normalized["3x3x3"] = solves.map((solve) => normalizeSolveDoc(solve, undefined, "3x3x3"));
-    return normalized;
-  }
-  CUBE_DIMENSIONS.forEach((dimension) => {
-    normalized[dimension] = Array.isArray(solves[dimension])
-      ? solves[dimension].map((solve) => normalizeSolveDoc(solve, undefined, dimension))
-      : [];
-  });
-  return normalized;
-}
-
-function normalizeSolveDoc(solve, fallbackId, fallbackDimension) {
-  const id = String(solve.id || fallbackId || createSolveId());
-  return {
-    ...solve,
-    id,
-    cubeDimension: solve.cubeDimension || fallbackDimension || "3x3x3",
-  };
-}
-
 function groupSolvesByEvent(solves) {
   const grouped = createEmptySolves();
   solves.forEach((solve) => {
@@ -142,13 +118,6 @@ function groupSolvesByEvent(solves) {
     });
   });
   return grouped;
-}
-
-function normalizeSessionsShape(sessions) {
-  return sessions.map((session) => ({
-    ...session,
-    solves: normalizeSolvesShape(session.solves),
-  }));
 }
 
 function getEmbeddedSolveDocs(solves, sessionId) {
@@ -249,6 +218,10 @@ export function useSolveSessions({ user, cubeDimension }) {
   const [pendingWriteCount, setPendingWriteCount] = useState(() => readWriteQueue().length);
   const [syncError, setSyncError] = useState("");
   const [syncing, setSyncing] = useState(false);
+  // Mirrors hydratedRef as renderable state - the async-hydration analog of
+  // firestoreLoading, so consumers (and tests) can tell "empty" from "not
+  // loaded yet".
+  const [hydrated, setHydrated] = useState(false);
 
   const sessionsRef = useRef([]);
   const flushingQueueRef = useRef(false);
@@ -257,6 +230,20 @@ export function useSolveSessions({ user, cubeDimension }) {
 
   // Prevent continuous refresh: only sync sessions after initial load
   const didLoadSessions = useRef(false);
+
+  // Durable local storage for the signed-out path. One repository (and one
+  // IndexedDB connection) per hook instance; opened lazily on first use.
+  const repositoryRef = useRef(null);
+  const getRepository = useCallback(() => {
+    if (!repositoryRef.current) repositoryRef.current = createIndexedDbRepository();
+    return repositoryRef.current;
+  }, []);
+
+  // Blocks the persist effect until state holds real data (hydrated from
+  // IndexedDB, or owned by the Firestore listener). Without this, the
+  // persist effect's first run - which sees the initial empty state -
+  // would overwrite the stored snapshot before hydration lands.
+  const hydratedRef = useRef(false);
 
   useEffect(() => {
     sessionsRef.current = sessions;
@@ -333,46 +320,73 @@ export function useSolveSessions({ user, cubeDimension }) {
 
   useEffect(() => {
     if (!user) {
-      // Try to load from localStorage ONCE on mount only
+      // Hydrate from IndexedDB ONCE on mount only. The one-time
+      // localStorage-to-IndexedDB migration runs first, so a pre-existing
+      // localStorage snapshot is picked up transparently.
       if (!didLoadSessions.current) {
-        const startedAt = performance.now();
-        const local = localStorage.getItem("cubeboxtimer_sessions");
-        let loaded = null;
-        try {
-          loaded = local ? JSON.parse(local) : null;
-        } catch (error) {
-          logger.warn("Failed to parse locally saved sessions; starting fresh.", { error });
-          loaded = null;
-        }
-        if (loaded && Array.isArray(loaded) && loaded.length > 0) {
-          const mergedLocalSessions = applyPendingQueueToSessions(normalizeSessionsShape(loaded));
-          setSessions(mergedLocalSessions);
-          // Restore last active session if possible
-          const lastActive = localStorage.getItem("cubeboxtimer_activeSessionId");
-          setActiveSessionId(pickActiveSessionId(lastActive, mergedLocalSessions));
-          logger.info("Session load completed from localStorage.", {
-            sessionCount: mergedLocalSessions.length,
-            durationMs: Math.round(performance.now() - startedAt),
-          });
-        } else {
-          const mergedLocalSessions = applyPendingQueueToSessions([
-            {
-              id: "local",
-              name: "Session",
-              solves: createEmptySolves(),
-              createdAt: Date.now(),
-            },
-          ]);
-          setSessions(mergedLocalSessions);
-          setActiveSessionId(mergedLocalSessions[0]?.id || "local");
-          logger.info("Session load completed with a fresh default session (no local data found).", {
-            durationMs: Math.round(performance.now() - startedAt),
-          });
-        }
+        didLoadSessions.current = true;
+        let cancelled = false;
+        (async () => {
+          const startedAt = performance.now();
+          let loaded = [];
+          let hydrationFailed = false;
+          try {
+            await migrateIfNeeded(getRepository());
+            loaded = await getRepository().loadSessions();
+          } catch (error) {
+            logger.error("Failed to hydrate sessions from IndexedDB; starting fresh.", { error });
+            hydrationFailed = true;
+            loaded = [];
+          }
+          if (cancelled) return;
+          if (loaded.length > 0) {
+            const mergedLocalSessions = applyPendingQueueToSessions(normalizeSessionsShape(loaded));
+            setSessions(mergedLocalSessions);
+            // Restore last active session if possible
+            const lastActive = localStorage.getItem("cubeboxtimer_activeSessionId");
+            setActiveSessionId(pickActiveSessionId(lastActive, mergedLocalSessions));
+            logger.info("Session load completed from IndexedDB.", {
+              sessionCount: mergedLocalSessions.length,
+              durationMs: Math.round(performance.now() - startedAt),
+            });
+          } else {
+            const mergedLocalSessions = applyPendingQueueToSessions([
+              {
+                id: "local",
+                name: "Session",
+                solves: createEmptySolves(),
+                createdAt: Date.now(),
+              },
+            ]);
+            setSessions(mergedLocalSessions);
+            setActiveSessionId(mergedLocalSessions[0]?.id || "local");
+            logger.info("Session load completed with a fresh default session (no local data found).", {
+              durationMs: Math.round(performance.now() - startedAt),
+            });
+          }
+          // A failed read must not unlock writes: persisting the fallback
+          // state could overwrite a store the app was unable to read. New
+          // solves still reach the localStorage write queue, so the next
+          // healthy launch replays them.
+          if (!hydrationFailed) {
+            hydratedRef.current = true;
+            setHydrated(true);
+          }
+        })();
+        return () => {
+          cancelled = true;
+          // If hydration had not landed yet (StrictMode's double effect,
+          // or a sign-in racing the load), let the next run redo it.
+          if (!hydratedRef.current) didLoadSessions.current = false;
+        };
       }
-      didLoadSessions.current = true;
       return;
     }
+    // With a signed-in user the Firestore listener owns the state, so any
+    // later signed-out persist writes a complete snapshot, not the initial
+    // empty one.
+    hydratedRef.current = true;
+    setHydrated(true);
     const sessionLoadStartedAt = performance.now();
     let loggedInitialFirestoreLoad = false;
     const sessionsCol = collection(db, "users", user.uid, "sessions");
@@ -523,15 +537,26 @@ export function useSolveSessions({ user, cubeDimension }) {
       unsubscribe();
       solveUnsubscribes.forEach((solveUnsubscribe) => solveUnsubscribe());
     };
-  }, [user]);
+  }, [user, getRepository]);
 
-  // Persist sessions and active session id to localStorage on any change (if not logged in)
+  // Persist sessions (IndexedDB) and active session id (localStorage, a
+  // synchronous UI preference) on any change while not logged in. Gated on
+  // hydration so the initial empty state never overwrites stored data. The
+  // migration marker is confirmed after each successful write: on the
+  // sign-out path this is what hands ownership to IndexedDB (mirroring how
+  // the old code overwrote the localStorage blob), and everywhere else it
+  // is already "complete".
   useEffect(() => {
-    if (!user) {
-      localStorage.setItem("cubeboxtimer_sessions", JSON.stringify(sessions));
+    if (!user && hydratedRef.current) {
+      getRepository()
+        .saveSessions(sessions)
+        .then(() => localStorage.setItem(MIGRATION_KEY, "complete"))
+        .catch((error) => {
+          logger.error("Failed to persist sessions to IndexedDB.", { error });
+        });
       localStorage.setItem("cubeboxtimer_activeSessionId", activeSessionId);
     }
-  }, [sessions, activeSessionId, user]);
+  }, [sessions, activeSessionId, user, getRepository]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -790,6 +815,7 @@ export function useSolveSessions({ user, cubeDimension }) {
 
   return {
     sessions,
+    hydrated,
     activeSessionId,
     setActiveSessionId,
     activeSession,

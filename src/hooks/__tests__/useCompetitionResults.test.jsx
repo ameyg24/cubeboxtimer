@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from "vitest";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { useCompetitionResults } from "../useCompetitionResults.js";
+import { createIndexedDbRepository } from "../../storage/indexedDb";
 
 // Mirrors useSolveSessions.test.jsx: these tests exercise the hook with no
-// signed-in user, which is the localStorage-only code path - real Firebase
+// signed-in user, which is the local-persistence code path - real Firebase
 // config is absent in this environment, so the hook's own `if (!user)`
-// branch never touches Firestore either way.
+// branch never touches Firestore either way. Durable data lives in
+// IndexedDB (fake-indexeddb in tests); seeding the legacy localStorage key
+// exercises the one-time migration on hydration.
 
 const STORAGE_KEY = "cubeboxtimer_competitions";
 const QUEUE_KEY = "cbt_competition_write_queue";
@@ -21,19 +24,25 @@ const competitionInput = (overrides = {}) => ({
   ...overrides,
 });
 
+// Hydration is asynchronous (IndexedDB), so tests flush it before
+// asserting; the durable snapshot is read back through the repository.
+const flushHydration = () => act(async () => {});
+const readStored = () => createIndexedDbRepository().loadCompetitions();
+
 beforeEach(() => {
   localStorage.clear();
 });
 
 describe("useCompetitionResults", () => {
-  it("starts with an empty list when nothing is persisted", () => {
+  it("starts with an empty list when nothing is persisted", async () => {
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
+    await flushHydration();
 
     expect(result.current.competitions).toEqual([]);
     expect(result.current.syncStatus.state).toBe("synced");
   });
 
-  it("rehydrates competition results already saved in localStorage", () => {
+  it("rehydrates competition results already saved in localStorage", async () => {
     const saved = [
       {
         id: "c1",
@@ -49,12 +58,13 @@ describe("useCompetitionResults", () => {
 
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
 
-    expect(result.current.competitions).toHaveLength(1);
+    await waitFor(() => expect(result.current.competitions).toHaveLength(1));
     expect(result.current.competitions[0].competitionName).toBe("Winter Cubing 2026");
   });
 
-  it("adds a competition result and persists it", () => {
+  it("adds a competition result and persists it", async () => {
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
+    await flushHydration();
 
     act(() => {
       result.current.addCompetitionResult(competitionInput());
@@ -64,13 +74,16 @@ describe("useCompetitionResults", () => {
     expect(result.current.competitions[0].competitionName).toBe("Local Open 2026");
     expect(result.current.competitions[0].source).toBe("manual");
 
-    const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    expect(persisted).toHaveLength(1);
-    expect(persisted[0].averageMs).toBe(11000);
+    await waitFor(async () => {
+      const persisted = await readStored();
+      expect(persisted).toHaveLength(1);
+      expect(persisted[0].averageMs).toBe(11000);
+    });
   });
 
-  it("assigns a generated id when none is supplied", () => {
+  it("assigns a generated id when none is supplied", async () => {
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
+    await flushHydration();
 
     act(() => {
       result.current.addCompetitionResult(competitionInput());
@@ -79,8 +92,9 @@ describe("useCompetitionResults", () => {
     expect(result.current.competitions[0].id).toBeTruthy();
   });
 
-  it("queues an offline write and reflects it as pending until a user signs in", () => {
+  it("queues an offline write and reflects it as pending until a user signs in", async () => {
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
+    await flushHydration();
 
     act(() => {
       result.current.addCompetitionResult(competitionInput());
@@ -94,8 +108,9 @@ describe("useCompetitionResults", () => {
     expect(result.current.syncStatus.state).toBe("auth");
   });
 
-  it("edits a competition result and persists the patch", () => {
+  it("edits a competition result and persists the patch", async () => {
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
+    await flushHydration();
 
     act(() => {
       result.current.addCompetitionResult(competitionInput());
@@ -110,12 +125,15 @@ describe("useCompetitionResults", () => {
     expect(result.current.competitions[0].notes).toBe("Better than expected.");
     expect(result.current.competitions[0].bestMs).toBe(9000); // untouched fields survive the patch
 
-    const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    expect(persisted[0].averageMs).toBe(10500);
+    await waitFor(async () => {
+      const persisted = await readStored();
+      expect(persisted[0].averageMs).toBe(10500);
+    });
   });
 
-  it("merges a queued edit into a still-pending create instead of appending a second entry", () => {
+  it("merges a queued edit into a still-pending create instead of appending a second entry", async () => {
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
+    await flushHydration();
 
     act(() => {
       result.current.addCompetitionResult(competitionInput());
@@ -132,8 +150,9 @@ describe("useCompetitionResults", () => {
     expect(queue[0].competition.averageMs).toBe(10500);
   });
 
-  it("deletes a competition result", () => {
+  it("deletes a competition result", async () => {
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
+    await flushHydration();
 
     act(() => {
       result.current.addCompetitionResult(competitionInput({ competitionName: "A" }));
@@ -150,8 +169,9 @@ describe("useCompetitionResults", () => {
     expect(result.current.competitions[0].competitionName).toBe("B");
   });
 
-  it("deleting a still-pending (never-synced) create removes it from the queue entirely", () => {
+  it("deleting a still-pending (never-synced) create removes it from the queue entirely", async () => {
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
+    await flushHydration();
 
     act(() => {
       result.current.addCompetitionResult(competitionInput());
@@ -166,8 +186,9 @@ describe("useCompetitionResults", () => {
     expect(queue).toHaveLength(0);
   });
 
-  it("reflects queued offline writes again after a simulated reload", () => {
+  it("reflects queued offline writes again after a simulated reload", async () => {
     const { result, unmount } = renderHook(() => useCompetitionResults({ user: null }));
+    await flushHydration();
 
     act(() => {
       result.current.addCompetitionResult(competitionInput());
@@ -176,12 +197,13 @@ describe("useCompetitionResults", () => {
 
     const { result: reloaded } = renderHook(() => useCompetitionResults({ user: null }));
 
-    expect(reloaded.current.competitions).toHaveLength(1);
+    await waitFor(() => expect(reloaded.current.competitions).toHaveLength(1));
     expect(reloaded.current.competitions[0].competitionName).toBe("Local Open 2026");
   });
 
-  it("keeps multiple competitions for different events independent", () => {
+  it("keeps multiple competitions for different events independent", async () => {
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
+    await flushHydration();
 
     act(() => {
       result.current.addCompetitionResult(competitionInput({ event: "3x3x3", competitionName: "3x3 comp" }));
@@ -192,8 +214,9 @@ describe("useCompetitionResults", () => {
     expect(events).toEqual(["2x2x2", "3x3x3"]);
   });
 
-  it("sorts competitions chronologically by date", () => {
+  it("sorts competitions chronologically by date", async () => {
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
+    await flushHydration();
 
     act(() => {
       result.current.addCompetitionResult(competitionInput({ competitionName: "Later", date: "2026-06-01T00:00:00.000Z" }));
@@ -203,7 +226,7 @@ describe("useCompetitionResults", () => {
     expect(result.current.competitions.map((c) => c.competitionName)).toEqual(["Earlier", "Later"]);
   });
 
-  it("normalizes a malformed persisted doc defensively instead of crashing (migration-readiness seam)", () => {
+  it("normalizes a malformed persisted doc defensively instead of crashing (migration-readiness seam)", async () => {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify([{ id: "legacy-1" /* missing every other field */ }])
@@ -211,17 +234,18 @@ describe("useCompetitionResults", () => {
 
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
 
-    expect(result.current.competitions).toHaveLength(1);
+    await waitFor(() => expect(result.current.competitions).toHaveLength(1));
     expect(result.current.competitions[0].source).toBe("manual");
     expect(result.current.competitions[0].event).toBe("3x3x3");
     expect(result.current.competitions[0].bestMs).toBeNull();
     expect(result.current.competitions[0].averageMs).toBeNull();
   });
 
-  it("tolerates a corrupted localStorage payload and starts empty rather than throwing", () => {
+  it("tolerates a corrupted localStorage payload and starts empty rather than throwing", async () => {
     localStorage.setItem(STORAGE_KEY, "{not valid json");
 
     const { result } = renderHook(() => useCompetitionResults({ user: null }));
+    await flushHydration();
 
     expect(result.current.competitions).toEqual([]);
   });

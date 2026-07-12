@@ -35,14 +35,15 @@ const daysAgo = (n) => Date.now() - n * DAY;
 const dateInput = (n) => new Date(daysAgo(n)).toISOString().slice(0, 10);
 
 function Harness({ cubeDimension = "3x3x3" }) {
-  const { eventSolves, allSolves, addSolve, updateSolve, deleteSolve, sessions } = useSolveSessions({
+  const { eventSolves, allSolves, addSolve, updateSolve, deleteSolve, sessions, hydrated: solvesHydrated } = useSolveSessions({
     user: null,
     cubeDimension,
   });
-  const { competitions, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
+  const { competitions, hydrated: competitionsHydrated, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
     useCompetitionResults({ user: null });
   return (
     <ThemeProvider>
+      {solvesHydrated && competitionsHydrated && <span data-testid="hydrated" hidden />}
       <CompetitionTab
         cubeDimension={cubeDimension}
         practiceSolves={allSolves}
@@ -90,6 +91,14 @@ async function importCsTimerData(user, content) {
 const csTimerEntry = (rawTimeMs, timestampSeconds) => [[0, rawTimeMs], "R U R' U'", "", timestampSeconds];
 const csTimerExportOf = (entries) => JSON.stringify({ session1: entries });
 
+// IndexedDB hydration is asynchronous; the harness surfaces a marker once
+// the default session exists so tests interact only with hydrated state.
+async function renderHydrated(ui) {
+  const utils = render(ui);
+  await screen.findAllByTestId("hydrated");
+  return utils;
+}
+
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
@@ -98,7 +107,7 @@ beforeEach(() => {
 describe("Model Comparison and Feature Snapshot integration", () => {
   it("shows the Model Comparison empty state before enough competition history exists", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await addCompetition(user, { name: "First Comp", date: dateInput(90), average: "10.50" });
     await addCompetition(user, { name: "Second Comp", date: dateInput(60), average: "10.60" });
@@ -109,7 +118,7 @@ describe("Model Comparison and Feature Snapshot integration", () => {
 
   it("renders the Model Comparison table with a highlighted best model once enough competitions and practice exist", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await addCompetition(user, { name: "First Comp", date: dateInput(100), average: "10.50" });
     await addPastSolve(user, { date: dateInput(106), timeSeconds: "10.00" });
@@ -129,7 +138,7 @@ describe("Model Comparison and Feature Snapshot integration", () => {
 
   it("updates the Feature Snapshot when new solves are added", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     expect(screen.getByText(/Not enough recent practice data/)).toBeInTheDocument();
 
@@ -143,7 +152,7 @@ describe("Model Comparison and Feature Snapshot integration", () => {
 
   it("feeds imported csTimer practice solves into the feature pipeline and model evaluation", async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await addCompetition(user, { name: "First Comp", date: dateInput(100), average: "10.50" });
     await addCompetition(user, { name: "Second Comp", date: dateInput(70), average: "10.55" });
@@ -186,7 +195,7 @@ describe("Model Comparison and Feature Snapshot integration", () => {
     });
 
     const user = userEvent.setup();
-    render(<Harness />);
+    await renderHydrated(<Harness />);
 
     await addPastSolve(user, { date: dateInput(106), timeSeconds: "10.00" });
     await addPastSolve(user, { date: dateInput(76), timeSeconds: "10.05" });

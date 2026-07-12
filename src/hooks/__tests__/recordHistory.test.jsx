@@ -7,7 +7,7 @@
 // allSolves, never cached separately - across reload, session switching,
 // deletion, and penalty edits.
 import { describe, it, expect, beforeEach } from "vitest";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { useSolveSessions } from "../useSolveSessions.js";
 import { computeRecordHistory, toChronological } from "../../analytics";
 
@@ -26,9 +26,15 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+// IndexedDB hydration is asynchronous; wait for the default session before
+// interacting, and for rehydrated solves after a remount.
+const awaitHydration = (result) =>
+  waitFor(() => expect(result.current.sessions.length).toBeGreaterThan(0));
+
 describe("record history wired into useSolveSessions", () => {
-  it("survives a reload: recomputing after remount matches the pre-reload result", () => {
+  it("survives a reload: recomputing after remount matches the pre-reload result", async () => {
     const { result, unmount } = renderHook(() => useSolveSessions({ user: null, cubeDimension: "3x3x3" }));
+    await awaitHydration(result);
 
     act(() => {
       result.current.addSolve(solve({ id: "a", millis: 12000, localCreatedAt: 1 }));
@@ -40,13 +46,15 @@ describe("record history wired into useSolveSessions", () => {
     unmount();
 
     const { result: reloaded } = renderHook(() => useSolveSessions({ user: null, cubeDimension: "3x3x3" }));
+    await waitFor(() => expect(reloaded.current.allSolves).toHaveLength(2));
     const after = recordsFor(reloaded.current.allSolves);
 
     expect(after).toEqual(before);
   });
 
-  it("keeps a PB set in one session as the current record after switching to another", () => {
+  it("keeps a PB set in one session as the current record after switching to another", async () => {
     const { result } = renderHook(() => useSolveSessions({ user: null, cubeDimension: "3x3x3" }));
+    await awaitHydration(result);
 
     act(() => {
       result.current.addSolve(solve({ id: "a", millis: 8000, localCreatedAt: 1 }));
@@ -67,8 +75,9 @@ describe("record history wired into useSolveSessions", () => {
     expect(result.current.allSolves.map((s) => s.id).sort()).toEqual(["a", "b"]);
   });
 
-  it("reverts the record after the record-holding solve is deleted", () => {
+  it("reverts the record after the record-holding solve is deleted", async () => {
     const { result } = renderHook(() => useSolveSessions({ user: null, cubeDimension: "3x3x3" }));
+    await awaitHydration(result);
 
     act(() => {
       result.current.addSolve(solve({ id: "a", millis: 12000, localCreatedAt: 1 }));
@@ -85,8 +94,9 @@ describe("record history wired into useSolveSessions", () => {
     expect(records.currentRecords.single).toMatchObject({ solveId: "a", valueMs: 12000 });
   });
 
-  it("reverts the record when the holding solve is marked DNF", () => {
+  it("reverts the record when the holding solve is marked DNF", async () => {
     const { result } = renderHook(() => useSolveSessions({ user: null, cubeDimension: "3x3x3" }));
+    await awaitHydration(result);
 
     act(() => {
       result.current.addSolve(solve({ id: "a", millis: 12000, localCreatedAt: 1 }));
@@ -102,8 +112,9 @@ describe("record history wired into useSolveSessions", () => {
     expect(records.currentRecords.single).toMatchObject({ solveId: "a", valueMs: 12000 });
   });
 
-  it("a +2 penalty can push a solve's effective time past the standing record", () => {
+  it("a +2 penalty can push a solve's effective time past the standing record", async () => {
     const { result } = renderHook(() => useSolveSessions({ user: null, cubeDimension: "3x3x3" }));
+    await awaitHydration(result);
 
     act(() => {
       result.current.addSolve(solve({ id: "a", millis: 10000, localCreatedAt: 1 }));

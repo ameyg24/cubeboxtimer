@@ -39,31 +39,35 @@ const entry = (penaltyFlag, rawTimeMs, timestampSeconds) => [
 const exportOf = (entries) => JSON.stringify({ session1: entries });
 
 function SolveListHarness({ cubeDimension = "3x3x3" }) {
-  const { eventSolves, addSolve, updateSolve, deleteSolve, sessions } = useSolveSessions({
+  const { eventSolves, addSolve, updateSolve, deleteSolve, sessions, hydrated } = useSolveSessions({
     user: null,
     cubeDimension,
   });
   return (
-    <SolveList
-      solves={eventSolves}
-      updateSolve={updateSolve}
-      deleteSolve={deleteSolve}
-      addSolve={addSolve}
-      cubeDimension={cubeDimension}
-      sessions={sessions}
-    />
+    <>
+      {hydrated && <span data-testid="hydrated" hidden />}
+      <SolveList
+        solves={eventSolves}
+        updateSolve={updateSolve}
+        deleteSolve={deleteSolve}
+        addSolve={addSolve}
+        cubeDimension={cubeDimension}
+        sessions={sessions}
+      />
+    </>
   );
 }
 
 function PredictionHarness({ cubeDimension = "3x3x3" }) {
-  const { eventSolves, allSolves, addSolve, updateSolve, deleteSolve, sessions } = useSolveSessions({
+  const { eventSolves, allSolves, addSolve, updateSolve, deleteSolve, sessions, hydrated: solvesHydrated } = useSolveSessions({
     user: null,
     cubeDimension,
   });
-  const { competitions, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
+  const { competitions, hydrated: competitionsHydrated, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
     useCompetitionResults({ user: null });
   return (
     <ThemeProvider>
+      {solvesHydrated && competitionsHydrated && <span data-testid="hydrated" hidden />}
       <CompetitionTab
         cubeDimension={cubeDimension}
         practiceSolves={allSolves}
@@ -91,6 +95,14 @@ async function importCsTimerData(user, content) {
   await user.click(within(dialog).getByRole("button", { name: "Import" }));
 }
 
+// IndexedDB hydration is asynchronous; the harness surfaces a marker once
+// the default session exists so tests interact only with hydrated state.
+async function renderHydrated(ui) {
+  const utils = render(ui);
+  await screen.findAllByTestId("hydrated");
+  return utils;
+}
+
 beforeEach(() => {
   localStorage.clear();
 });
@@ -98,7 +110,7 @@ beforeEach(() => {
 describe("csTimer import persistence and prediction integration", () => {
   it("imports solves through addSolve and they survive a reload", async () => {
     const user = userEvent.setup();
-    const { unmount } = render(<SolveListHarness />);
+    const { unmount } = await renderHydrated(<SolveListHarness />);
 
     await importCsTimerData(
       user,
@@ -110,13 +122,13 @@ describe("csTimer import persistence and prediction integration", () => {
 
     unmount();
 
-    render(<SolveListHarness />);
+    await renderHydrated(<SolveListHarness />);
     expect(screen.getByText("3 total")).toBeInTheDocument();
   });
 
   it("skips every solve as a duplicate when the same export is imported twice", async () => {
     const user = userEvent.setup();
-    render(<SolveListHarness />);
+    await renderHydrated(<SolveListHarness />);
 
     const content = exportOf([entry(0, 10000, secondsAgo(2)), entry(0, 9500, secondsAgo(3))]);
     await importCsTimerData(user, content);
@@ -134,7 +146,7 @@ describe("csTimer import persistence and prediction integration", () => {
 
   it("makes a competition prediction available once imported practice solves land in the 14-day window", async () => {
     const user = userEvent.setup();
-    render(<PredictionHarness />);
+    await renderHydrated(<PredictionHarness />);
 
     const addCompetition = async ({ name, date, average }) => {
       await user.click(screen.getByRole("button", { name: "Add competition" }));
