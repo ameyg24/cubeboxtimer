@@ -543,6 +543,23 @@ failing node, and the first differing path. The standard suite runs a
 fixed set of seeds; `DIFFERENTIAL_SEEDS=n` widens the sweep for longer
 local runs.
 
+Deterministic replay (`replay.ts`): an initial snapshot plus an ordered
+operation list reproduces the identical final state by folding the
+reference reducer, and from that state the exact worker dataset and all
+fourteen analytics nodes. Everything a mutation needed from the
+environment at capture time (crypto ids, wall-clock timestamps, generated
+session names) travels inside operation payloads, so replay itself never
+touches a clock or random source. The operation semantics are proven
+equivalent to the application's own mutation paths by tests that drive
+the real hooks and require deep equality with the replayed state
+(`hookReplayEquivalence.test.jsx`), covering solve adds in all three
+shapes (timer, backfill, import), penalty and DNF edits, deletes
+including the undo path, session creation and removal, and manual plus
+WCA-import competition changes. Replay's boundaries are snapshots: initial
+hydration, the default-session bootstrap, and signed-in Firestore
+deliveries start a new snapshot rather than appearing as operations, and
+no operation log is persisted in production.
+
 ## Persistence and offline behavior
 
 `localStorage` keys are prefixed `cubeboxtimer_*`. These are storage keys, not
