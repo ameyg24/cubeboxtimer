@@ -1,7 +1,7 @@
 // Shared mutation vocabulary. One operation type per durable mutation the
-// app can currently perform; later phases (operation log, worker messages,
-// randomized differential tests, replay) all speak this vocabulary instead
-// of inventing their own. Deliberately absent:
+// app can perform. Consumed by the differential test generator, the
+// reference reducer, and deterministic replay (src/differential), so all
+// of them speak one mutation format. Deliberately absent:
 //   SetPenalty        - penalties are an UpdateSolve patch today
 //   ImportSolves      - csTimer import calls addSolve once per row
 //   ImportCompetitionResults - WCA import calls add/update per round

@@ -2,7 +2,7 @@
 // persistence today: hydrate everything once at startup, then write the
 // full snapshot after each change (the same semantics the localStorage
 // blobs had - saves are replace-all, so deletes need no separate call).
-// Finer-grained writes arrive with the operation-log phase, not before.
+// No finer-grained write path exists; snapshots are the design.
 
 import type { PersistedCompetition, PersistedSession } from "./types";
 

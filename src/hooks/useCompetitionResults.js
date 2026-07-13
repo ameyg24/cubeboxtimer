@@ -121,7 +121,7 @@ function applyPendingQueueToCompetitions(competitions, queue = readWriteQueue())
   return Array.from(map.values()).sort(byDateAscending);
 }
 
-// Owns CompetitionResult state plus its offline-first Firestore/localStorage
+// Owns CompetitionResult state plus its offline-first Firestore/IndexedDB
 // sync. Deliberately has no session/event-scoping parameter: callers filter
 // the returned `competitions` array by `event` themselves (e.g. before
 // passing them to the pure prediction functions in analytics/).

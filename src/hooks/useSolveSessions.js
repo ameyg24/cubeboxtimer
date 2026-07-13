@@ -207,7 +207,7 @@ function pickActiveSessionId(prevId, sessions, fallbackId = "") {
   return sessionWithSolves?.id || sessions[0]?.id || fallbackId;
 }
 
-// Owns per-session solve state plus its offline-first Firestore/localStorage sync.
+// Owns per-session solve state plus its offline-first Firestore/IndexedDB sync.
 export function useSolveSessions({ user, cubeDimension }) {
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState("");

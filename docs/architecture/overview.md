@@ -484,9 +484,10 @@ Firebase, the DOM, the logger, or a clock (enforced by a source-scan test).
 
 Protocol (`src/worker/protocol.ts`, version 1): `initialize` replaces the
 worker's dataset wholesale after every durable change - full state
-replacement was chosen over operation messages because operation-reducer
-equivalence with the hooks is not yet proven by tests, and a full clone is
-cheap relative to the work removed. `compute` carries a monotonically
+replacement, because a full clone is cheap relative to the work removed
+(~13 ms at 25K solves). Operation-reducer equivalence with the hooks was
+later proven by the replay tests, but replacement remains the simpler
+transport and nothing measured argues for changing it. `compute` carries a monotonically
 increasing requestId, the datasetVersion it expects, the event, an explicit
 `now`, and the node names to compute; the worker answers with `result` or
 `error` (name + message only), both tagged with the datasetVersion they
@@ -614,8 +615,8 @@ serializable operation shape (`AddSolve`, `UpdateSolve`, `DeleteSolve`,
 `AddSession`, `RemoveSession`, `AddCompetitionResult`,
 `UpdateCompetitionResult`, `DeleteCompetitionResult`), validated by
 `validateOperation`. Nothing consumes these yet beyond their tests; they
-exist so the planned operation log, analytics worker messages, replay, and
-randomized differential tests share one mutation format instead of growing
+exist so the randomized differential tests, the reference reducer, and
+deterministic replay share one mutation format instead of growing
 incompatible ones. Operations carry no wall-clock reads - timestamps appear
 only where the caller supplied them - so replaying an operation later
 produces the identical record.
