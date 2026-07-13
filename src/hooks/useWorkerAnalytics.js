@@ -21,7 +21,7 @@ import { analyticsClient } from "../worker/analyticsClient";
 // effect re-run (including StrictMode's doubled effects) while a request
 // is in flight must hand the follow-up to the CURRENT effect's parameters,
 // not strand it in a disposed closure that can never apply its result.
-export function useWorkerAnalytics(nodes, event, { client = analyticsClient, enabled = true } = {}) {
+export function useWorkerAnalytics(nodes, event, { client = analyticsClient } = {}) {
   const version = useSyncExternalStore(client.subscribe, client.getDatasetVersion);
   const [state, setState] = useState({ results: null, loading: true, forEvent: event, error: false });
 
@@ -85,7 +85,7 @@ export function useWorkerAnalytics(nodes, event, { client = analyticsClient, ena
   useEffect(() => {
     const scheduler = schedulerRef.current;
     scheduler.mounted = true;
-    if (!enabled || version === 0) return undefined;
+    if (version === 0) return undefined;
     scheduler.params = { nodes, event, client };
     setState((prev) => (prev.loading ? prev : { ...prev, loading: true }));
     scheduler.pump();
@@ -93,7 +93,7 @@ export function useWorkerAnalytics(nodes, event, { client = analyticsClient, ena
       scheduler.mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [version, event, nodesKey, enabled, client]);
+  }, [version, event, nodesKey, client]);
 
   // Never expose another event's results, even for the render between an
   // event switch and the effect that re-requests.

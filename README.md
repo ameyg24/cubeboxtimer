@@ -80,7 +80,7 @@ The app is served at http://localhost:5173 (or the port shown in your terminal).
 - **Sign-in button does nothing / shows "Auth config needed".** Firebase environment variables are missing or incomplete - check `.env` against `.env.example`, then restart the dev server (Vite only reads `.env` on startup).
 - **Signed in, but nothing syncs.** Firestore rules may not be deployed for your project - see the note above. Check the sync badge in the header; it explains the current state (`offline`, `sign in to sync`, `pending`, `sync failed`, `synced`).
 - **Port 5173 is already in use.** Another Vite dev server is probably running; stop it, or pass `--port` to `npm run dev -- --port 5174`.
-- **`npm run typecheck` fails on a file outside `src/analytics`.** That's expected - `tsconfig.json` only type-checks the analytics module by design (the rest of the app is plain JS/JSX). See [`docs/architecture/overview.md`](docs/architecture/overview.md).
+- **`npm run typecheck` fails on a file outside the TypeScript modules.** That's expected - `tsconfig.json` type-checks `src/analytics`, `src/storage`, `src/worker`, and `src/differential`; the UI layer is plain JS/JSX by design. See [`docs/architecture/overview.md`](docs/architecture/overview.md).
 - **Tests fail only in CI, not locally.** Confirm your local Node version matches CI (`node -v`, should be 20+) - see `engines` in `package.json`.
 
 ## Scripts
@@ -119,12 +119,12 @@ npm run benchmark:models
 CubeBox is organized into three layers:
 
 - **UI (React)** - the timer, session controls, dashboard, and charts.
-- **Analytics** - a pure, framework-free TypeScript module in [`src/analytics/`](src/analytics) that computes all solve statistics and personal records using WCA-style averaging rules. It has no React, Firebase, or browser dependencies, which keeps it easy to test and reuse.
-- **Persistence** - Firebase Authentication and Cloud Firestore, with an automatic local-storage fallback so the app works offline and without an account.
+- **Analytics** - a pure, framework-free TypeScript module in [`src/analytics/`](src/analytics) that computes all solve statistics and personal records using WCA-style averaging rules. It has no React, Firebase, or browser dependencies. Heavy computations execute in a Web Worker ([`src/worker/`](src/worker)) so the timer never blocks, and correctness is checked by a randomized differential test harness with deterministic replay ([`src/differential/`](src/differential)).
+- **Persistence** - IndexedDB behind a typed repository ([`src/storage/`](src/storage)), so the app works offline and without an account; Firebase Authentication and Cloud Firestore add cross-device sync when signed in.
 
 Two deeper documents cover this in more detail, including a diagram and the reasoning behind the offline-first sync design:
 
-- [`docs/architecture/overview.md`](docs/architecture/overview.md) - layers, the analytics/records model, offline-first sync.
+- [`docs/architecture/overview.md`](docs/architecture/overview.md) - layers, the analytics/records model, the storage boundary and migration, the analytics worker, differential testing and replay, offline-first sync.
 - [`docs/architecture/observability.md`](docs/architecture/observability.md) - logging strategy, what's instrumented and why, and how real telemetry would plug in later.
 
 ## Testing
