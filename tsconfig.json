@@ -12,5 +12,5 @@
     "isolatedModules": true,
     "types": ["vitest/globals"]
   },
-  "include": ["src/analytics", "src/storage", "src/worker", "src/logger.d.ts", "scripts/benchmarkData.ts"]
+  "include": ["src/analytics", "src/storage", "src/worker", "src/differential", "src/logger.d.ts", "scripts/benchmarkData.ts"]
 }

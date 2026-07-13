@@ -513,6 +513,36 @@ the worker state does not hold), the solve-list PB badge (a linear min),
 chart data mapping, all display formatting, and peer comparison (network
 bound, infrequent).
 
+## Differential testing
+
+Why this exists: future work will optimize how analytics state is
+maintained, and every optimization must prove it produces byte-identical
+outputs. The oracle for that proof lives in `src/differential/`.
+
+The reference implementation (`referenceState.ts`) is an intentionally
+simple, unoptimized state transition: (previous state, operation) -> next
+state, applying the Phase 1 operation vocabulary with the exact semantics
+the main-thread hooks implement (append solves, merge patches by id,
+filter deletes, re-sort competitions by date on add). It never caches,
+never maintains statistics incrementally, and never mutates its input.
+
+The harness (`differential.ts`) generates seeded random operation
+sequences (`operationGenerator.ts` over the PRNG in `prng.ts`: solves
+across events, +2 and DNF penalties, edits, deletes, sessions, manual and
+import-shaped competition results). After every operation it computes all
+fourteen analytics nodes twice: once through the reference state fed
+straight into the pure analytics functions, and once through the
+production worker core driven by its real protocol with structured-clone
+message boundaries. Comparison is deep equality with no tolerances.
+
+Determinism and replay: nothing in `src/differential/` reads a clock or
+calls Math.random; every decision derives from the seed, so any failure
+is reproducible from `runDifferential({ seed, operationCount })` alone.
+A failure reports the seed, operation index, operation, prior state, the
+failing node, and the first differing path. The standard suite runs a
+fixed set of seeds; `DIFFERENTIAL_SEEDS=n` widens the sweep for longer
+local runs.
+
 ## Persistence and offline behavior
 
 `localStorage` keys are prefixed `cubeboxtimer_*`. These are storage keys, not
