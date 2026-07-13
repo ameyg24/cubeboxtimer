@@ -4,7 +4,23 @@
 // persistence layer), mirroring CompetitionTab.test.jsx. See
 // CoachTab.integration.test.jsx for the real hooks wired in.
 import { describe, it, expect } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
+import { analyticsClient } from "../../worker/analyticsClient";
+
+// CoachTab reads analytics from the worker client; this helper seeds it
+// with the same data the props carry and waits for the first result.
+const renderCoach = async (ui) => {
+  const { practiceSolves = [], competitions = [], cubeDimension = "3x3x3" } = ui.props;
+  analyticsClient.setDataset({
+    solvesByEvent: { "2x2x2": [], "3x3x3": [], "4x4x4": [], "5x5x5": [], [cubeDimension]: practiceSolves },
+    competitions,
+  });
+  const utils = render(ui);
+  await waitFor(() =>
+    expect(screen.queryByText("Computing coach analytics...")).not.toBeInTheDocument()
+  );
+  return utils;
+};
 import CoachTab from "../CoachTab.jsx";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -64,35 +80,35 @@ const neverTriggersFixture = () => {
 };
 
 describe("CoachTab", () => {
-  it("renders a readiness score and label with no data at all", () => {
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={[]} competitions={[]} />);
+  it("renders a readiness score and label with no data at all", async () => {
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={[]} competitions={[]} />);
     expect(screen.getByText("Coach Summary")).toBeInTheDocument();
     expect(screen.getByText("40")).toBeInTheDocument();
     expect(screen.getByText("Mixed")).toBeInTheDocument();
   });
 
-  it("flags Build recent volume as the only focus area with zero practice", () => {
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={[]} competitions={[]} />);
+  it("flags Build recent volume as the only focus area with zero practice", async () => {
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={[]} competitions={[]} />);
     const focusHeading = screen.getByText("Top Focus Areas").parentElement;
     expect(within(focusHeading).getByText("Build recent volume")).toBeInTheDocument();
   });
 
-  it("shows Limitations with no data at all", () => {
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={[]} competitions={[]} />);
+  it("shows Limitations with no data at all", async () => {
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={[]} competitions={[]} />);
     expect(screen.getByText("Limitations")).toBeInTheDocument();
     expect(screen.getByRole("list")).toBeInTheDocument();
     expect(screen.getAllByRole("listitem").length).toBeGreaterThan(0);
   });
 
-  it("hides Limitations once every underlying signal is defined", () => {
+  it("hides Limitations once every underlying signal is defined", async () => {
     const { practiceSolves, competitions } = healthyFixture();
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
     expect(screen.queryByText("Limitations")).not.toBeInTheDocument();
   });
 
-  it("renders a focus area card with priority, evidence, drill, and target", () => {
+  it("renders a focus area card with priority, evidence, drill, and target", async () => {
     const { practiceSolves, competitions } = highDnfFixture();
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
 
     const card = screen.getByText("DNF rate is above target.").closest(".section-card");
     expect(within(card).getByText("Clean up solves")).toBeInTheDocument();
@@ -101,29 +117,29 @@ describe("CoachTab", () => {
     expect(within(card).getByText(/DNF rate under 10%/)).toBeInTheDocument();
   });
 
-  it("renders the Evidence Snapshot with the same DNF rate as the focus area evidence", () => {
+  it("renders the Evidence Snapshot with the same DNF rate as the focus area evidence", async () => {
     const { practiceSolves, competitions } = highDnfFixture();
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
 
     const snapshot = screen.getByText("Evidence Snapshot").closest(".section-card");
     expect(within(snapshot).getByText("60.0%")).toBeInTheDocument();
     expect(within(snapshot).getByText("5 solves")).toBeInTheDocument();
   });
 
-  it("shows a dash in the Evidence Snapshot for signals with no data", () => {
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={[]} competitions={[]} />);
+  it("shows a dash in the Evidence Snapshot for signals with no data", async () => {
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={[]} competitions={[]} />);
     const snapshot = screen.getByText("Evidence Snapshot").closest(".section-card");
     expect(within(snapshot).getAllByText("-").length).toBeGreaterThan(0);
   });
 
-  it("conveys priority through visible text, not color alone", () => {
+  it("conveys priority through visible text, not color alone", async () => {
     const { practiceSolves, competitions } = highDnfFixture();
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
     expect(screen.getByText("high")).toBeInTheDocument();
   });
 
-  it("renders Limitations as a semantic list", () => {
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={[]} competitions={[]} />);
+  it("renders Limitations as a semantic list", async () => {
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={[]} competitions={[]} />);
     const list = screen.getByRole("list");
     expect(list.tagName).toBe("UL");
     within(list)
@@ -131,16 +147,16 @@ describe("CoachTab", () => {
       .forEach((item) => expect(item.tagName).toBe("LI"));
   });
 
-  it("scopes to the active event only", () => {
+  it("scopes to the active event only", async () => {
     const fourByFourSolves = [solve(5, 40000), solve(2, 40000)];
-    render(<CoachTab cubeDimension="4x4x4" practiceSolves={fourByFourSolves} competitions={[]} />);
+    await renderCoach(<CoachTab cubeDimension="4x4x4" practiceSolves={fourByFourSolves} competitions={[]} />);
     const snapshot = screen.getByText("Evidence Snapshot").closest(".section-card");
     expect(within(snapshot).getByText("2 solves")).toBeInTheDocument();
   });
 
-  it("renders the Training Plan section with a high-priority item under Act now", () => {
+  it("renders the Training Plan section with a high-priority item under Act now", async () => {
     const { practiceSolves, competitions } = highDnfFixture();
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
 
     const plan = screen.getByText("Training Plan").closest(".section-card");
     expect(within(plan).getByText("Act now")).toBeInTheDocument();
@@ -148,32 +164,32 @@ describe("CoachTab", () => {
     expect(within(plan).getByText(/Run 3 blocks of 20 solves where a DNF ends the block/)).toBeInTheDocument();
   });
 
-  it("does not show a fake before-competition plan without a competition date", () => {
+  it("does not show a fake before-competition plan without a competition date", async () => {
     const { practiceSolves, competitions } = highDnfFixture();
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
 
     const plan = screen.getByText("Training Plan").closest(".section-card");
     expect(within(plan).queryByText("Before competition")).not.toBeInTheDocument();
     expect(within(plan).getByText(/No upcoming competition date set/)).toBeInTheDocument();
   });
 
-  it("shows the Training Plan empty state when no focus areas are flagged", () => {
+  it("shows the Training Plan empty state when no focus areas are flagged", async () => {
     const { practiceSolves, competitions } = neverTriggersFixture();
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
     const plan = screen.getByText("Training Plan").closest(".section-card");
     expect(within(plan).getByText("No plan items right now.")).toBeInTheDocument();
   });
 
-  it("renders the Coach Review empty state when no rule has ever triggered", () => {
+  it("renders the Coach Review empty state when no rule has ever triggered", async () => {
     const { practiceSolves, competitions } = neverTriggersFixture();
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
     const review = screen.getByText("Coach Review").closest(".section-card");
     expect(within(review).getByText("No prior recommendations to review yet.")).toBeInTheDocument();
   });
 
-  it("renders a Coach Review case with neutral, non-causal status text", () => {
+  it("renders a Coach Review case with neutral, non-causal status text", async () => {
     const { practiceSolves, competitions } = highDnfFixture();
-    render(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
+    await renderCoach(<CoachTab cubeDimension="3x3x3" practiceSolves={practiceSolves} competitions={competitions} />);
 
     const review = screen.getByText("Coach Review").closest(".section-card");
     // DNFs only 3-5 days back: the 14-day evaluation horizon hasn't elapsed yet.

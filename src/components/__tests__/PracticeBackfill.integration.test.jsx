@@ -17,6 +17,7 @@ import { useCompetitionResults } from "../../hooks/useCompetitionResults.js";
 import CompetitionTab from "../CompetitionTab.jsx";
 import SolveList from "../SolveList.jsx";
 import { ThemeProvider } from "../ThemeContext.jsx";
+import { useAnalyticsDataset } from "../../hooks/useAnalyticsDataset.js";
 
 vi.mock("chart.js/auto", () => ({
   default: class MockChart {
@@ -33,12 +34,13 @@ const daysAgo = (n) => Date.now() - n * DAY;
 const dateInput = (n) => new Date(daysAgo(n)).toISOString().slice(0, 10);
 
 function Harness({ cubeDimension = "3x3x3" }) {
-  const { eventSolves, allSolves, addSolve, updateSolve, deleteSolve, hydrated: solvesHydrated } = useSolveSessions({
+  const { eventSolves, allSolves, addSolve, updateSolve, deleteSolve, sessions, hydrated: solvesHydrated } = useSolveSessions({
     user: null,
     cubeDimension,
   });
   const { competitions, hydrated: competitionsHydrated, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
     useCompetitionResults({ user: null });
+  useAnalyticsDataset({ sessions, competitions, ready: solvesHydrated && competitionsHydrated });
   return (
     <ThemeProvider>
       {solvesHydrated && competitionsHydrated && <span data-testid="hydrated" hidden />}

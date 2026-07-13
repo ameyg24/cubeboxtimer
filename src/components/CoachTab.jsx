@@ -2,9 +2,8 @@
 // here comes from computeTrainingSignals / computePracticeCoachResult
 // (src/analytics) - this file only formats and lays them out, mirroring
 // how CompetitionTab.jsx relates to predictCompetitionResult.
-import { useMemo } from "react";
-import { createAnalyticsContext, FOCUS_RULES } from "../analytics";
-import { logger } from "../logger.js";
+import { FOCUS_RULES } from "../analytics";
+import { useWorkerAnalytics } from "../hooks/useWorkerAnalytics.js";
 
 const EMPTY_STYLE = { color: "var(--text-faint)", textAlign: "center", padding: "2.5rem" };
 const READINESS_BADGE_CLASS = { ready: "high", mixed: "medium", "needs-work": "low" };
@@ -16,30 +15,6 @@ const fmtSeconds = (ms) => (ms / 1000).toFixed(2);
 const fmtSignedSeconds = (ms) => `${ms >= 0 ? "+" : ""}${fmtSeconds(ms)}`;
 const fmtSignedPct = (fraction) => `${fraction >= 0 ? "+" : ""}${(fraction * 100).toFixed(1)}%`;
 const ruleTitle = (ruleId) => FOCUS_RULES.find((r) => r.id === ruleId)?.title || ruleId;
-
-// Builds the shared analytics context and logs after forcing the parts
-// this tab always renders. nextCompetitionDateMs stays unset - no
-// persisted "next competition" date exists yet in CubeBox, and
-// buildTrainingPlan already explains the empty bucket itself.
-function buildCoachAnalytics(solves, event, competitionResults) {
-  const startedAt = performance.now();
-  const ctx = createAnalyticsContext({
-    event,
-    allSolvesForEvent: solves,
-    competitionResults,
-    now: Date.now(),
-  });
-  const result = ctx.practiceCoach();
-  const review = ctx.recommendationEvaluation();
-  logger.debug("Practice coach computed.", {
-    event,
-    readiness: result.readiness.score,
-    focusAreaCount: result.focusAreas.length,
-    reviewEvaluatedCount: review.summary.evaluatedCount,
-    durationMs: Math.round(performance.now() - startedAt),
-  });
-  return ctx;
-}
 
 function CoachSummary({ result }) {
   return (
@@ -220,18 +195,33 @@ function CoachReview({ review }) {
   );
 }
 
-const CoachTab = ({ cubeDimension, practiceSolves, competitions }) => {
-  const analytics = useMemo(
-    () => buildCoachAnalytics(practiceSolves, cubeDimension, competitions),
-    [practiceSolves, cubeDimension, competitions]
-  );
-  const signals = analytics.trainingSignals();
-  const result = analytics.practiceCoach();
-  const plan = analytics.trainingPlan();
-  const review = analytics.recommendationEvaluation();
+const COACH_NODES = ["trainingSignals", "practiceCoach", "trainingPlan", "recommendationEvaluation"];
+
+const CoachTab = ({ cubeDimension }) => {
+  // Computed in the analytics worker: the recommendation review alone
+  // measured ~7.6 s at the current 8K-solve workload on the main thread.
+  const { results, loading, error } = useWorkerAnalytics(COACH_NODES, cubeDimension);
+
+  if (!results) {
+    return (
+      <div className="section-card" style={{ color: "var(--text-faint)", textAlign: "center", padding: "2.5rem" }}>
+        {error ? "Coach analytics are unavailable right now." : "Computing coach analytics..."}
+      </div>
+    );
+  }
+
+  const signals = results.trainingSignals;
+  const result = results.practiceCoach;
+  const plan = results.trainingPlan;
+  const review = results.recommendationEvaluation;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      {loading && (
+        <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }} role="status">
+          Updating coach analytics...
+        </div>
+      )}
       <CoachSummary result={result} />
       <div>
         <div className="section-title">Top Focus Areas</div>

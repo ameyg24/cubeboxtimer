@@ -7,7 +7,6 @@
 import { useId, useMemo, useState } from "react";
 import {
   checkForDuplicateOrConflict,
-  createAnalyticsContext,
   DEFAULT_PRACTICE_WINDOW_DAYS,
   explainBestModel,
 } from "../analytics";
@@ -21,6 +20,7 @@ import PredictionQuality from "./PredictionQuality.jsx";
 import { PredictionBreakdown, PredictionFactors } from "./PredictionExplanation.jsx";
 import WcaImport from "./WcaImport.jsx";
 import { logger } from "../logger.js";
+import { useWorkerAnalytics } from "../hooks/useWorkerAnalytics.js";
 
 const CONFIDENCE_LABELS = { insufficient: "Insufficient", low: "Low", medium: "Medium", high: "High" };
 const MAX_REASONABLE_SECONDS = 3600;
@@ -55,27 +55,6 @@ function classifyPredictionEmptyState(competitionCount, prediction) {
     return { type: "insufficient-practice-match" };
   }
   return null;
-}
-
-// Builds the shared analytics context and logs around the eager part of it
-// (the backtest chain everything in this tab renders) - the platform layer
-// itself stays framework- and logger-free, matching every module in
-// src/analytics.
-function buildCompetitionAnalytics(practiceSolves, competitions, event) {
-  const startedAt = performance.now();
-  const ctx = createAnalyticsContext({
-    event,
-    allSolvesForEvent: practiceSolves,
-    competitionResults: competitions,
-    now: Date.now(),
-  });
-  const summary = ctx.backtest().summary;
-  logger.info("Competition analytics computed.", {
-    event,
-    evaluatedCount: summary.evaluatedCount,
-    durationMs: Math.round(performance.now() - startedAt),
-  });
-  return ctx;
 }
 
 function PredictionCard({ prediction, bestPrediction, emptyState, competitionCount, cubeDimension }) {
@@ -649,9 +628,18 @@ function CompetitionFormModal({ titleId, title, initialForm, competitions, editi
   );
 }
 
+const COMPETITION_NODES = [
+  "referencePoints",
+  "prediction",
+  "bestPrediction",
+  "backtest",
+  "explanation",
+  "modelComparison",
+  "features",
+];
+
 const CompetitionTab = ({
   cubeDimension,
-  practiceSolves,
   competitions,
   addCompetitionResult,
   updateCompetitionResult,
@@ -664,31 +652,33 @@ const CompetitionTab = ({
     [competitions, cubeDimension]
   );
 
-  // One shared context per (solves, competitions, event) - every derived
-  // number this tab renders comes out of it, computed once and memoized
-  // inside the context instead of each section re-running its own wiring.
+  // Every derived number this tab renders is computed in the analytics
+  // worker from one shared context per (dataset, event) request - the
+  // chain measured ~120 ms at 8K solves and ~300 ms at the 25K target.
   // Rounds-collapsed reference points (see collapseRoundsToReference) are
   // what the prediction/calibration/model sections run on; the uncollapsed
   // competitionsForEvent above stays only for the editable results list.
-  const analytics = useMemo(
-    () => buildCompetitionAnalytics(practiceSolves, competitions, cubeDimension),
-    [practiceSolves, competitions, cubeDimension]
+  const { results, loading, error } = useWorkerAnalytics(COMPETITION_NODES, cubeDimension);
+
+  const referencePointsForEvent = useMemo(
+    () => (results ? results.referencePoints : []),
+    [results]
   );
-
-  const referencePointsForEvent = analytics.referencePoints();
-  const prediction = analytics.prediction();
-  const bestPrediction = analytics.bestPrediction();
-  const backtest = analytics.backtest();
-  const explanation = analytics.explanation();
-  const modelComparison = analytics.modelComparison();
-  const currentFeatures = analytics.features();
-
   const competitionsById = useMemo(
     () => new Map(referencePointsForEvent.map((c) => [c.id, c])),
     [referencePointsForEvent]
   );
 
-  const emptyState = classifyPredictionEmptyState(referencePointsForEvent.length, prediction);
+  const prediction = results ? results.prediction : null;
+  const bestPrediction = results ? results.bestPrediction : null;
+  const backtest = results ? results.backtest : null;
+  const explanation = results ? results.explanation : null;
+  const modelComparison = results ? results.modelComparison : null;
+  const currentFeatures = results ? results.features : null;
+
+  const emptyState = results
+    ? classifyPredictionEmptyState(referencePointsForEvent.length, prediction)
+    : null;
 
   const handleAdd = (values) => {
     const startedAt = performance.now();
@@ -722,7 +712,18 @@ const CompetitionTab = ({
         totalCount={competitions.length}
         eventCount={competitionsForEvent.length}
       />
+      {loading && (
+        <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }} role="status">
+          Updating competition analytics...
+        </div>
+      )}
 
+      {!results ? (
+        <div className="section-card" style={{ color: "var(--text-faint)", textAlign: "center", padding: "2.5rem" }} aria-live="polite">
+          {error ? "Competition analytics are unavailable right now." : "Computing competition analytics..."}
+        </div>
+      ) : (
+        <>
       <div aria-live="polite">
         <PredictionCard
           prediction={prediction}
@@ -753,6 +754,9 @@ const CompetitionTab = ({
         />
       </CollapsibleSection>
 
+        </>
+      )}
+
       <WcaImport
         competitions={competitions}
         addCompetitionResult={addCompetitionResult}
@@ -771,17 +775,21 @@ const CompetitionTab = ({
         />
       </CollapsibleSection>
 
-      <PredictionQuality
-        backtest={backtest}
-        competitionCount={referencePointsForEvent.length}
-        competitionsById={competitionsById}
-      />
+      {results && (
+        <>
+          <PredictionQuality
+            backtest={backtest}
+            competitionCount={referencePointsForEvent.length}
+            competitionsById={competitionsById}
+          />
 
-      <ModelComparison
-        comparison={modelComparison}
-        cubeDimension={cubeDimension}
-        explanation={explainBestModel(modelComparison)}
-      />
+          <ModelComparison
+            comparison={modelComparison}
+            cubeDimension={cubeDimension}
+            explanation={explainBestModel(modelComparison)}
+          />
+        </>
+      )}
 
       {formMode === "add" && (
         <CompetitionFormModal

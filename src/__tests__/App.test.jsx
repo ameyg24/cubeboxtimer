@@ -7,7 +7,7 @@
 // at all: a brand-new user with zero solves must still be able to reach the
 // WCA import form and "Add past solve", not just the live timer.
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App.jsx";
 
@@ -62,5 +62,32 @@ describe("App with zero solves", () => {
 
     await user.click(addButtons[0]);
     expect(screen.getByRole("dialog", { name: "Add Past Solve" })).toBeInTheDocument();
+  });
+
+  it("shows the PB banner after a completed solve, with record detection arriving asynchronously", async () => {
+    render(<App />);
+    await screen.findAllByText("No solves yet");
+    // Wait for session hydration: the Timer remounts when the active
+    // session id resolves, which would reset a solve started before it.
+    await screen.findByText("Session (0)");
+
+    // The real solve protocol: press and release Space to start (through
+    // inspection), let the timer run, press Space again to stop.
+    fireEvent.keyDown(document, { code: "Space" });
+    await act(async () => {}); // inspection state commits (a real hold spans frames)
+    fireEvent.keyUp(document, { code: "Space" });
+    await act(async () => {}); // timer start commits
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    fireEvent.keyDown(document, { code: "Space" });
+
+    // The solve itself lands synchronously (timer stop never waits).
+    expect(await screen.findByText("1 total")).toBeInTheDocument();
+
+    // The first completed solve is always a new single record. The banner
+    // arrives after the analytics worker returns record history for the
+    // dataset containing this solve; findByText waits for that round trip.
+    expect(await screen.findByText(/New .*PB!/)).toBeInTheDocument();
   });
 });

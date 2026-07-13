@@ -16,6 +16,7 @@ import CoachTab from "../CoachTab.jsx";
 import CompetitionTab from "../CompetitionTab.jsx";
 import SolveList from "../SolveList.jsx";
 import { ThemeProvider } from "../ThemeContext.jsx";
+import { useAnalyticsDataset } from "../../hooks/useAnalyticsDataset.js";
 import { fetchWcaCompetitionMeta, fetchWcaPersonResults } from "../../hooks/wcaApi.js";
 
 vi.mock("chart.js/auto", () => ({
@@ -44,6 +45,7 @@ function Harness({ cubeDimension = "3x3x3" }) {
   });
   const { competitions, hydrated: competitionsHydrated, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
     useCompetitionResults({ user: null });
+  useAnalyticsDataset({ sessions, competitions, ready: solvesHydrated && competitionsHydrated });
   return (
     <ThemeProvider>
       {solvesHydrated && competitionsHydrated && <span data-testid="hydrated" hidden />}
@@ -97,6 +99,10 @@ const csTimerExportOf = (entries) => JSON.stringify({ session1: entries });
 async function renderHydrated(ui) {
   const utils = render(ui);
   await screen.findAllByTestId("hydrated");
+  // Worker analytics arrive asynchronously after the dataset push.
+  await waitFor(() =>
+    expect(screen.queryByText("Computing coach analytics...")).not.toBeInTheDocument()
+  );
   return utils;
 }
 
@@ -113,7 +119,7 @@ describe("Practice Coach integration", () => {
     expect(coachVolumeTile()).toBe("0 solves");
 
     await addPastSolve(user, { date: dateInput(1), timeSeconds: "10.00" });
-    expect(coachVolumeTile()).toBe("1 solves");
+    await waitFor(() => expect(coachVolumeTile()).toBe("1 solves"));
   });
 
   it("feeds imported csTimer practice solves into the Coach's evidence snapshot", async () => {
@@ -178,9 +184,10 @@ describe("Practice Coach integration", () => {
     const { rerender } = await renderHydrated(<Harness cubeDimension="3x3x3" />);
 
     await addPastSolve(user, { date: dateInput(1), timeSeconds: "10.00" });
-    expect(coachVolumeTile()).toBe("1 solves");
+    await waitFor(() => expect(coachVolumeTile()).toBe("1 solves"));
 
     rerender(<Harness cubeDimension="4x4x4" />);
-    expect(coachVolumeTile()).toBe("0 solves");
+    // The event switch clears the previous event's results and recomputes.
+    await waitFor(() => expect(coachVolumeTile()).toBe("0 solves"));
   });
 });

@@ -10,8 +10,6 @@ import {
   ao5,
   effectiveMillis,
   isValidSolve,
-  computeRecordHistory,
-  toChronological,
   RECORD_TYPE_LABELS,
 } from "./analytics";
 import { generateScramble } from "./scramble.js";
@@ -21,6 +19,9 @@ import SolveList from "./components/SolveList.jsx";
 import ScrambleBar from "./components/ScrambleBar.jsx";
 import { useSolveSessions, createSolveId } from "./hooks/useSolveSessions.js";
 import { useCompetitionResults } from "./hooks/useCompetitionResults.js";
+import { useAnalyticsDataset } from "./hooks/useAnalyticsDataset.js";
+import { useWorkerAnalytics } from "./hooks/useWorkerAnalytics.js";
+import { analyticsClient } from "./worker/analyticsClient";
 import { logger } from "./logger.js";
 
 const SHORTCUTS = [
@@ -78,6 +79,8 @@ function SettingsModal({ onClose, inspectionModeEnabled, setInspectionModeEnable
 }
 
 
+const RECORD_NODES = ["recordHistory"];
+
 function App() {
   const [scrambleType, setScrambleType] = useState("WCA");
   const [cubeDimension, setCubeDimension] = useState("3x3x3");
@@ -102,13 +105,24 @@ function App() {
     addSolve,
     deleteSolve,
     updateSolve,
+    hydrated: solvesHydrated,
   } = useSolveSessions({ user, cubeDimension });
   const {
     competitions,
     addCompetitionResult,
     updateCompetitionResult,
     deleteCompetitionResult,
+    hydrated: competitionsHydrated,
   } = useCompetitionResults({ user });
+
+  // Every durable change re-initializes the analytics worker (full state
+  // replacement); record history for the active event is computed there.
+  useAnalyticsDataset({
+    sessions,
+    competitions,
+    ready: solvesHydrated && competitionsHydrated,
+  });
+  const recordAnalytics = useWorkerAnalytics(RECORD_NODES, cubeDimension);
   const [startSignal, setStartSignal] = useState(0); // for external start
   const [lastPbTypes, setLastPbTypes] = useState([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -176,17 +190,14 @@ function App() {
       cubeDimension,
       localCreatedAt: solveObj.localCreatedAt || Date.now(),
     };
-    // Check whether this solve sets any all-time record (single and/or an
-    // aoN). Computed against allSolves + this solve, before addSolve updates
-    // state, mirroring the timing of the old session-scoped check it replaces.
-    const preview = computeRecordHistory(toChronological([...allSolves, solveObj]));
-    const newRecordTypes = preview.history
-      .filter((event) => event.solveId === solveObj.id)
-      .map((event) => event.recordType);
-    if (newRecordTypes.length > 0) {
-      setLastPbTypes(newRecordTypes);
-      setTimeout(() => setLastPbTypes([]), 3000);
-    }
+    // Record/PB detection now happens in the analytics worker: any dataset
+    // version pushed after addSolve contains this solve, so the next record
+    // history result at or past that version is checked for it (see the
+    // effect below). Timer stop stays synchronous and light.
+    pendingPbCheckRef.current = {
+      solveId: solveObj.id,
+      minVersion: analyticsClient.getDatasetVersion() + 1,
+    };
 
     addSolve(solveObj);
     setTimerRunning(false);
@@ -201,6 +212,24 @@ function App() {
     if (r.status === "dnf") return "DNF";
     return r.valueMs / 1000;
   }, [eventSolves]);
+
+  // Set on timer stop; consumed when a record-history result computed from
+  // a dataset containing that solve arrives.
+  const pendingPbCheckRef = useRef(null);
+  useEffect(() => {
+    const check = pendingPbCheckRef.current;
+    const history = recordAnalytics.results?.recordHistory?.history;
+    if (!check || !history) return;
+    if (analyticsClient.getDatasetVersion() < check.minVersion) return;
+    pendingPbCheckRef.current = null;
+    const newRecordTypes = history
+      .filter((event) => event.solveId === check.solveId)
+      .map((event) => event.recordType);
+    if (newRecordTypes.length > 0) {
+      setLastPbTypes(newRecordTypes);
+      setTimeout(() => setLastPbTypes([]), 3000);
+    }
+  }, [recordAnalytics.results]);
 
   const sessionBestMs = useMemo(
     () =>
@@ -475,6 +504,8 @@ function App() {
                   <Dashboard
                     eventSolves={eventSolves}
                     allSolves={allSolves}
+                    recordHistory={recordAnalytics.results?.recordHistory || null}
+                    recordHistoryLoading={recordAnalytics.loading}
                     cubeDimension={cubeDimension}
                     competitions={competitions}
                     addCompetitionResult={addCompetitionResult}

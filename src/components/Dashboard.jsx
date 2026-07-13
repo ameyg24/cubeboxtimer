@@ -2,14 +2,13 @@
 import { useState, useMemo, lazy, Suspense } from "react";
 import {
   computeSessionStats,
-  computeRecordHistory,
-  toChronological,
   effectiveMillis,
   isValidSolve,
   RECORD_TYPES,
   RECORD_TYPE_LABELS,
 } from "../analytics";
 import { logger } from "../logger.js";
+import { useWorkerAnalytics } from "../hooks/useWorkerAnalytics.js";
 import CoachTab from "./CoachTab.jsx";
 import CompetitionTab from "./CompetitionTab.jsx";
 
@@ -36,13 +35,7 @@ const toDisplay = (r) =>
 // Pull just the values the dashboard shows out of the shared analytics engine.
 // The analytics module itself stays framework/browser-free (see src/analytics),
 // so timing is measured here at the call site instead.
-function computeStats(solvesRaw) {
-  const startedAt = performance.now();
-  const st = computeSessionStats(solvesRaw);
-  logger.debug("Computed session stats.", {
-    solveCount: solvesRaw.length,
-    durationMs: Math.round(performance.now() - startedAt),
-  });
+function statsToDisplay(st) {
   return {
     best: toDisplay(st.best),
     mean: toDisplay(st.mean),
@@ -58,60 +51,14 @@ function computeStats(solvesRaw) {
   };
 }
 
-function computeDailyStats(solvesRaw) {
+function computeStats(solvesRaw) {
   const startedAt = performance.now();
-  const days = {};
-  solvesRaw.forEach((s) => {
-    const ts = typeof s.id === "number" ? s.id : s.localCreatedAt || Date.now();
-    const date = new Date(ts);
-    const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    if (!days[dayKey]) days[dayKey] = [];
-    days[dayKey].push(s);
-  });
-
-  const result = Object.entries(days)
-    .sort(([a], [b]) => b.localeCompare(a))
-    .map(([day, solves]) => {
-      const st = computeSessionStats(solves);
-      const [year, month, dayNum] = day.split("-");
-      const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(dayNum));
-      const label = dateObj.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-      return {
-        day,
-        label,
-        count: solves.length,
-        best: toDisplay(st.best),
-        mean: toDisplay(st.mean),
-        ao5: toDisplay(st.ao5),
-        dnfCount: st.dnfCount,
-      };
-    });
-
-  logger.debug("Computed daily stats.", {
+  const st = computeSessionStats(solvesRaw);
+  logger.debug("Computed session stats.", {
     solveCount: solvesRaw.length,
-    dayCount: result.length,
     durationMs: Math.round(performance.now() - startedAt),
   });
-  return result;
-}
-
-// Records are fully derived from solvesRaw - no separate storage. This only
-// re-runs when allSolves changes identity (an actual add/edit/delete), not
-// on every render, so a deleted or re-penalized solve is always reflected
-// correctly on the next recompute instead of drifting from a stale cache.
-function computeRecords(solvesRaw) {
-  const startedAt = performance.now();
-  const result = computeRecordHistory(toChronological(solvesRaw));
-  logger.debug("Computed record history.", {
-    solveCount: solvesRaw.length,
-    recordCount: result.history.length,
-    durationMs: Math.round(performance.now() - startedAt),
-  });
-  return result;
+  return statsToDisplay(st);
 }
 
 const fmt = (v) => {
@@ -375,6 +322,13 @@ const Records = ({ recordHistory }) => (
 
 const TABS = ["Overview", "Trend", "Distribution", "Daily", "Records", "Competition", "Coach"];
 
+const EMPTY_STATS = {
+  best: null, mean: null, ao5: null, ao12: null, ao100: null,
+  bestAo5: null, bestAo12: null, stddev: null, count: 0, dnfCount: 0, plus2Count: 0,
+};
+
+const DASHBOARD_NODES = ["allTimeStats", "dailyStats"];
+
 const Dashboard = ({
   eventSolves,
   allSolves,
@@ -383,13 +337,23 @@ const Dashboard = ({
   addCompetitionResult,
   updateCompetitionResult,
   deleteCompetitionResult,
+  recordHistory,
+  recordHistoryLoading,
 }) => {
   const [tab, setTab] = useState("Overview");
 
+  // Session stats stay synchronous: they cover only the active session's
+  // event solves, a small slice the worker state does not hold. The
+  // all-solves aggregations (measured at 50-100 ms at the 25K target) come
+  // from the worker; until the first result the tiles show their existing
+  // insufficient-data placeholders.
   const sessionStats = useMemo(() => computeStats(eventSolves), [eventSolves]);
-  const allTimeStats = useMemo(() => computeStats(allSolves), [allSolves]);
-  const dailyStats = useMemo(() => computeDailyStats(allSolves), [allSolves]);
-  const recordHistory = useMemo(() => computeRecords(allSolves), [allSolves]);
+  const heavy = useWorkerAnalytics(DASHBOARD_NODES, cubeDimension);
+  const allTimeStats = useMemo(
+    () => (heavy.results ? statsToDisplay(heavy.results.allTimeStats) : null),
+    [heavy.results]
+  );
+  const dailyStats = heavy.results ? heavy.results.dailyStats : null;
 
   return (
     <div className="dashboard">
@@ -413,7 +377,7 @@ const Dashboard = ({
 
       <div role="tabpanel" id={`dash-panel-${tab}`} aria-labelledby={`dash-tab-${tab}`}>
         {tab === "Overview" && (
-          <Overview session={sessionStats} all={allTimeStats} eventSolves={eventSolves} />
+          <Overview session={sessionStats} all={allTimeStats || EMPTY_STATS} eventSolves={eventSolves} />
         )}
         {tab === "Trend" && (
           <div className="section-card">
@@ -431,8 +395,20 @@ const Dashboard = ({
           </div>
         )}
         {tab === "Distribution" && <Distribution solves={allSolves} />}
-        {tab === "Daily" && <Daily dailyStats={dailyStats} />}
-        {tab === "Records" && <Records recordHistory={recordHistory} />}
+        {tab === "Daily" &&
+          (dailyStats ? (
+            <Daily dailyStats={dailyStats} />
+          ) : (
+            <div className="section-card" style={{ color: "var(--text-faint)" }}>Computing daily stats...</div>
+          ))}
+        {tab === "Records" &&
+          (recordHistory ? (
+            <Records recordHistory={recordHistory} />
+          ) : (
+            <div className="section-card" style={{ color: "var(--text-faint)" }}>
+              {recordHistoryLoading ? "Computing records..." : "No records yet."}
+            </div>
+          ))}
         {tab === "Competition" && (
           <CompetitionTab
             cubeDimension={cubeDimension}
@@ -444,7 +420,7 @@ const Dashboard = ({
           />
         )}
         {tab === "Coach" && (
-          <CoachTab cubeDimension={cubeDimension} practiceSolves={allSolves} competitions={competitions} />
+          <CoachTab cubeDimension={cubeDimension} />
         )}
       </div>
     </div>

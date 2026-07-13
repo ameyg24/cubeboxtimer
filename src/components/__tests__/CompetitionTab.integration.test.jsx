@@ -14,6 +14,8 @@ import CompetitionTab from "../CompetitionTab.jsx";
 import { ThemeProvider } from "../ThemeContext.jsx";
 import { fetchWcaCompetitionMeta, fetchWcaPersonResults } from "../../hooks/wcaApi.js";
 import { createIndexedDbRepository } from "../../storage/indexedDb";
+import { useEffect } from "react";
+import { analyticsClient } from "../../worker/analyticsClient";
 
 // Chart.js's responsive-resize binding needs real canvas layout, which jsdom
 // doesn't provide - the same reason no existing test renders StatsChart
@@ -62,6 +64,14 @@ const solve = (daysBack, millis) => ({
 function Harness({ practiceSolves = [], cubeDimension = "3x3x3" }) {
   const { competitions, hydrated, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
     useCompetitionResults({ user: null });
+  // This harness has no session hook; practice solves arrive as a prop.
+  useEffect(() => {
+    if (!hydrated) return;
+    analyticsClient.setDataset({
+      solvesByEvent: { "2x2x2": [], "3x3x3": practiceSolves, "4x4x4": [], "5x5x5": [] },
+      competitions,
+    });
+  }, [hydrated, practiceSolves, competitions]);
   return (
     <ThemeProvider>
       {hydrated && <span data-testid="hydrated" hidden />}
@@ -95,6 +105,10 @@ async function fillAndSubmit(user, dialog, { name, date, average, submitLabel = 
 async function renderHydrated(ui) {
   const utils = render(ui);
   await screen.findAllByTestId("hydrated");
+  // Worker analytics arrive asynchronously after the dataset push.
+  await waitFor(() =>
+    expect(screen.queryByText("Computing competition analytics...")).not.toBeInTheDocument()
+  );
   return utils;
 }
 
@@ -417,8 +431,10 @@ describe("CompetitionTab wired to useCompetitionResults", () => {
     const updatedSolves = [...initialSolves, solve(1, 15000), solve(0, 15000)];
     rerender(<Harness practiceSolves={updatedSolves} />);
 
-    const after = within(breakdownCard).getByText(/Practice average/).closest(".summary-row").textContent;
-    expect(after).not.toBe(before);
+    await waitFor(() => {
+      const after = within(breakdownCard).getByText(/Practice average/).closest(".summary-row").textContent;
+      expect(after).not.toBe(before);
+    });
   });
 
   it("Prediction Breakdown and Factors survive a reload", async () => {

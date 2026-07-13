@@ -53,7 +53,9 @@ flowchart TD
 
 Data flows one way through the analytics layer: components pass solve arrays
 in and get back plain, presentation-ready results - nothing in `src/analytics`
-ever reaches back into React state or storage.
+ever reaches back into React state or storage. The heavy computations run in
+a dedicated Web Worker (see "Analytics worker" below); the module itself is
+identical on both threads.
 
 ## Analytics module
 
@@ -458,6 +460,58 @@ they're really the same "manage past solves" concern:
   from 3x3x3 first). `deleteSolve`/`updateSolve` didn't need the same
   treatment - they only ever operate on rows already visible in
   `SolveList`, which is always the active event's solves.
+
+## Analytics worker
+
+Measured reason: at the current 8K-solve workload, record history took
+~101 ms of main-thread time on every timer stop and the Coach tab's
+recommendation evaluation took ~7.6 s; at the realistic 25K target those
+grow to ~242 ms and ~19.8 s (linear scaling, measured with the committed
+deterministic dataset). Structured-clone transfer costs are ~13 ms for a
+full 25K-solve dataset and under 1 ms for results, so moving execution off
+the main thread removes the blocking without meaningful boundary overhead.
+This phase changes where analytics run, not how: the worker performs full
+recomputation per request with the unchanged pure functions. There is no
+incremental computation.
+
+Ownership: the main thread owns React state, StorageRepository/IndexedDB,
+migration, Firestore and the write queues, authentication, imports, the
+dataset version counter, and the `now` passed to analytics. The worker
+(`src/worker/analyticsWorker.ts`, logic in `analyticsWorkerCore.ts`) owns
+an in-memory copy of the analytics inputs and executes requested nodes
+through a fresh AnalyticsContext per request. It never touches storage,
+Firebase, the DOM, the logger, or a clock (enforced by a source-scan test).
+
+Protocol (`src/worker/protocol.ts`, version 1): `initialize` replaces the
+worker's dataset wholesale after every durable change - full state
+replacement was chosen over operation messages because operation-reducer
+equivalence with the hooks is not yet proven by tests, and a full clone is
+cheap relative to the work removed. `compute` carries a monotonically
+increasing requestId, the datasetVersion it expects, the event, an explicit
+`now`, and the node names to compute; the worker answers with `result` or
+`error` (name + message only), both tagged with the datasetVersion they
+were computed from. Messages are ordered per worker, so computes sent after
+an initialize are always answered from the new dataset without an
+acknowledgement round trip.
+
+Stale results: the consuming hook (`useWorkerAnalytics`) applies a result
+only when it is the newest request that hook issued and its datasetVersion
+still equals the client's current version; an event switch clears results
+immediately so another event's numbers are never shown. In-flight requests
+are never cancelled, only ignored; bursts of dataset changes coalesce into
+a single follow-up request.
+
+Failure: on the first worker error the client logs it, terminates and
+recreates the worker once, and re-initializes it from the latest
+main-thread state. On repeated failure, or where Worker construction is
+unavailable, it runs the identical core in-process (still behind
+structured-clone message boundaries), which preserves behavior exactly at
+the cost of main-thread time. There is no retry loop.
+
+Kept on the main thread deliberately: active-session stats (a small slice
+the worker state does not hold), the solve-list PB badge (a linear min),
+chart data mapping, all display formatting, and peer comparison (network
+bound, infrequent).
 
 ## Persistence and offline behavior
 

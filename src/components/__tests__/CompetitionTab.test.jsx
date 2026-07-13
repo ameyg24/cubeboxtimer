@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CompetitionTab from "../CompetitionTab.jsx";
 import { ThemeProvider } from "../ThemeContext.jsx";
@@ -12,8 +12,23 @@ import { ThemeProvider } from "../ThemeContext.jsx";
 //
 // Wrapped in ThemeProvider because the Prediction Quality section's chart
 // (lazy-loaded) calls useTheme() - matching how App.jsx always wraps the
-// real app in ThemeProvider.
-const renderTab = (ui) => render(<ThemeProvider>{ui}</ThemeProvider>);
+// real app in ThemeProvider. The tab reads analytics from the worker
+// client, so the render helper seeds it with the same data the props carry
+// and waits for the first result.
+import { analyticsClient } from "../../worker/analyticsClient";
+
+const renderTab = async (ui) => {
+  const { practiceSolves = [], competitions = [], cubeDimension = "3x3x3" } = ui.props;
+  analyticsClient.setDataset({
+    solvesByEvent: { "2x2x2": [], "3x3x3": [], "4x4x4": [], "5x5x5": [], [cubeDimension]: practiceSolves },
+    competitions,
+  });
+  const utils = render(<ThemeProvider>{ui}</ThemeProvider>);
+  await waitFor(() =>
+    expect(screen.queryByText("Computing competition analytics...")).not.toBeInTheDocument()
+  );
+  return utils;
+};
 
 // Chart.js's responsive-resize binding needs real canvas layout, which jsdom
 // doesn't provide - the same reason no existing test renders StatsChart
@@ -63,8 +78,8 @@ const twoCompetitionFixture = () => ({
 });
 
 describe("CompetitionTab", () => {
-  it("shows the no-history empty state with zero competitions", () => {
-    renderTab(
+  it("shows the no-history empty state with zero competitions", async () => {
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -77,8 +92,8 @@ describe("CompetitionTab", () => {
     expect(screen.getByText("No competition history yet.")).toBeInTheDocument();
   });
 
-  it("shows the more-history-needed message with exactly one competition", () => {
-    renderTab(
+  it("shows the more-history-needed message with exactly one competition", async () => {
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[solve(5, 10000), solve(2, 10000)]}
@@ -93,9 +108,9 @@ describe("CompetitionTab", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders a real prediction and Why explanation with two or more competitions", () => {
+  it("renders a real prediction and Why explanation with two or more competitions", async () => {
     const { practiceSolves, competitions } = twoCompetitionFixture();
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={practiceSolves}
@@ -113,8 +128,8 @@ describe("CompetitionTab", () => {
     expect(screen.getByText(/Your competition averages have historically been/)).toBeInTheDocument();
   });
 
-  it("prediction empty state explains what's needed and shows competition/practice-match counts when there's history but no matching practice data", () => {
-    renderTab(
+  it("prediction empty state explains what's needed and shows competition/practice-match counts when there's history but no matching practice data", async () => {
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -134,8 +149,8 @@ describe("CompetitionTab", () => {
     expect(within(card).getByText(/Add past practice solves near those competition dates/)).toBeInTheDocument();
   });
 
-  it("historical calibration empty state explains what's needed and shows competition/comparable counts", () => {
-    renderTab(
+  it("historical calibration empty state explains what's needed and shows competition/comparable counts", async () => {
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -152,8 +167,8 @@ describe("CompetitionTab", () => {
     expect(within(card).getByText("Comparable competitions found: 0")).toBeInTheDocument();
   });
 
-  it("only shows competitions entered for the currently selected event", () => {
-    renderTab(
+  it("only shows competitions entered for the currently selected event", async () => {
+    await renderTab(
       <CompetitionTab
         cubeDimension="2x2x2"
         practiceSolves={[]}
@@ -166,8 +181,8 @@ describe("CompetitionTab", () => {
     expect(screen.getByText("No competition history yet.")).toBeInTheDocument();
   });
 
-  it("states which event's results are shown, and flags that other events have results too", () => {
-    renderTab(
+  it("states which event's results are shown, and flags that other events have results too", async () => {
+    await renderTab(
       <CompetitionTab
         cubeDimension="2x2x2"
         practiceSolves={[]}
@@ -181,8 +196,8 @@ describe("CompetitionTab", () => {
     expect(screen.getByText(/switch the cube size selector above/)).toBeInTheDocument();
   });
 
-  it("doesn't mention other events when every competition already matches the active event", () => {
-    renderTab(
+  it("doesn't mention other events when every competition already matches the active event", async () => {
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -196,13 +211,13 @@ describe("CompetitionTab", () => {
     expect(screen.queryByText(/switch the cube size selector above/)).not.toBeInTheDocument();
   });
 
-  it("shows historical calibration rows newest first", () => {
+  it("shows historical calibration rows newest first", async () => {
     const { practiceSolves } = twoCompetitionFixture();
     const competitions = [
       competition("older", 90, 10500, { competitionName: "Older Comp" }),
       competition("newer", 60, 10600, { competitionName: "Newer Comp" }),
     ];
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={practiceSolves}
@@ -217,8 +232,8 @@ describe("CompetitionTab", () => {
     expect(cells[1]).toHaveTextContent("Older Comp");
   });
 
-  it("lists competition results with edit and delete controls", () => {
-    renderTab(
+  it("lists competition results with edit and delete controls", async () => {
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -236,7 +251,7 @@ describe("CompetitionTab", () => {
   it("deletes a competition when its delete button is clicked", async () => {
     const user = userEvent.setup();
     const deleteCompetitionResult = vi.fn();
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -250,7 +265,7 @@ describe("CompetitionTab", () => {
     expect(deleteCompetitionResult).toHaveBeenCalledWith("c1");
   });
 
-  it("groups a competition's multiple imported rounds under one header instead of one row per round", () => {
+  it("groups a competition's multiple imported rounds under one header instead of one row per round", async () => {
     const rounds = [
       competition("r1", 30, 7560, {
         competitionName: "Illini Cubers Spring 2026",
@@ -274,7 +289,7 @@ describe("CompetitionTab", () => {
         roundLabel: "Final",
       }),
     ];
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -295,7 +310,7 @@ describe("CompetitionTab", () => {
     expect(screen.getByRole("button", { name: "Delete Illini Cubers Spring 2026 (Final)" })).toBeInTheDocument();
   });
 
-  it("never renders the competition name as a round row when a legacy roundless import shares the group", () => {
+  it("never renders the competition name as a round row when a legacy roundless import shares the group", async () => {
     // The first-generation importer stored records without wcaRoundId/
     // roundLabel. If one is still persisted alongside per-round records
     // from a later re-import, it must render as a labeled round row - not
@@ -322,7 +337,7 @@ describe("CompetitionTab", () => {
         roundLabel: "Final",
       }),
     ];
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -344,8 +359,8 @@ describe("CompetitionTab", () => {
     expect(screen.getByRole("button", { name: "Delete UIUC Side Events Spring 2025 (Result)" })).toBeInTheDocument();
   });
 
-  it("links an imported competition's name to its WCA results page, but leaves manual entries as plain text", () => {
-    renderTab(
+  it("links an imported competition's name to its WCA results page, but leaves manual entries as plain text", async () => {
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -372,7 +387,7 @@ describe("CompetitionTab", () => {
     expect(screen.queryByRole("link", { name: "My Local Meetup" })).not.toBeInTheDocument();
   });
 
-  it("treats a competition's rounds as one reference point for the prediction count, not one per round", () => {
+  it("treats a competition's rounds as one reference point for the prediction count, not one per round", async () => {
     // Second/only-other competition is a normal manual entry with recent
     // practice, so this exercises the >= 2 (real prediction) path with a
     // multi-round WCA import counted as exactly 1 competition, not 3.
@@ -391,7 +406,7 @@ describe("CompetitionTab", () => {
       }),
       competition("c2", 60, 10600),
     ];
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[
@@ -411,7 +426,7 @@ describe("CompetitionTab", () => {
 
   it("opens an accessible add form and validates required fields", async () => {
     const user = userEvent.setup();
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -437,7 +452,7 @@ describe("CompetitionTab", () => {
   it("rejects an impossible best-single value that's slower than the average", async () => {
     const user = userEvent.setup();
     const addCompetitionResult = vi.fn();
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -466,7 +481,7 @@ describe("CompetitionTab", () => {
   it("rejects a non-positive average as an impossible value", async () => {
     const user = userEvent.setup();
     const addCompetitionResult = vi.fn();
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -491,7 +506,7 @@ describe("CompetitionTab", () => {
   it("submits a valid add form with correctly converted values", async () => {
     const user = userEvent.setup();
     const addCompetitionResult = vi.fn();
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -523,7 +538,7 @@ describe("CompetitionTab", () => {
 
   it("opens the edit form pre-filled with the competition's existing values", async () => {
     const user = userEvent.setup();
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -545,7 +560,7 @@ describe("CompetitionTab", () => {
   it("submits an edit with the updated values", async () => {
     const user = userEvent.setup();
     const updateCompetitionResult = vi.fn();
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -569,7 +584,7 @@ describe("CompetitionTab", () => {
   it("closes the form on Escape without calling the submit handler", async () => {
     const user = userEvent.setup();
     const addCompetitionResult = vi.fn();
-    renderTab(
+    await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={[]}
@@ -587,9 +602,9 @@ describe("CompetitionTab", () => {
     expect(addCompetitionResult).not.toHaveBeenCalled();
   });
 
-  it("marks calibration table headers for screen readers and wraps the prediction in a live region", () => {
+  it("marks calibration table headers for screen readers and wraps the prediction in a live region", async () => {
     const { practiceSolves, competitions } = twoCompetitionFixture();
-    const { container } = renderTab(
+    const { container } = await renderTab(
       <CompetitionTab
         cubeDimension="3x3x3"
         practiceSolves={practiceSolves}

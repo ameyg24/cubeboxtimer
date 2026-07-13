@@ -15,6 +15,7 @@ import { useCompetitionResults } from "../../hooks/useCompetitionResults.js";
 import CompetitionTab from "../CompetitionTab.jsx";
 import SolveList from "../SolveList.jsx";
 import { ThemeProvider } from "../ThemeContext.jsx";
+import { useAnalyticsDataset } from "../../hooks/useAnalyticsDataset.js";
 
 vi.mock("chart.js/auto", () => ({
   default: class MockChart {
@@ -65,6 +66,7 @@ function PredictionHarness({ cubeDimension = "3x3x3" }) {
   });
   const { competitions, hydrated: competitionsHydrated, addCompetitionResult, updateCompetitionResult, deleteCompetitionResult } =
     useCompetitionResults({ user: null });
+  useAnalyticsDataset({ sessions, competitions, ready: solvesHydrated && competitionsHydrated });
   return (
     <ThemeProvider>
       {solvesHydrated && competitionsHydrated && <span data-testid="hydrated" hidden />}
