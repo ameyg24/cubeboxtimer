@@ -24,8 +24,10 @@ const renderTab = async (ui) => {
     competitions,
   });
   const utils = render(<ThemeProvider>{ui}</ThemeProvider>);
-  await waitFor(() =>
-    expect(screen.queryByText("Computing competition analytics...")).not.toBeInTheDocument()
+  await waitFor(
+    () => expect(screen.queryByText("Computing competition analytics...")).not.toBeInTheDocument(),
+    // Generous wall-clock budget: see CoachTab.test.jsx renderCoach.
+    { timeout: 10000 }
   );
   return utils;
 };

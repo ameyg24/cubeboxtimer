@@ -16,8 +16,12 @@ const renderCoach = async (ui) => {
     competitions,
   });
   const utils = render(ui);
-  await waitFor(() =>
-    expect(screen.queryByText("Computing coach analytics...")).not.toBeInTheDocument()
+  await waitFor(
+    () => expect(screen.queryByText("Computing coach analytics...")).not.toBeInTheDocument(),
+    // Generous wall-clock budget: on a starved 2-core CI runner, worker
+    // threads running the 20-30 s analytics equality suites can delay this
+    // gate far past waitFor's 1 s default.
+    { timeout: 10000 }
   );
   return utils;
 };

@@ -106,8 +106,10 @@ async function renderHydrated(ui) {
   const utils = render(ui);
   await screen.findAllByTestId("hydrated");
   // Worker analytics arrive asynchronously after the dataset push.
-  await waitFor(() =>
-    expect(screen.queryByText("Computing competition analytics...")).not.toBeInTheDocument()
+  await waitFor(
+    () => expect(screen.queryByText("Computing competition analytics...")).not.toBeInTheDocument(),
+    // Generous wall-clock budget: see CoachTab.test.jsx renderCoach.
+    { timeout: 10000 }
   );
   return utils;
 }

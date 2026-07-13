@@ -100,8 +100,12 @@ async function renderHydrated(ui) {
   const utils = render(ui);
   await screen.findAllByTestId("hydrated");
   // Worker analytics arrive asynchronously after the dataset push.
-  await waitFor(() =>
-    expect(screen.queryByText("Computing coach analytics...")).not.toBeInTheDocument()
+  await waitFor(
+    () => expect(screen.queryByText("Computing coach analytics...")).not.toBeInTheDocument(),
+    // Generous wall-clock budget: on a starved 2-core CI runner, worker
+    // threads running the 20-30 s analytics equality suites can delay this
+    // gate far past waitFor's 1 s default.
+    { timeout: 10000 }
   );
   return utils;
 }
@@ -133,7 +137,8 @@ describe("Practice Coach integration", () => {
     );
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Imported 2 solves"));
 
-    expect(coachVolumeTile()).toBe("2 solves");
+    // The volume tile updates only after the coach recompute lands.
+    await waitFor(() => expect(coachVolumeTile()).toBe("2 solves"));
   });
 
   it("feeds imported WCA competition results into the Coach's competition-gap signal", async () => {
@@ -153,8 +158,11 @@ describe("Practice Coach integration", () => {
     await user.click(screen.getByRole("button", { name: "Import" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/Imported 1 new result/));
 
-    const snapshotAfter = screen.getByText("Evidence Snapshot").closest(".section-card");
-    expect(within(snapshotAfter).getByText("Competition Gap").closest(".stat-tile")).not.toHaveTextContent("-");
+    // The gap tile updates only after the coach recompute lands.
+    await waitFor(() => {
+      const snapshotAfter = screen.getByText("Evidence Snapshot").closest(".section-card");
+      expect(within(snapshotAfter).getByText("Competition Gap").closest(".stat-tile")).not.toHaveTextContent("-");
+    });
   });
 
   it("feeds imported csTimer solves into the Coach Review", async () => {
@@ -175,8 +183,11 @@ describe("Practice Coach integration", () => {
     );
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Imported 5 solves"));
 
-    const review = screen.getByText("Coach Review").closest(".section-card");
-    expect(within(review).getByText(/Not enough later data to evaluate Clean up solves/)).toBeInTheDocument();
+    // The review section updates only after the coach recompute lands.
+    await waitFor(() => {
+      const review = screen.getByText("Coach Review").closest(".section-card");
+      expect(within(review).getByText(/Not enough later data to evaluate Clean up solves/)).toBeInTheDocument();
+    });
   });
 
   it("recomputes for the active event only when switching events", async () => {
